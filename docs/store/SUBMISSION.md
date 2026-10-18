@@ -11,7 +11,7 @@
 - 包：`artifacts/qiaomu-x-helper-0.2.0-chrome.zip`
 - SHA-256：`7a977cc638948f40fc6cc2d6766facb76898a715966d7d5d3e0cbfb3a84c7462`
 
-提交时间：2026-10-19 01:14（Asia/Shanghai，实际回读记录）。
+提交时间：2026-10-19 01:07（Asia/Shanghai，提交后截图时间 01:07:27）。
 
 ## 本轮审核修正
 
