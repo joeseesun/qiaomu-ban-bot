@@ -1,0 +1,15 @@
+{
+  "name": "qiaomu-ban-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A Jev-powered Chrome extension for quieter X conversations.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.js",
+    "package": "npm test && npm run build && node scripts/package.mjs",
+    "preview": "node scripts/preview.mjs",
+    "test:live": "python3 scripts/live.py"
+  },
+  "devDependencies": {"esbuild": "^0.25.0", "jsdom": "^26.0.0"}
+}

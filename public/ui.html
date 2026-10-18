@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木净评 · Qiaomu Banbot</title><link rel="stylesheet" href="ui.css"></head>
+<body>
+  <main id="app">
+    <header><div class="identity"><span class="mark" aria-hidden="true">qb</span><div><h1>乔木净评</h1><p>把注意力留给值得读的回复</p></div></div><span class="version">0.1.0</span></header>
+    <div id="demo-note" hidden>界面演示 · 示例数据，不调用模型</div>
+    <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤规则</button><button data-tab="accounts">账号名单</button><button data-tab="model">模型</button></nav>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section id="overview" class="panel">
+      <div class="status-row"><div><h2 id="status-title">准备连接</h2><p id="status-subtitle">正在读取设置…</p></div><label class="switch"><input id="enabled" type="checkbox" role="switch" aria-label="启用自动判断"><span></span></label></div>
+      <div class="stats"><div><strong id="stat-requests">—</strong><span>今日请求</span></div><div><strong id="stat-cache">—</strong><span>缓存命中</span></div><div><strong id="stat-tokens">—</strong><span>输入 Token</span></div></div>
+      <div class="section-top"><h2>折叠后，原文还在</h2><span class="pill">界面示例</span></div>
+      <div class="preview-reply"><span class="dot"></span><div><b>疑似 AI 回复 · 94%</b><p>自动折叠后，原文仍在这里</p></div><button id="preview-expand" class="quiet">展开</button></div>
+      <p id="preview-text" class="sample" hidden>示例回复：这个观点极具启发性，为我们理解未来趋势提供了全新视角。<br><small>以上仅为界面示例，94% 不是实际检测结果。</small></p>
+      <p class="hint">AI 判断不等于事实。展开原文、纠正误判、保留作者，都只需一步。</p>
+      <div class="section-top"><h2>热帖雷达</h2><label class="switch small"><input id="radar" type="checkbox" role="switch" aria-label="启用热帖雷达"><span></span></label></div>
+      <p class="hint">主帖展示传播速度，以及达到热帖目标的模型估计。数据不足时不显示百分比。</p>
+      <button id="open-options" class="secondary full">打开完整设置</button>
+    </section>
+    <section id="rules" class="panel" hidden>
+      <h2>什么样的回复值得折叠</h2>
+      <div class="mode-options" role="radiogroup" aria-label="过滤模式">
+        <label><input type="radio" name="filterMode" value="ai"><span><b>疑似 AI 回复</b><small>达到阈值的疑似 AI 回复自动折叠</small></span></label>
+        <label><input type="radio" name="filterMode" value="low-value"><span><b>只看信息量</b><small>折叠空泛附和、复述与低价值回复</small></span></label>
+        <label><input type="radio" name="filterMode" value="label"><span><b>先观察，仅标记</b><small>保留原文，适合熟悉模型的判断</small></span></label>
+      </div>
+      <label class="field"><span>自动折叠阈值 <output id="threshold-value">90%</output></span><input id="threshold" type="range" min="70" max="99" step="1"><small>阈值越高，折叠越保守；这个值不是识别准确率。</small></label>
+      <label class="field"><span>用一句话补充规则</span><textarea id="customRule" rows="3" maxlength="500" placeholder="例如：折叠和主帖无关的引流推广、空投广告"></textarea><small>按含义判断，避免只靠关键词误伤正常讨论。</small></label>
+      <label class="toggle-row"><span>合并重复回复<small>只折叠后出现的同文回复，可展开</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
+      <label class="toggle-row"><span>标记值得一读的回复<small>具体经验、补充信息、有内容的反对意见</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
+      <label class="field"><span>热帖目标 · 发布 24 小时内的浏览量</span><input id="hotViews" type="number" min="1000" max="10000000" step="1000"></label>
+      <button id="save-rules" class="primary full">保存规则</button>
+    </section>
+    <section id="accounts" class="panel" hidden>
+      <h2>你来决定保留谁</h2><p class="hint">白名单优先于模型。这里的屏蔽只作用于此浏览器；X 拉黑入口在帖子下方，需要你确认。</p>
+      <form id="account-form"><label class="field"><span>X 用户名</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终保留</button><button class="secondary" name="action" value="block">本地屏蔽</button></div></form>
+      <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本地屏蔽</h3><div id="blocklist" class="account-list"></div>
+      <div class="section-top"><h2>最近的手动反馈</h2><button id="clear-history" class="quiet">清空记录与缓存</button></div><div id="feedback"></div>
+      <p class="hint">反馈只保存于本机，用来覆盖本条判断；不会自动训练模型。</p>
+    </section>
+    <section id="model" class="panel" hidden>
+      <h2>连接你的 Jev</h2><p class="hint">开启后，可见帖子文字和页面上可读到的互动量会发送给所选服务。不会发送 Cookie 或私信。</p>
+      <label class="field"><span>模型服务</span><select id="provider"><option value="magpie">乔木 Magpie</option><option value="typesafe">TypeSafe 官方</option></select></label>
+      <p id="provider-details" class="technical"></p>
+      <label class="field"><span>API Key</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="输入 API Key"><small id="key-status">密钥仅保存在本机扩展存储，不参与同步。</small></label>
+      <label class="field"><span>每日请求上限</span><input id="dailyLimit" type="number" min="1" max="3000"><small>命中缓存不消耗请求；失败请求也计入上限。并发最多 3 个。</small></label>
+      <div class="button-row"><button id="save-model" class="primary">保存并连接</button><button id="forget-key" class="quiet">移除密钥</button></div>
+      <div class="divider"></div><h2>拿一条回复试试</h2><p class="hint">保存配置后测试。此处会调用模型，计入当日请求。</p>
+      <label class="field"><span>主帖上下文（选填）</span><textarea id="test-parent" rows="2" maxlength="3000" placeholder="主帖在讨论什么？"></textarea></label>
+      <label class="field"><span>待判断的回复</span><textarea id="test-text" rows="3" maxlength="6000" placeholder="粘贴一条回复，检查模型是否符合你的预期"></textarea></label>
+      <button id="test-model" class="secondary full">测试这条回复</button><div id="test-result" role="status" hidden></div>
+    </section>
+    <footer><span id="model-state">尚未连接</span><span>可撤销 · 本地名单</span></footer>
+  </main><script src="ui.js" defer></script>
+</body></html>
