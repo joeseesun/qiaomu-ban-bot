@@ -1,60 +1,72 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木净评 · Qiaomu Banbot</title><link rel="stylesheet" href="ui.css"></head>
-<body>
-  <main id="app">
-    <header><div class="identity"><span class="mark" aria-hidden="true">qb</span><div><h1>乔木净评</h1><p>把注意力留给值得读的回复</p></div></div><span class="version">0.1.2</span></header>
-    <div id="demo-note" hidden>界面演示 · 示例数据，不调用模型</div>
-    <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤规则</button><button data-tab="accounts">账号名单</button><button data-tab="model">模型</button></nav>
-    <div id="notice" role="status" aria-live="polite" hidden></div>
-    <section id="overview" class="panel">
-      <div class="status-row"><div><h2 id="status-title">准备连接</h2><p id="status-subtitle">正在读取设置…</p></div><label class="switch"><input id="enabled" type="checkbox" role="switch" aria-label="启用自动判断"><span></span></label></div>
-      <div class="stats"><div><strong id="stat-requests">—</strong><span>今日请求</span></div><div><strong id="stat-cache">—</strong><span>缓存命中</span></div><div><strong id="stat-tokens">—</strong><span>输入 Token</span></div></div>
-      <div class="section-top"><h2>折叠后，原文还在</h2><span class="pill">界面示例</span></div>
-      <div class="preview-reply"><span class="dot"></span><div><b>疑似 AI 回复 · 94%</b><p>自动折叠后，原文仍在这里</p></div><button id="preview-expand" class="quiet">展开</button></div>
-      <p id="preview-text" class="sample" hidden>示例回复：这个观点极具启发性，为我们理解未来趋势提供了全新视角。<br><small>以上仅为界面示例，94% 不是实际检测结果。</small></p>
-      <p class="hint">AI 判断不等于事实。展开原文、纠正误判、保留作者，都只需一步。</p>
-      <div class="section-top"><h2>热帖雷达</h2><label class="switch small"><input id="radar" type="checkbox" role="switch" aria-label="启用热帖雷达"><span></span></label></div>
-      <p class="hint">主帖展示传播速度，以及达到热帖目标的模型估计。数据不足时不显示百分比。</p>
-      <button id="open-options" class="secondary full">打开完整设置</button>
-    </section>
-    <section id="rules" class="panel" hidden>
-      <h2>什么样的回复值得折叠</h2>
-      <div class="mode-options" role="radiogroup" aria-label="过滤模式">
-        <label><input type="radio" name="filterMode" value="ai"><span><b>疑似 AI 回复</b><small>达到阈值的疑似 AI 回复自动折叠</small></span></label>
-        <label><input type="radio" name="filterMode" value="low-value"><span><b>只看信息量</b><small>折叠空泛附和、复述与低价值回复</small></span></label>
-        <label><input type="radio" name="filterMode" value="label"><span><b>先观察，仅标记</b><small>保留原文，适合熟悉模型的判断</small></span></label>
-      </div>
-      <label class="field"><span>自动折叠阈值 <output id="threshold-value">90%</output></span><input id="threshold" type="range" min="70" max="99" step="1"><small>阈值越高，折叠越保守；这个值不是识别准确率。</small></label>
-      <label class="field"><span>用一句话补充规则</span><textarea id="customRule" rows="3" maxlength="500" placeholder="例如：折叠和主帖无关的引流推广、空投广告"></textarea><small>按含义判断，避免只靠关键词误伤正常讨论。</small></label>
-      <label class="toggle-row"><span>合并重复回复<small>只折叠后出现的同文回复，可展开</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
-      <label class="toggle-row"><span>标记值得一读的回复<small>具体经验、补充信息、有内容的反对意见</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
-      <label class="field"><span>热帖目标 · 发布 24 小时内的浏览量</span><input id="hotViews" type="number" min="1000" max="10000000" step="1000"></label>
-      <button id="save-rules" class="primary full">保存规则</button>
-    </section>
-    <section id="accounts" class="panel" hidden>
-      <h2>你来决定保留谁</h2><p class="hint">白名单优先于模型。这里的屏蔽只作用于此浏览器；X 拉黑入口在帖子下方，需要你确认。</p>
-      <form id="account-form"><label class="field"><span>X 用户名</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终保留</button><button class="secondary" name="action" value="block">本地屏蔽</button></div></form>
-      <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本地屏蔽</h3><div id="blocklist" class="account-list"></div>
-      <div class="section-top"><h2>最近的手动反馈</h2><button id="clear-history" class="quiet">清空记录与缓存</button></div><div id="feedback"></div>
-      <p class="hint">“保留此条”只覆盖本条判断，不推断作者身份。</p>
-      <div class="section-top"><h2>我的判断样本</h2><span id="learning-count" class="pill">0 / 40</span></div>
-      <p class="hint">手动标记 AI / 非 AI，后续会选取最多 6 条相关样本随回复发送给模型，学习你的判断偏好。短回复本身不算问题。这不是重新训练模型；样本可随时删除。</p>
-      <div id="learning" class="learning-list"></div>
-    </section>
-    <section id="model" class="panel" hidden>
-      <h2>连接你的 Jev</h2><p class="hint">开启后，可见帖子文字和页面上可读到的互动量会发送给所选服务。不会发送 Cookie 或私信。</p>
-      <label class="field"><span>模型服务</span><select id="provider"><option value="magpie">乔木 Magpie</option><option value="typesafe">TypeSafe 官方</option></select></label>
-      <p id="provider-details" class="technical"></p>
-      <label class="field"><span>API Key</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="输入 API Key"><small id="key-status">密钥仅保存在本机扩展存储，不参与同步。</small></label>
-      <label class="field"><span>每日请求上限</span><input id="dailyLimit" type="number" min="1" max="3000"><small>命中缓存不消耗请求；失败请求也计入上限。并发最多 3 个。</small></label>
-      <div class="button-row"><button id="save-model" class="primary">测试并保存</button><button id="forget-key" class="quiet">移除密钥</button></div>
-      <p class="hint">点击一次，用内置样例自动验证连接，通过后保存并生效。无需自己准备测试文本。</p>
-      <div class="divider"></div><details class="reply-test"><summary>用自己的回复检查判断（选填）</summary><p class="hint">连接已验证后，可在这里检查具体回复的判断，会调用模型并计入当日请求。</p>
-      <label class="field"><span>主帖上下文（选填）</span><textarea id="test-parent" rows="2" maxlength="3000" placeholder="主帖在讨论什么？"></textarea></label>
-      <label class="field"><span>待判断的回复</span><textarea id="test-text" rows="3" maxlength="6000" placeholder="粘贴一条回复，检查模型是否符合你的预期"></textarea></label>
-      <button id="test-model" class="secondary full">测试这条回复</button><div id="test-result" role="status" hidden></div>
-      </details>
-    </section>
-    <footer><span id="model-state">尚未连接</span><span>可撤销 · 本地名单</span></footer>
-  </main><script src="ui.js" defer></script>
-</body></html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木净评</title><link rel="stylesheet" href="ui.css"></head>
+<body><main id="app">
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木净评</h1><p>让好回复，更容易被看见。</p></div></div><span class="version">0.1.3</span></header>
+  <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
+  <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <section id="overview" class="panel">
+    <div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch"><input id="enabled" type="checkbox" role="switch" aria-label="自动整理回复"><span></span></label></div>
+    <div class="stats"><div><strong id="stat-requests">—</strong><span>今日判断</span></div><div><strong id="stat-cache">—</strong><span>复用结果</span></div><div><strong id="stat-labels">—</strong><span>我的标注</span></div></div>
+    <h2>折叠，不是删除。</h2><p class="hint">原文随时可展开。判断不对，点一下真人图标，就能保留这条回复。</p>
+    <div class="preview-reply"><span data-icon="Bot"></span><div><b>AI 概率：94%</b><p>已折叠 · 界面示例</p></div><button id="preview-expand" class="quiet">展开</button></div>
+    <p id="preview-text" class="sample" hidden>示例回复：这个观点极具启发性，为我们理解未来趋势提供了全新视角。<br><small>94% 为演示分数。</small></p>
+    <div class="section-top"><h2>看看主帖的热度潜力</h2><label class="switch small"><input id="radar" type="checkbox" role="switch" aria-label="显示热帖预测"><span></span></label></div>
+    <p class="hint">根据发布时间与互动量，估计主帖能否达到你的浏览量目标。数据不足时不预测。</p>
+    <button id="open-options" class="secondary full">打开完整设置</button>
+  </section>
+  <section id="rules" class="panel" hidden>
+    <h2>留下你想看的回复。</h2><p class="hint">选一种整理方式。你的手动标注始终优先。</p>
+    <div class="mode-options" role="radiogroup" aria-label="整理方式">
+      <label><input type="radio" name="filterMode" value="ai"><span><b>按 AI 概率</b><small>超过你设定的概率，就折叠</small></span></label>
+      <label><input type="radio" name="filterMode" value="low-value"><span><b>按信息量</b><small>折叠空泛复述，保留具体讨论</small></span></label>
+      <label><input type="radio" name="filterMode" value="label"><span><b>只显示结果</b><small>先看看分数，原文保持展开</small></span></label>
+    </div>
+    <div class="threshold-heading"><label id="threshold-label" for="threshold-number">AI 概率高于</label><div class="number-unit"><input id="threshold-number" type="number" min="1" max="99" step="1" value="50" aria-label="自动折叠概率"><span>%</span></div><span>时折叠</span></div>
+    <input id="threshold" type="range" min="1" max="99" step="1" aria-label="调整自动折叠概率"><output id="threshold-value" class="hint">高于 50% 自动折叠，恰好 50% 保留。</output>
+    <label class="field"><span>再加一条规则 <small>选填</small></span><textarea id="customRule" rows="2" maxlength="500" placeholder="例如：折叠与主帖无关的空投广告"></textarea></label>
+    <label class="toggle-row"><span>折叠重复回复<small>同样的话，读一次就够了</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
+    <label class="toggle-row"><span>标出值得一读的回复<small>具体经验、有用补充和不同观点</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
+    <label class="field"><span>热帖目标</span><input id="hotViews" type="number" min="1000" max="10000000" step="1000"><small>发布 24 小时内，希望达到多少浏览。</small></label>
+    <button id="save-rules" class="primary full">保存设置</button>
+    <details class="fine-print"><summary>这些分数代表什么？</summary><p>分数是模型估计，不能证明作者身份。简短、礼貌或文字流畅，都不等于 AI。引流与附加规则至少达到 90% 才触发折叠。</p></details>
+  </section>
+  <section id="annotations" class="panel" hidden>
+    <div class="page-heading"><div><h2>你的判断，留在这里。</h2><p class="hint">随时改标，或回到原帖再读一遍。</p></div><button id="refresh-annotations" class="icon-control" aria-label="刷新标注" title="刷新标注" data-icon="RefreshCw"></button></div>
+    <div class="label-filters" role="group" aria-label="筛选标注"><button data-label-filter="all" aria-pressed="true">全部 <span id="count-all">0</span></button><button data-label-filter="ai" aria-pressed="false">AI <span id="count-ai">0</span></button><button data-label-filter="human" aria-pressed="false">真人 <span id="count-human">0</span></button></div>
+    <div id="annotation-list" aria-live="polite"></div>
+    <div class="pagination"><button id="labels-prev" class="secondary">上一页</button><span id="labels-page">第 1 页</span><button id="labels-next" class="secondary">下一页</button></div>
+    <details class="fine-print"><summary>标注如何帮助后续判断？</summary><p>记录保存在本机，不会因为超过 40 条就删除。每次从最近 40 条标注中选最多 6 条相关案例，帮助模型理解你的判断。不会把全部记录发给模型，也不会重新训练模型。</p></details>
+  </section>
+  <section id="accounts" class="panel" hidden>
+    <h2>有些人，你想一直看见。</h2><p class="hint">保留信任的作者，屏蔽不想看的账号。这些设置只影响你的浏览器。</p>
+    <form id="account-form"><label class="field"><span>X 用户名</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终保留</button><button class="secondary" name="action" value="block">本机屏蔽</button></div></form>
+    <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本机屏蔽</h3><div id="blocklist" class="account-list"></div>
+    <details class="fine-print"><summary>最近的保留与折叠操作</summary><div id="feedback"></div><p>“只保留此条”不会被当作真人标注。</p></details>
+  </section>
+  <section id="model" class="panel" hidden>
+    <h2>连接一次，随时可用。</h2><p class="hint">用你的 Jev 密钥开始。验证成功后会自动保存。</p>
+    <label class="field"><span>模型服务</span><select id="provider"><option value="magpie">乔木 Magpie</option><option value="typesafe">TypeSafe 官方</option><option value="openrouter">OpenRouter</option><option value="vercel">Vercel AI Gateway</option><option value="custom">自定义服务</option></select></label>
+    <div class="provider-help"><p id="key-help" class="hint"></p><a id="get-key" target="_blank" rel="noopener noreferrer">注册 / 获取 API Key ↗</a></div>
+    <div class="field"><div class="key-heading"><label for="api-key">API Key</label><span id="key-badge" class="key-badge" hidden>已保存</span></div><div class="secret-field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你的 API Key"><button id="toggle-key" class="icon-control" aria-label="显示密钥" title="显示密钥" data-icon="Eye"></button></div><small id="key-status">仅保存在此浏览器。</small></div>
+    <label class="field"><span>模型名</span><input id="model-name" type="text" autocomplete="off" spellcheck="false" maxlength="200" placeholder="服务商提供的 Jev 模型名"><small>已填入平台默认值，也可以换成你的模型版本。</small></label>
+    <details id="advanced-connection" class="fine-print"><summary>高级设置</summary><label class="field"><span>Base URL</span><input id="base-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-service.example/v1"><small>只在使用代理或自建服务时修改。</small></label><label class="field"><span>决策接口</span><select id="protocol"><option value="systemone">TypeSafe · System One</option><option value="decisions">OpenRouter · Decisions</option></select></label><p id="provider-details" class="technical"></p><p>自定义服务需要支持 state + questions 和 Noul 概率。普通聊天接口不能直接使用。</p></details>
+    <div class="button-row"><button id="save-model" class="primary">连接并保存</button><button id="change-key" class="secondary" hidden>更换密钥</button><button id="forget-key" class="quiet" hidden>移除</button></div>
+    <details class="fine-print"><summary>数据会发到哪里？</summary><p>判断时会把可见帖子文字、上下文及少量人工样本发给所选模型服务。不会发送 X 登录信息或私信。</p><p>已保存的密钥默认隐藏，只有你点显示时才会在此处展示。</p></details>
+    <div class="divider"></div><h2>今天，最多判断多少次？</h2>
+    <label class="field"><span>每日请求上限</span><input id="dailyLimit" type="number" min="1" max="9007199254740991" step="1"><small>默认 10,000 次。复用已有结果不计次，失败请求计次。费用与服务额度由服务商决定。</small></label>
+    <button id="save-usage" class="secondary full">保存每日上限</button>
+    <details class="reply-test fine-print"><summary>试一条回复</summary><p class="hint">看看模型会怎样判断。测试计入今日请求。</p>
+    <label class="field"><span>主帖内容 <small>选填</small></span><textarea id="test-parent" rows="2" maxlength="3000" placeholder="这条回复在讨论什么？"></textarea></label>
+    <label class="field"><span>回复内容</span><textarea id="test-text" rows="3" maxlength="6000" placeholder="粘贴一条回复"></textarea></label>
+    <button id="test-model" class="secondary full">查看判断</button><div id="test-result" role="status" hidden></div></details>
+  </section>
+  <section id="about" class="panel" hidden>
+    <h2>把注意力，留给值得读的内容。</h2><p class="hint">乔木净评由向阳乔木开发，源码公开。你的反馈，让它更好用。</p>
+    <div class="support-links"><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot/issues/new" target="_blank" rel="noopener noreferrer"><span data-icon="MessageSquare"></span>反馈问题<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot" target="_blank" rel="noopener noreferrer"><span data-icon="CodeXml"></span>查看源码<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot/releases" target="_blank" rel="noopener noreferrer"><span data-icon="History"></span>更新记录<span data-icon="ArrowUpRight"></span></a></div>
+    <div class="about-qrs"><figure><img src="assets/about/wechat-public-account.jpg" width="148" height="148" loading="lazy" alt="向阳乔木推荐看公众号二维码"><figcaption><b>关注公众号</b><span>微信搜索「向阳乔木推荐看」</span></figcaption></figure><figure><img src="assets/about/reward.png" width="148" height="148" loading="lazy" alt="向阳乔木打赏二维码"><figcaption><b>请我喝杯咖啡</b><span>自愿支持，感谢你的心意</span></figcaption></figure></div>
+    <div class="about-links"><a href="https://qiaomu.ai/" target="_blank" rel="noopener noreferrer">乔木主页</a><a href="https://blog.qiaomu.ai/" target="_blank" rel="noopener noreferrer">博客</a><a href="https://x.com/vista8" target="_blank" rel="noopener noreferrer">X @vista8</a></div>
+    <details class="fine-print"><summary>管理本机数据</summary><p>清空后会移除判断缓存、人工标注与手动保留记录。账号名单、密钥和今日用量会保留。</p><button id="clear-history" class="secondary">清空记录与缓存…</button></details>
+  </section>
+  <footer><span id="model-state">尚未连接</span><a href="https://github.com/joeseesun/qiaomu-ban-bot/issues/new" target="_blank" rel="noopener noreferrer">反馈问题 ↗</a></footer>
+</main><script src="ui.js" defer></script></body></html>

@@ -1,149 +1,188 @@
+import { connectionFields, resolveConnection, sameCredentialTarget, mergeSettings } from './connection.js';
 import { DEFAULTS, PROVIDERS, handleOf } from './core.js';
-const $ = id => document.getElementById(id);
-const params = new URLSearchParams(location.search);
-const demo = location.protocol !== 'chrome-extension:' && params.has('demo');
-if (params.has('popup')) document.body.classList.add('popup');
-let snapshot, demoState = { settings: { ...DEFAULTS, allowlist: ['vista8'], blocklist: [] }, configured: true, stats: { requests: 38, cacheHits: 126, inputTokens: 18420 }, feedback: [], learning:[], connection:{model:'jev-1.13.0',verifiedAt:Date.now()}, lastModel: 'jev-1.13.0', lastError: '' };
-async function send(message) {
-  if (demo) {
-    $('demo-note').hidden = false;
-    if (message.type === 'save') demoState.settings = { ...demoState.settings, ...message.settings };
-    if (message.type === 'connect') { demoState.settings = { ...demoState.settings,...message.settings }; demoState.connection={model:'演示模型',verifiedAt:Date.now()};demoState.configured=true; }
-    if (message.type === 'list') {
-      const h = handleOf(message.handle); if (!h) throw new Error('请输入有效的 X 用户名');
-      for (const k of ['allowlist', 'blocklist']) demoState.settings[k] = demoState.settings[k].filter(v => v !== h);
-      if (message.action !== 'remove') demoState.settings[message.action === 'allow' ? 'allowlist' : 'blocklist'].push(h);
+import { MemoryAnnotations } from './annotations.js';
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History};
+const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
+const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
+const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
+if(params.has('popup'))document.body.classList.add('popup');
+for(const node of document.querySelectorAll('[data-icon]'))node.append(glyph(node.dataset.icon));
+let snapshot,keyEditing=false,keyVisible=false,keyEpoch=0,labelFilter='all',pageIndex=0,cursors=[null],nextCursor=null,labelsEpoch=0;
+const MASK='••••••••••••••••';
+const demoLabels=new MemoryAnnotations();
+const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n+1),kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
+let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configured:true,stats:{requests:38,cacheHits:126,inputTokens:18420},feedback:[],connection:{model:'jev-1.13.0',verifiedAt:Date.now()},lastModel:'jev-1.13.0',lastError:''};
+async function send(message){
+  if(demo){
+    await demoReady;$('demo-note').hidden=false;
+    if(message.type==='save'){demoState.settings={...demoState.settings,...message.settings};if(message.forgetKey){demoState.configured=false;demoState.connection=null;}}
+    if(message.type==='connect'){demoState.settings={...demoState.settings,...message.settings};demoState.configured=true;demoState.connection={model:'演示模型',verifiedAt:Date.now()};}
+    if(message.type==='reveal-key')return{apiKey:'demo-key-not-a-real-credential'};
+    if(message.type==='list'){
+      const h=handleOf(message.handle);if(!h)throw Error('请填写有效的 X 用户名');
+      for(const k of ['allowlist','blocklist'])demoState.settings[k]=demoState.settings[k].filter(v=>v!==h);
+      if(message.action!=='remove')demoState.settings[message.action==='allow'?'allowlist':'blocklist'].push(h);
     }
-    if (message.type === 'test') return { scores: { ai_written: .94, low_value: .89, useful: .08, spam: .02 }, model: '演示数据', cached: false };
-    return structuredClone(demoState);
+    if(message.type==='annotations')return{...await demoLabels.page(message),counts:await demoLabels.stats()};
+    if(message.type==='edit-annotation'){
+      const entry=await demoLabels.get(message.key);
+      if(message.label)await demoLabels.put({...entry,label:message.label,at:Date.now()});else await demoLabels.remove(message.key);
+      return{};
+    }
+    if(message.type==='clear')await demoLabels.clear();
+    if(message.type==='test')return{scores:{ai_written:.94,low_value:.89,useful:.08,spam:.02},model:'演示数据'};
+    return structuredClone({...demoState,learningCount:(await demoLabels.stats()).total});
   }
-  const response = await chrome.runtime.sendMessage(message);
-  if (!response?.ok) throw new Error(response?.error || '扩展未响应，请重新打开设置');
+  const response=await chrome.runtime.sendMessage(message);
+  if(!response?.ok)throw Error(response?.error||'暂时无法连接扩展。请关闭后重新打开。');
   return response.data;
 }
-function notice(text, error = false) { $('notice').textContent = text; $('notice').className = error ? 'error' : ''; $('notice').hidden = !text; }
-function bind(id, fn) {
-  $(id).addEventListener('click', async () => {
-    const button = $(id); button.disabled = true; notice('');
-    try { await fn(); } catch (error) { notice(error.message, true); } finally { button.disabled = false; }
-  });
+function notice(text,error=false){$('notice').textContent=text;$('notice').className=error?'error':'';$('notice').hidden=!text;}
+function bind(id,fn){$(id).addEventListener('click',async()=>{const b=$(id);b.disabled=true;notice('');try{await fn();}catch(e){notice(e.message,true);}finally{b.disabled=false;}});}
+function hideKey(){keyEpoch++;if(!keyEditing&&savedForProvider())$('api-key').value=MASK;$('api-key').type='password';keyVisible=false;updateKeyButton();}
+function updateKeyButton(){const b=$('toggle-key');b.replaceChildren(glyph(keyVisible?'EyeOff':'Eye'));const text=keyVisible?'隐藏密钥':'显示密钥';b.setAttribute('aria-label',text);b.title=text;b.setAttribute('aria-pressed',String(keyVisible));}
+function connectionDraft(){return{provider:$('provider').value,model:$('model-name').value,baseURL:$('base-url').value,protocol:$('protocol').value};}
+function savedForProvider(){return snapshot?.configured&&sameCredentialTarget(connectionDraft(),snapshot.settings);}
+function renderKey(){
+  hideKey();const saved=savedForProvider();
+  $('api-key').readOnly=saved&&!keyEditing;
+  if(saved&&!keyEditing)$('api-key').value=MASK;
+  if(!saved&&!keyEditing)$('api-key').value='';
+  $('api-key').placeholder='粘贴你的 API Key';
+  $('key-badge').hidden=!saved;$('key-badge').textContent='已保存';
+  $('key-status').textContent=saved?(keyEditing?'正在更换。新密钥验证成功前，继续使用已保存的密钥。':'密钥已保存并隐藏，无需重复填写。'):'仅保存在此浏览器。';
+  $('change-key').hidden=!saved||keyEditing;$('forget-key').hidden=!saved;
+  $('save-model').textContent=saved&&!keyEditing?'检查连接':'连接并保存';
 }
-function tab(name) {
-  if (!['overview', 'rules', 'accounts', 'model'].includes(name)) name = 'overview';
-  for (const n of document.querySelectorAll('.panel')) n.hidden = n.id !== name;
-  for (const n of document.querySelectorAll('nav button')) { n.classList.toggle('selected', n.dataset.tab === name); n.setAttribute('aria-current', n.dataset.tab === name ? 'page' : 'false'); }
-  history.replaceState(null, '', `${location.pathname}${location.search}#${name}`);
+function providerDetails(){
+  const p=PROVIDERS[$('provider').value];$('key-help').textContent=p.help;
+  $('get-key').hidden=!p.keyURL;if(p.keyURL)$('get-key').href=p.keyURL;
+  try{$('provider-details').textContent='请求地址：'+resolveConnection(connectionDraft()).endpoint;}catch(e){$('provider-details').textContent=e.message;}
 }
-for (const button of document.querySelectorAll('nav button')) button.addEventListener('click', async () => {
-  tab(button.dataset.tab);
-  if (button.dataset.tab === 'accounts') try { snapshot=await send({type:'snapshot'});renderAccounts(); } catch(error) { notice(error.message,true); }
-});
-function providerDetails() {
-  const p = PROVIDERS[$('provider').value]; $('provider-details').textContent = `${p.model}\n${p.endpoint}`;
-  if (snapshot && $('provider').value !== snapshot.settings.provider) { $('api-key').placeholder = '切换服务商后，请输入对应密钥'; $('key-status').textContent = '旧服务商密钥不会被发送给新服务商。'; }
+function fillConnection(settings){
+  $('provider').value=settings.provider;const fields=connectionFields(settings);
+  $('model-name').value=fields.model;$('base-url').value=fields.baseURL;$('protocol').value=fields.protocol;
+  renderKey();providerDetails();
 }
-function renderAccounts() {
-  for (const kind of ['allowlist', 'blocklist']) {
-    const container = $(kind); container.replaceChildren();
-    if (!snapshot.settings[kind].length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = '还没有添加账号'; container.append(p); }
-    for (const handle of snapshot.settings[kind]) {
-      const row = document.createElement('div'); row.className = 'account-row';
-      const name = document.createElement('span'); name.textContent = '@' + handle;
-      const remove = document.createElement('button'); remove.className = 'quiet'; remove.textContent = '移除'; remove.setAttribute('aria-label', `移除 @${handle}`);
-      remove.addEventListener('click', async () => { remove.disabled = true; try { snapshot = await send({ type: 'list', handle, action: 'remove' }); renderAccounts(); } catch (e) { notice(e.message, true); remove.disabled = false; } });
-      row.append(name, remove); container.append(row);
+async function tab(name){
+  if(!['overview','rules','annotations','accounts','model','about'].includes(name))name='overview';
+  if(name!=='model')hideKey();
+  for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
+  for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===name);n.setAttribute('aria-current',n.dataset.tab===name?'page':'false');}
+  history.replaceState(null,'',`${location.pathname}${location.search}#${name}`);
+  if(name==='annotations')await loadLabels(true);
+  if(name==='accounts'){snapshot=await send({type:'snapshot'});renderAccounts();}
+}
+for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
+function renderAccounts(){
+  for(const kind of ['allowlist','blocklist']){
+    const container=$(kind);container.replaceChildren();
+    if(!snapshot.settings[kind].length)container.textContent='暂无账号';
+    for(const handle of snapshot.settings[kind]){
+      const row=document.createElement('div');row.className='account-row';
+      const name=document.createElement('span');name.textContent='@'+handle;
+      const remove=document.createElement('button');remove.className='quiet';remove.textContent='移除';remove.setAttribute('aria-label',`移除 @${handle}`);
+      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:'remove'});renderAccounts();}catch(e){notice(e.message,true);remove.disabled=false;}};
+      row.append(name,remove);container.append(row);
     }
   }
   $('feedback').replaceChildren();
-  for (const f of (snapshot.feedback || []).slice(0, 10)) {
-    const row = document.createElement('div'); row.className = 'feedback-row';
-    const title = document.createElement('span'); title.textContent = `@${f.handle} · ${f.label === 'keep' ? '保留' : '折叠'}`;
-    const text = document.createElement('p'); text.textContent = f.excerpt;
-    row.append(title, text); $('feedback').append(row);
+  for(const f of(snapshot.feedback||[]).slice(0,10)){
+    const row=document.createElement('div');row.className='feedback-row';const title=document.createElement('span');title.textContent=`@${f.handle} · ${f.label==='keep'?'保留':'折叠'}`;const text=document.createElement('p');text.textContent=f.excerpt;row.append(title,text);$('feedback').append(row);
   }
-  if (!snapshot.feedback?.length) $('feedback').textContent = '暂无反馈';
-  $('learning-count').textContent = `${snapshot.learning?.length || 0} / 40`;
-  $('learning').replaceChildren();
-  for (const e of snapshot.learning || []) {
-    const row=document.createElement('div');row.className='feedback-row';
-    const head=document.createElement('div');head.className='account-row';
-    const title=document.createElement('b');title.textContent=e.label==='ai'?'你标记为 AI':'你标记为非 AI';
-    const remove=document.createElement('button');remove.className='quiet';remove.textContent='删除样本';
-    remove.addEventListener('click',async()=>{remove.disabled=true;try{snapshot=await send({type:'remove-example',key:e.key});renderAccounts();notice('样本已删除，后续判断不再参考它');}catch(error){notice(error.message,true);remove.disabled=false;}});
-    const text=document.createElement('p');text.textContent=e.text;
-    head.append(title,remove);row.append(head,text);$('learning').append(row);
-  }
-  if (!snapshot.learning?.length) $('learning').textContent='在回复下标记 AI 或非 AI，样本会出现在这里。';
+  if(!snapshot.feedback?.length)$('feedback').textContent='还没有手动操作。';
 }
-function render() {
-  const s = snapshot.settings;
-  for (const k of ['enabled', 'radar', 'duplicates', 'highlightUseful']) $(k).checked = s[k];
-  for (const k of ['customRule', 'hotViews', 'dailyLimit', 'provider']) $(k).value = s[k];
-  $('threshold').value = Math.round(s.threshold * 100); $('threshold-value').value = `${Math.round(s.threshold * 100)}%`;
-  document.querySelector(`input[name="filterMode"][value="${s.filterMode}"]`).checked = true;
-  $('status-title').textContent = !s.enabled ? '已暂停自动判断' : snapshot.configured ? '为你的注意力把关' : '先连接你的 Jev';
-  const mode = s.filterMode === 'label' ? '仅标记 · 不自动折叠' : `${s.filterMode === 'ai' ? '疑似 AI 自动折叠' : '低信息量自动折叠'} · 阈值 ${Math.round(s.threshold * 100)}%`;
-  $('status-subtitle').textContent = !s.enabled ? '原文全部保留，随时可以继续' : snapshot.configured ? mode : '填入密钥，测试通过后自动生效';
-  $('stat-requests').textContent = snapshot.stats.requests.toLocaleString(); $('stat-cache').textContent = snapshot.stats.cacheHits.toLocaleString(); $('stat-tokens').textContent = snapshot.stats.inputTokens >= 1000 ? `${(snapshot.stats.inputTokens / 1000).toFixed(1)}k` : snapshot.stats.inputTokens;
-  $('model-state').textContent = !snapshot.configured ? '尚未连接模型' : snapshot.connection ? `连接已验证 · ${snapshot.connection.model}` : snapshot.lastModel || '模型已配置';
-  $('api-key').value = ''; $('api-key').placeholder = snapshot.configured ? '已保存，留空继续使用' : '输入 API Key';
-  $('key-status').textContent = snapshot.configured ? '已保存于本机，页面不会回显密钥。' : '密钥仅保存在本机扩展存储，不参与同步。';
-  if (snapshot.lastError) notice(snapshot.lastError, true);
-  providerDetails(); renderAccounts();
+function thresholdCopy(){
+  const mode=document.querySelector('input[name="filterMode"]:checked')?.value||'ai',value=$('threshold').value;
+  const only=mode==='label';$('threshold').disabled=only;$('threshold-number').disabled=only;
+  $('threshold-label').textContent=mode==='low-value'?'低信息量概率达到':'AI 概率高于';
+  $('threshold-value').textContent=only?'只显示结果，不会按分数自动折叠。':mode==='low-value'?`低信息量概率达到 ${value}% 时折叠。`:`高于 ${value}% 自动折叠，恰好 ${value}% 保留。`;
 }
-async function save(patch, apiKey, forgetKey = false) {
-  snapshot = await send({ type: 'save', settings: patch, apiKey, forgetKey }); render();
+function render({connection=true}={}){
+  const s=snapshot.settings;
+  for(const k of ['enabled','radar','duplicates','highlightUseful'])$(k).checked=s[k];
+  for(const k of ['customRule','hotViews','dailyLimit'])$(k).value=s[k];
+  $('threshold').value=$('threshold-number').value=Math.round(s.threshold*100);
+  document.querySelector(`input[name="filterMode"][value="${s.filterMode}"]`).checked=true;thresholdCopy();
+  $('status-title').textContent=!s.enabled?'已暂停，原文全部保留':snapshot.configured?'正在整理你的回复区':'连接模型，开始使用';
+  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?'前往「连接」，保存你的 API Key。':s.filterMode==='label'?'显示判断结果，保留所有原文。':s.filterMode==='ai'?`AI 概率高于 ${Math.round(s.threshold*100)}% 时折叠。`:`低信息量概率达到 ${Math.round(s.threshold*100)}% 时折叠。`;
+  $('stat-requests').textContent=snapshot.stats.requests.toLocaleString();$('stat-cache').textContent=snapshot.stats.cacheHits.toLocaleString();$('stat-labels').textContent=(snapshot.learningCount||0).toLocaleString();
+  $('model-state').textContent=!snapshot.configured?'未连接模型':snapshot.connection?'已连接 Jev':'密钥已保存';
+  if(connection)fillConnection(s);renderAccounts();
 }
-for (const name of ['enabled', 'radar']) $(name).addEventListener('change', async () => {
-  try { await save({ [name]: $(name).checked }); notice(name === 'enabled' ? '设置已保存，X 页面将同步更新' : '热帖雷达设置已保存'); } catch (e) { $(name).checked = snapshot.settings[name]; notice(e.message, true); }
+async function save(patch,forgetKey=false){snapshot=await send({type:'save',settings:patch,forgetKey});render({connection:forgetKey});}
+for(const name of ['enabled','radar'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name];notice(e.message,true);}});
+$('threshold').addEventListener('input',()=>{$('threshold-number').value=$('threshold').value;thresholdCopy();});
+$('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity()){$('threshold').value=$('threshold-number').value;thresholdCopy();}});
+for(const radio of document.querySelectorAll('input[name="filterMode"]'))radio.addEventListener('change',thresholdCopy);
+$('api-key').addEventListener('input',()=>{if(!$('api-key').readOnly)keyEditing=true;});
+$('provider').addEventListener('change',()=>{keyEditing=false;$('api-key').value='';const provider=$('provider').value;fillConnection(provider===snapshot.settings.provider?snapshot.settings:{provider});$('advanced-connection').open=provider==='custom';});
+for(const id of ['base-url','model-name','protocol'])$(id).addEventListener('input',()=>{providerDetails();renderKey();});
+bind('change-key',()=>{hideKey();keyEditing=true;$('api-key').value='';renderKey();$('api-key').focus();});
+bind('toggle-key',async()=>{
+  if(keyVisible){hideKey();return;}
+  const generation=++keyEpoch;
+  if(savedForProvider()&&!keyEditing){const data=await send({type:'reveal-key'});if(generation!==keyEpoch)return;$('api-key').value=data.apiKey;}
+  $('api-key').type='text';keyVisible=true;updateKeyButton();
 });
-$('threshold').addEventListener('input', () => { $('threshold-value').value = `${$('threshold').value}%`; });
-$('provider').addEventListener('change', providerDetails);
-bind('preview-expand', () => { $('preview-text').hidden = !$('preview-text').hidden; $('preview-expand').textContent = $('preview-text').hidden ? '展开' : '收起'; });
-bind('open-options', () => demo ? tab('rules') : chrome.runtime.openOptionsPage());
-bind('save-rules', async () => {
-  if (!$('hotViews').reportValidity()) return;
-  await save({ filterMode: document.querySelector('input[name="filterMode"]:checked').value, threshold: Number($('threshold').value) / 100, duplicates: $('duplicates').checked, highlightUseful: $('highlightUseful').checked, hotViews: Number($('hotViews').value), customRule: $('customRule').value }); notice('规则已保存，已打开的 X 页面会重新判断');
+bind('preview-expand',()=>{$('preview-text').hidden=!$('preview-text').hidden;$('preview-expand').textContent=$('preview-text').hidden?'展开':'收起';});
+bind('open-options',()=>demo?tab('rules'):chrome.runtime.openOptionsPage());
+bind('save-rules',async()=>{
+  if(!$('hotViews').reportValidity()||!$('threshold-number').reportValidity())return;
+  await save({filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
 });
-bind('save-model', async () => {
-  if (!$('dailyLimit').reportValidity()) return;
-  const provider = $('provider').value, apiKey = $('api-key').value.trim();
-  if (!apiKey && (!snapshot.configured || provider !== snapshot.settings.provider)) throw new Error('请输入这个服务商的 API Key');
-  $('save-model').textContent='正在测试连接…';
-  for (const id of ['provider','api-key','dailyLimit','forget-key']) $(id).disabled=true;
-  try {
-    if (!demo && !await chrome.permissions.request({ origins: [PROVIDERS[provider].origin] })) throw new Error('未授予访问权限，配置尚未保存');
-    notice('正在用内置样例测试 Jev，成功后自动保存…');
-    snapshot=await send({type:'connect',settings:{provider,dailyLimit:Number($('dailyLimit').value)},apiKey});
-    render();notice(`${demo?'演示：':''}连接测试通过，配置已保存。X 页面会自动开始判断。`);
-  } finally {
-    $('save-model').textContent='测试并保存';
-    for (const id of ['provider','api-key','dailyLimit','forget-key']) $(id).disabled=false;
-  }
+bind('save-usage',async()=>{if(!$('dailyLimit').reportValidity())return;await save({dailyLimit:Number($('dailyLimit').value)});notice(`每日上限已设为 ${snapshot.settings.dailyLimit.toLocaleString()} 次。`);});
+bind('save-model',async()=>{
+  const settings=connectionDraft(),connection=resolveConnection(settings),apiKey=savedForProvider()&&!keyEditing?'':$('api-key').value.trim();
+  if(!apiKey&&!savedForProvider())throw Error('先粘贴这个服务商的 API Key。');
+  const controls=['provider','model-name','base-url','protocol','api-key','forget-key','change-key','toggle-key'];controls.forEach(id=>$(id).disabled=true);$('save-model').textContent='正在验证…';
+  try{
+    if(!demo&&!await chrome.permissions.request({origins:[connection.origin]}))throw Error('需要允许访问模型服务，才能完成连接。原设置已保留。');
+    notice('正在验证连接…');snapshot=await send({type:'connect',settings,apiKey});keyEditing=false;render();notice('已连接，密钥已保存。现在可以去 X 浏览了。');
+  }finally{controls.forEach(id=>$(id).disabled=false);$('save-model').textContent=savedForProvider()&&!keyEditing?'检查连接':'连接并保存';}
 });
-bind('forget-key', async () => { await save({}, '', true); notice('密钥已移除'); });
-bind('clear-history', async () => {
-  if (!confirm('清空模型缓存、手动反馈和学习样本？账号名单与 API Key 会保留。')) return;
-  snapshot = await send({ type: 'clear' }); render(); notice('记录和缓存已清空');
-});
-$('account-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const handle = handleOf($('account-handle').value); if (!handle) return notice('请输入 1–15 位字母、数字或下划线组成的 X 用户名', true);
-  try { snapshot = await send({ type: 'list', handle, action: event.submitter.value }); $('account-handle').value = ''; renderAccounts(); notice('账号名单已更新'); } catch (error) { notice(error.message, true); }
-});
-bind('test-model', async () => {
-  const text = $('test-text').value.trim(); if (!text) throw new Error('先粘贴一条待判断的回复');
-  $('test-result').hidden = false; $('test-result').textContent = '正在调用 Jev…';
-  try {
-    const result = await send({ type: 'test', item: { id: '0', handle: 'sandbox', kind: 'reply', text, parent: $('test-parent').value, metrics: {} } });
-    if (!result.scores) throw new Error('设置已变化，请重新测试');
-    $('test-result').replaceChildren();
-    for (const [key, title] of Object.entries({ ai_written: '疑似 AI', low_value: '低信息量', useful: '有内容的回复', spam: '引流推广', rule_match: '自定义规则' })) if (key in result.scores) {
-      const row = document.createElement('div'); row.className = 'score-row'; const label = document.createElement('span'); label.textContent = title; const value = document.createElement('b'); value.textContent = `${Math.round(result.scores[key] * 100)}%`; row.append(label, value); $('test-result').append(row);
+bind('forget-key',async()=>{keyEditing=false;hideKey();await save({},true);notice('密钥已移除。需要时可以重新连接。');});
+bind('clear-history',async()=>{if(!confirm('清空全部标注、手动记录和判断缓存？账号名单、密钥与今日用量会保留。'))return;snapshot=await send({type:'clear'});render();notice('本机记录与缓存已清空。');});
+$('account-form').addEventListener('submit',async event=>{event.preventDefault();const handle=handleOf($('account-handle').value);if(!handle)return notice('请填写有效的 X 用户名，不需要完整链接。',true);try{snapshot=await send({type:'list',handle,action:event.submitter.value});$('account-handle').value='';renderAccounts();notice('账号设置已保存。');}catch(e){notice(e.message,true);}});
+async function loadLabels(reset=false){
+  if(reset){cursors=[null];pageIndex=0;}
+  const generation=++labelsEpoch;$('annotation-list').setAttribute('aria-busy','true');$('labels-prev').disabled=$('labels-next').disabled=true;
+  try{
+    const page=await send({type:'annotations',label:labelFilter,before:cursors[pageIndex]});if(generation!==labelsEpoch)return;
+    nextCursor=page.next;const list=$('annotation-list');list.replaceChildren();
+    for(const [id,key] of [['all','total'],['ai','ai'],['human','human']])$('count-'+id).textContent=page.counts[key].toLocaleString();
+    $('stat-labels').textContent=page.counts.total.toLocaleString();
+    if(!page.items.length&&pageIndex>0){pageIndex--;await loadLabels();return;}
+    if(!page.items.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent=page.counts.total?'这里还没有这类标注。':'在 X 回复下点机器人或真人图标，你的标注就会出现在这里。';list.append(empty);}
+    for(const entry of page.items){
+      const row=document.createElement('article');row.className='annotation-row';row.dataset.key=entry.key;
+      const head=document.createElement('div');head.className='annotation-head';const author=document.createElement('b');author.textContent='@'+entry.handle;const time=document.createElement('time');time.textContent=new Date(entry.at).toLocaleDateString();head.append(author,time);
+      const text=document.createElement('p');text.className='annotation-text';text.textContent=entry.text;
+      const actions=document.createElement('div');actions.className='annotation-actions';const group=document.createElement('div');group.className='label-choice';group.setAttribute('role','group');group.setAttribute('aria-label','修改标注');
+      for(const [label,name,icon] of [['ai','AI','Bot'],['human','真人','UserRoundCheck']]){
+        const b=document.createElement('button');b.append(glyph(icon),document.createTextNode(name));b.setAttribute('aria-pressed',String(entry.label===label));b.setAttribute('aria-label',`标记 @${entry.handle} 为${name}`);
+        b.onclick=()=>changeLabel(entry,label,b);group.append(b);
+      }
+      actions.append(group);
+      if(typeof entry.modelResult?.scores?.ai_written==='number'){const score=document.createElement('span');score.className='annotation-score';score.textContent=`原评分 ${Math.round(entry.modelResult.scores.ai_written*100)}%`;actions.append(score);}
+      const link=document.createElement(demo?'span':'a');link.textContent='原帖 ↗';if(!demo){link.href=`https://x.com/${entry.handle}/status/${entry.id}`;link.target='_blank';link.rel='noopener noreferrer';}actions.append(link);
+      const remove=document.createElement('button');remove.className='icon-control';remove.append(glyph('Trash2'));remove.title='移除标注';remove.setAttribute('aria-label',`移除 @${entry.handle} 的标注`);remove.onclick=()=>changeLabel(entry,null,remove);actions.append(remove);
+      row.append(head,text,actions);list.append(row);
     }
-    const p = document.createElement('p'); p.className = 'hint'; p.textContent = `${result.model}${demo ? ' · 模拟判断' : result.cached ? ' · 缓存结果' : ' · 已收到实际判断'}。百分比是模型估计，不是准确率。`; $('test-result').append(p);
-    snapshot = await send({ type: 'snapshot' });
-    $('stat-requests').textContent = snapshot.stats.requests; $('model-state').textContent = snapshot.lastModel || result.model;
-  } catch (e) { $('test-result').textContent = '未获得有效判断。'; throw e; }
+    $('labels-page').textContent=`第 ${pageIndex+1} 页 · 每页 20 条`;$('labels-prev').disabled=pageIndex===0;$('labels-next').disabled=!nextCursor;
+  }finally{if(generation===labelsEpoch)$('annotation-list').removeAttribute('aria-busy');}
+}
+async function changeLabel(entry,label,button){button.disabled=true;try{await send({type:'edit-annotation',key:entry.key,label});await loadLabels(false);notice(label?`已改为${label==='ai'?' AI':'真人'}。`:'标注已移除，原帖不受影响。');}catch(e){notice(e.message,true);button.disabled=false;}}
+for(const b of document.querySelectorAll('[data-label-filter]'))b.onclick=async()=>{labelFilter=b.dataset.labelFilter;for(const n of document.querySelectorAll('[data-label-filter]'))n.setAttribute('aria-pressed',String(n===b));try{await loadLabels(true);}catch(e){notice(e.message,true);}};
+bind('refresh-annotations',()=>loadLabels(true));
+bind('labels-next',async()=>{if(!nextCursor)return;cursors[++pageIndex]=nextCursor;await loadLabels();});
+bind('labels-prev',async()=>{if(!pageIndex)return;pageIndex--;await loadLabels();});
+bind('test-model',async()=>{
+  const text=$('test-text').value.trim();if(!text)throw Error('先粘贴一条回复。');$('test-result').hidden=false;$('test-result').textContent='正在判断…';
+  try{const result=await send({type:'test',item:{id:'0',handle:'sandbox',kind:'reply',text,parent:$('test-parent').value,metrics:{}}});if(!result.scores)throw Error('设置刚刚有变化，请再试一次。');$('test-result').replaceChildren();
+    for(const [key,title] of Object.entries({ai_written:'AI 概率',low_value:'低信息量',useful:'值得一读',spam:'引流推广',rule_match:'符合附加规则'}))if(key in result.scores){const row=document.createElement('div');row.className='score-row';const label=document.createElement('span');label.textContent=title;const value=document.createElement('b');value.textContent=`${Math.round(result.scores[key]*100)}%`;row.append(label,value);$('test-result').append(row);}
+    const p=document.createElement('p');p.className='hint';p.textContent=`${demo?'演示分数':result.cached?'复用已有结果':'已收到模型判断'} · ${result.model}`;$('test-result').append(p);snapshot=await send({type:'snapshot'});$('stat-requests').textContent=snapshot.stats.requests.toLocaleString();
+  }catch(e){$('test-result').textContent='这次没有收到判断。原设置未改变。';throw e;}
 });
-send({ type: 'snapshot' }).then(data => { snapshot = data; render(); tab(location.hash.slice(1)); }, error => notice(error.message, true));
+send({type:'snapshot'}).then(async data=>{snapshot=data;render();await tab(location.hash.slice(1));}).catch(e=>notice(e.message,true));

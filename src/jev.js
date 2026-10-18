@@ -1,11 +1,12 @@
-import { PROVIDERS, buildRequest, parseResponse } from './core.js';
+import { resolveConnection } from './connection.js';
+import { buildRequest, parseResponse } from './core.js';
 export async function analyze(item, settings, apiKey, fetchImpl = fetch) {
   if (!apiKey) throw new Error('请先在模型设置中保存 API Key');
   const payload = buildRequest(item, settings);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const response = await fetchImpl(PROVIDERS[settings.provider].endpoint, {
+    const response = await fetchImpl(resolveConnection(settings).endpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(payload), signal: controller.signal, credentials: 'omit', redirect: 'error',
     });

@@ -1,28 +1,32 @@
+import { mergeSettings, sameCredentialTarget, resolveConnection, connectionIdentity } from './connection.js';
 import { normalizeSettings, validateItem, cacheKey, annotationKey, hotStatus, handleOf } from './core.js';
 import { analyze } from './jev.js';
+import { examplesFor } from './learning.js';
+import { MemoryAnnotations } from './annotations.js';
 
 const day = () => new Date().toLocaleDateString('en-CA');
 const emptyStats = () => ({ day: day(), requests: 0, cacheHits: 0, inputTokens: 0, errors: 0 });
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const connectionSample = { id: '0', handle: 'connection_test', kind: 'reply', text: '我实际测试了三个例子，第二个需要补充上下文才能判断。', parent: '你测试这个方法时发现了什么？', metrics: {} };
-function examplesFor(learning, item) {
-  const tokens = text => new Set(text.toLowerCase().match(/[a-z]{2,}|[\p{Script=Han}]{2}/gu) || []);
-  const target = tokens(item.text);
-  const ranked = learning.filter(e => e.id !== item.id).map(e => ({ e, score: [...tokens(e.text)].filter(t => target.has(t)).length })).sort((a,b) => b.score-a.score || b.e.at-a.e.at);
-  // Up to three positive and three negative examples, bounded independently of history size.
-  return ['ai','human'].flatMap(label => ranked.filter(v => v.e.label === label).slice(0,3).map(({e}) => ({ text:e.text.slice(0,400), parent:e.parent.slice(0,200), label:e.label })));
-}
 export class Engine {
-  constructor(storage, request = analyze) {
+  constructor(storage, request = analyze, annotations = new MemoryAnnotations()) {
+    this.annotations=annotations;
     this.storage = storage; this.request = request; this.active = 0; this.queue = []; this.inflight = new Map(); this.revision = 0; this.cooldown = 0; this.writes = Promise.resolve(); this.mutations = Promise.resolve();
     this.ready = this.load();
   }
   async load() {
     const saved = (await this.storage.get('banbot')).banbot || {};
-    this.data = { settings: normalizeSettings(saved.settings), apiKey: typeof saved.apiKey === 'string' ? saved.apiKey : '', cache: saved.cacheVersion === CACHE_VERSION ? saved.cache || {} : {}, cacheVersion: CACHE_VERSION, overrides: saved.overrides || {}, stats: saved.stats || emptyStats(), feedback: Array.isArray(saved.feedback) ? saved.feedback.slice(0, 100) : [], learning: Array.isArray(saved.learning) ? saved.learning.slice(0,40) : [], connection: saved.connection || null, lastError: saved.lastError || '', lastModel: saved.lastModel || '' };
+    await this.annotations.migrate(Array.isArray(saved.learning)?saved.learning:[]);
+    this.annotationStats=await this.annotations.stats();
+    const learning=await this.annotations.recent(40);
+    const settings = normalizeSettings(saved.settings);
+    if (!saved.dailyLimitVersion && saved.settings?.dailyLimit === 300) settings.dailyLimit=10000;
+    if (!saved.thresholdVersion && saved.settings?.threshold === .9) settings.threshold=.5;
+    this.data = { dailyLimitVersion:1, thresholdVersion:1, settings, apiKey: typeof saved.apiKey === 'string' ? saved.apiKey : '', annotationRevision:this.annotationStats.revision, cache: saved.cacheVersion === CACHE_VERSION && saved.annotationRevision===this.annotationStats.revision ? saved.cache || {} : {}, cacheVersion: CACHE_VERSION, overrides: Object.fromEntries(Object.entries(saved.overrides||{}).filter(([,v])=>v.source!=='learning')), stats: saved.stats || emptyStats(), feedback: Array.isArray(saved.feedback) ? saved.feedback.slice(0, 100) : [], learning, connection: saved.connection || null, lastError: saved.lastError || '', lastModel: saved.lastModel || '' };
   }
   save() {
-    const snapshot = structuredClone(this.data);
+    const {learning,...persistent}=this.data;
+    const snapshot = structuredClone(persistent);
     const write = this.writes.then(() => this.storage.set({ banbot: snapshot }));
     this.writes = write.catch(() => {});
     return write;
@@ -30,7 +34,7 @@ export class Engine {
   resetDay() { if (this.data.stats.day !== day()) this.data.stats = emptyStats(); }
   async snapshot(admin = false) {
     await this.ready; this.resetDay();
-    const value = { settings: this.data.settings, configured: Boolean(this.data.apiKey), stats: this.data.stats, connection: this.data.connection, learningCount: this.data.learning.length, lastError: this.data.lastError, lastModel: this.data.lastModel, revision: this.revision };
+    const value = { settings: this.data.settings, configured: Boolean(this.data.apiKey), stats: this.data.stats, connection: this.data.connection, learningCount: this.annotationStats.total, annotationStats:this.annotationStats, lastError: this.data.lastError, lastModel: this.data.lastModel, revision: this.revision };
     if (admin) Object.assign(value, { feedback: this.data.feedback, learning: this.data.learning, cacheSize: Object.keys(this.data.cache).length });
     return structuredClone(value);
   }
@@ -44,8 +48,9 @@ export class Engine {
   }
   connect(patch, apiKey) {
     return this.mutate(async () => {
-      const settings = normalizeSettings({ ...this.data.settings, ...patch });
-      const key = typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim().replace(/^Bearer\s+/i, '') : settings.provider === this.data.settings.provider ? this.data.apiKey : '';
+      const settings = normalizeSettings(mergeSettings(this.data.settings,patch));
+      resolveConnection(settings);
+      const key = typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim().replace(/^Bearer\s+/i, '') : sameCredentialTarget(settings,this.data.settings) ? this.data.apiKey : '';
       if (!key || key.length > 4096 || /[\r\n]/.test(key)) throw new Error('请输入有效的模型 API Key');
       const result = await this.enqueue(async () => {
         this.resetDay();
@@ -64,44 +69,65 @@ export class Engine {
       return this.snapshot(true);
     });
   }
+  async syncAnnotations() {
+    this.data.learning=await this.annotations.recent(40);
+    this.annotationStats=await this.annotations.stats();
+    this.data.annotationRevision=this.annotationStats.revision;
+  }
+  async annotationPage(options={}) {
+    await this.ready;
+    const label=['ai','human'].includes(options.label)?options.label:'all';
+    const before=options.before && Number.isFinite(options.before.at) && typeof options.before.key==='string' ? options.before : null;
+    const page=await this.annotations.page({label,before,limit:20});
+    return {...page,counts:await this.annotations.stats()};
+  }
   learn(input, label) {
     return this.mutate(async () => {
       const item = validateItem(input);
-      if (item.kind !== 'reply' || !['ai','human'].includes(label) || !item.text.trim()) throw new Error('请选择有效的回复标签');
+      if (item.kind !== 'reply' || !['ai','human',null].includes(label) || !item.text.trim()) throw new Error('请选择有效的回复标签');
       const key = await annotationKey(item);
-      const before = {learning:this.data.learning, overrides:structuredClone(this.data.overrides), cache:this.data.cache};
-      const entry = { ...item, text:item.text.slice(0,1000), parent:item.parent.slice(0,500), key, label, at:Date.now() };
-      const all = [entry,...this.data.learning.filter(e=>e.key!==key)];
-      this.data.learning = all.slice(0,40);
-      for (const e of all.slice(40)) if (this.data.overrides[e.key]?.source==='learning') delete this.data.overrides[e.key];
-      this.data.overrides[key] = { label:label==='ai'?'hide':'keep', source:'learning', at:Date.now() };
-      this.data.overrides = Object.fromEntries(Object.entries(this.data.overrides).sort((a,b)=>b[1].at-a[1].at).slice(0,1000));
-      this.data.cache = {}; this.revision++;
-      try { await this.save(); } catch { Object.assign(this.data,before); this.revision++; throw new Error('标记保存失败，请重试'); }
-      return {learningCount:this.data.learning.length};
+      return this.changeAnnotation(key,item,label);
     });
   }
-  removeExample(key) {
-    return this.mutate(async () => {
-      if (typeof key !== 'string' || !this.data.learning.some(e=>e.key===key)) throw new Error('找不到这条学习样本');
-      const before = {learning:this.data.learning, overrides:structuredClone(this.data.overrides), cache:this.data.cache};
-      this.data.learning = this.data.learning.filter(e=>e.key!==key);
-      if (this.data.overrides[key]?.source==='learning') delete this.data.overrides[key];
-      this.data.cache={}; this.revision++;
-      try { await this.save(); } catch { Object.assign(this.data,before); this.revision++; throw new Error('样本删除失败，请重试'); }
-      return this.snapshot(true);
+  async changeAnnotation(key,item,label) {
+    const previous=await this.annotations.get(key);
+    const before={learning:this.data.learning,overrides:structuredClone(this.data.overrides),cache:this.data.cache};
+    if(label) {
+      const modelKey=item.key===key&&previous?.modelKey?previous.modelKey:await cacheKey(item,this.data.settings);
+      const modelResult=this.data.cache[modelKey]?.result || (previous?.modelKey===modelKey?previous.modelResult:undefined);
+      await this.annotations.put({...item,text:item.text.slice(0,1000),parent:item.parent.slice(0,500),key,label,at:Date.now(),modelKey,modelResult});
+      delete this.data.overrides[key];
+    } else await this.annotations.remove(key);
+    this.data.cache={};this.revision++;
+    try {await this.syncAnnotations();await this.save();}
+    catch {
+      if(previous)await this.annotations.put(previous);else await this.annotations.remove(key);
+      Object.assign(this.data,before);await this.syncAnnotations();this.revision++;
+      throw new Error('标注未保存，请重试');
+    }
+    return {learningCount:this.annotationStats.total,id:item.id};
+  }
+  editAnnotation(key,label) {
+    return this.mutate(async()=>{
+      if(typeof key!=='string'||!['ai','human',null].includes(label))throw new Error('请选择有效的标注');
+      const item=await this.annotations.get(key);
+      if(!item)throw new Error('这条标注已移除，请刷新列表');
+      // Use its original key: archived text can be truncated for storage.
+      return this.changeAnnotation(key,item,label);
     });
   }
+  removeExample(key) {return this.editAnnotation(key,null);}
   async applySettings(settings, apiKey, forgetKey = false) {
     await this.ready;
-    const next = normalizeSettings({ ...this.data.settings, ...settings });
-    const changedProvider = next.provider !== this.data.settings.provider;
+    const next = normalizeSettings(mergeSettings(this.data.settings,settings));
+    const changedProvider = !sameCredentialTarget(next,this.data.settings);
+    const changedModel = JSON.stringify(connectionIdentity(next))!==JSON.stringify(connectionIdentity(this.data.settings));
     const key = typeof apiKey === 'string' ? apiKey.trim().replace(/^Bearer\s+/i, '') : '';
     if (key.length > 4096 || /[\r\n]/.test(key)) throw new Error('API Key 格式无效');
     const before = { settings: this.data.settings, apiKey: this.data.apiKey, connection: this.data.connection };
     this.data.settings = next;
     if (changedProvider || forgetKey) { this.data.apiKey = ''; this.data.connection = null; }
-    if (key && key !== this.data.apiKey) this.data.connection = null;
+    if (changedModel || key && key !== this.data.apiKey) this.data.connection = null;
     if (key) this.data.apiKey = key;
     this.data.lastError = ''; this.revision++;
     try { await this.save(); } catch (error) { Object.assign(this.data, before); this.revision++; throw new Error('设置保存失败，请重试'); }
@@ -132,14 +158,20 @@ export class Engine {
     return { ok: true };
   }); }
   clearHistory() { return this.mutate(async () => {
-    await this.ready; this.revision++; this.data.cache = {}; this.data.overrides = {}; this.data.feedback = []; this.data.learning = []; this.data.lastError = ''; await this.save();
+    await this.ready; this.revision++; this.data.cache = {}; this.data.overrides = {}; this.data.feedback = []; this.data.learning = []; this.data.lastError = ''; await this.annotations.clear(); await this.syncAnnotations(); await this.save();
     return this.snapshot(true);
   }); }
   async localDecision(input) {
     await this.ready;
     const item = validateItem(input);
-    const override = this.data.overrides[await annotationKey(item)] || this.data.overrides[await cacheKey(item,this.data.settings)];
-    return override ? { override:override.label, ...(override.source==='learning'?{learned:true}:{}) } : {};
+    const key=await annotationKey(item), modelKey=await cacheKey(item,this.data.settings);
+    let override = this.data.overrides[key] || this.data.overrides[modelKey];
+    const sample=await this.annotations.get(key);
+    if(sample && (!override || sample.at>override.at)) override={label:sample.label==='ai'?'hide':'keep',source:'learning'};
+    return { ...(sample?.modelKey===modelKey ? sample.modelResult : {}),
+      ...(override ? {override:override.label,...(override.source==='learning'?{learned:true}:{})} : {}),
+      ...(sample ? {annotation:sample.label} : {}),
+    };
   }
   async classify(input, manual = false) {
     await this.ready;
@@ -150,8 +182,8 @@ export class Engine {
     if (hot && hot.status !== 'forecast') return { hot };
     if (!item.text.trim()) return { skipped: 'no-text' };
     const key = await cacheKey(item, settings);
-    const override = this.data.overrides[await annotationKey(item)] || this.data.overrides[key];
-    if (override) return { override: override.label, ...(override.source==='learning'?{learned:true}:{}) };
+    const local = await this.localDecision(item);
+    if (local.override) return local;
     const cached = this.data.cache[key];
     this.resetDay();
     if (cached && cached.expires > Date.now()) { this.data.stats.cacheHits++; await this.save(); return { ...cached.result, cached: true, hot }; }
@@ -164,9 +196,11 @@ export class Engine {
       if (Date.now() < this.cooldown) throw new Error('模型服务冷却中，稍后重试');
       if (!this.data.apiKey) throw new Error('请先在模型设置中保存 API Key');
       if (this.data.stats.requests >= settings.dailyLimit) throw new Error('已达到今日请求上限，可在设置中调整');
+      const apiKey=this.data.apiKey;
       this.data.stats.requests++; await this.save();
+      if (revision !== this.revision) return { skipped: 'changed' };
       try {
-        const result = await this.request(item, { ...settings, examples: item.kind === 'reply' ? examplesFor(this.data.learning,item) : [] }, this.data.apiKey);
+        const result = await this.request(item, { ...settings, examples: item.kind === 'reply' ? examplesFor(this.data.learning,item) : [] }, apiKey);
         if (revision !== this.revision) return { skipped: 'changed' };
         this.data.stats.inputTokens += result.inputTokens;
         this.data.lastError = ''; this.data.lastModel = result.model;

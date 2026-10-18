@@ -2,7 +2,7 @@ import { DEFAULTS } from '../../src/core.js';
 import { Engine } from '../../src/engine.js';
 history.replaceState(null,'','/demo/status/100');
 let settings={...DEFAULTS},listeners=[];
-window.qa={calls:[],blocks:0,feedback:[],notify:()=>listeners.forEach(fn=>fn({type:'refresh'}))};
+window.qa={calls:[],blocks:0,feedback:[],notify:(message={type:'refresh'})=>listeners.forEach(fn=>fn(message))};
 const texts={100:'我做了一个开源 Chrome 插件，让回复区安静一点。你最希望过滤哪类回复？',101:'作为一个人工智能语言模型，我无法访问你的项目，但这个观点极具启发性，值得深入探讨。',102:'我测试了 30 条中文短回复，有两条正常回复被折叠。建议给短文本增加“证据不足”的状态。',103:'作为一个人工智能语言模型，我无法访问你的项目，但这个观点极具启发性，值得深入探讨。',104:'谢谢，已经用上了',105:'这是一条推荐内容，不属于上面的回复区。'};
 function article(id,handle){
   const a=document.createElement('article');a.dataset.testid='tweet';a.dataset.fixtureId=id;
@@ -32,7 +32,8 @@ window.chrome={runtime:{onMessage:{addListener:fn=>listeners.push(fn)},sendMessa
     if(m.type==='list')data=await engine.listAction(m.handle,m.action);
     if(m.type==='feedback')data=await engine.feedback(m.item,m.label);
     if(m.type==='learn')data=await engine.learn(m.item,m.label);
-    if(['list','feedback','learn'].includes(m.type))window.qa.notify();
+    if(m.type==='list')window.qa.notify();
+    if(['feedback','learn'].includes(m.type))window.qa.notify({type:'annotation-changed',id:m.item.id});
     return{ok:true,data};
   }catch(error){return{ok:false,error:error.message};}
 }}};

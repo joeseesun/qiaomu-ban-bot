@@ -59,8 +59,8 @@ test('failed connection validation preserves the previous working setup',async()
 test('user labels affect later requests, invalidate cached decisions, and can be removed',async()=>{
   const requests=[];const {engine}=setup(async(i,s)=>{requests.push(structuredClone(s));return result();});
   await engine.classify(item(2));
-  await engine.learn(item(1),'ai');
-  assert.equal((await engine.classify(item(1))).override,'hide');
+  await engine.learn({...item(1),text:'作为人工智能语言模型，我不能执行此请求。'},'ai');
+  assert.equal((await engine.classify({...item(1),text:'作为人工智能语言模型，我不能执行此请求。'})).override,'hide');
   await engine.classify(item(2));assert.equal(requests.length,2);assert.equal(requests[1].examples[0].label,'ai');
   const snapshot=await engine.snapshot(true);assert.equal(snapshot.learning.length,1);
   assert.equal((await engine.snapshot()).learning,undefined);
@@ -81,4 +81,37 @@ test('explicit human labels survive provider and semantic-rule changes',async()=
   const {engine}=setup(async()=>result());await engine.learn(item(1),'human');
   await engine.updateSettings({provider:'typesafe',customRule:'hide unrelated ads'});
   assert.equal((await engine.classify(item(1))).override,'keep');
+});
+test('AI to human to unset persists one label and preserves the original model score',async()=>{
+  const {engine,saved}=setup(async()=>result());await engine.classify(item(1));
+  await engine.learn(item(1),'ai');await engine.learn(item(1),'human');
+  const labeled=await engine.classify(item(1));
+  assert.equal(labeled.annotation,'human');assert.equal(labeled.scores.ai_written,.95);assert.equal(labeled.override,'keep');
+  assert.equal((await engine.snapshot(true)).learning.length,1);
+  const reloaded=new Engine({get:async()=>saved(),set:async()=>{}},undefined,engine.annotations);
+  assert.equal((await reloaded.localDecision(item(1))).annotation,'human');
+  await engine.learn(item(1),null);assert.deepEqual(await engine.localDecision(item(1)),{});
+  assert.equal((await engine.snapshot(true)).learning.length,0);
+});
+test('failed label removal rolls back the sample and override',async()=>{
+  let fail=false,data={banbot:{apiKey:'fixture'}};
+  const engine=new Engine({get:async()=>data,set:async value=>{if(fail)throw Error('disk');data=structuredClone(value);}},async()=>result());
+  await engine.learn(item(1),'human');fail=true;
+  await assert.rejects(engine.learn(item(1),null),/未保存/);
+  assert.equal((await engine.localDecision(item(1))).annotation,'human');
+});
+test('10,000 daily requests by default, legacy default migrates, explicit values remain',async()=>{
+  for(const [settings,expected] of [[undefined,10000],[{dailyLimit:300},10000],[{dailyLimit:1500},1500],[{dailyLimit:10000},10000],[{dailyLimit:50000},50000]]){
+    const engine=new Engine({get:async()=>({banbot:{settings}}),set:async()=>{}});
+    assert.equal((await engine.snapshot()).settings.dailyLimit,expected);
+  }
+  const {engine,saved}=setup(async()=>result());await engine.updateSettings({dailyLimit:300});
+  const reload=new Engine({get:async()=>saved(),set:async()=>{}},undefined,engine.annotations);
+  assert.equal((await reload.snapshot()).settings.dailyLimit,300);
+});
+test('old 90% default becomes 50% once and custom thresholds survive',async()=>{
+  for(const [saved,expected] of [[{settings:{threshold:.9}},.5],[{settings:{threshold:.85}},.85],[{settings:{threshold:.9},thresholdVersion:1},.9]]) {
+    const engine=new Engine({get:async()=>({banbot:saved}),set:async()=>{}});
+    assert.equal((await engine.snapshot()).settings.threshold,expected);
+  }
 });
