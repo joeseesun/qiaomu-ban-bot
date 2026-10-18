@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
 <body><main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.10</span></header>
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.11</span></header>
   <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
   <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="bookmarks">书签</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -90,7 +90,7 @@
   </section>
   <section id="model" class="panel" hidden>
     <h2>连接一次，随时可用。</h2><p class="hint">用你的 Jev 密钥开始。验证成功后会自动保存。</p>
-    <label class="field"><span>模型服务</span><select id="provider"><option value="magpie">乔木 Magpie</option><option value="typesafe">TypeSafe 官方</option><option value="openrouter">OpenRouter</option><option value="vercel">Vercel AI Gateway</option><option value="custom">自定义服务</option></select></label>
+    <label class="field"><span>模型服务</span><select id="provider"><option value="typesafe">TypeSafe 官方</option><option value="magpie">乔木 Magpie</option><option value="openrouter">OpenRouter</option><option value="vercel">Vercel AI Gateway</option><option value="custom">自定义服务</option></select></label>
     <div class="provider-help"><p id="key-help" class="hint"></p><a id="get-key" target="_blank" rel="noopener noreferrer">注册 / 获取 API Key ↗</a></div>
     <div class="field"><div class="key-heading"><label for="api-key">API Key</label><span id="key-badge" class="key-badge" hidden>已保存</span></div><div class="secret-field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你的 API Key"><button id="toggle-key" class="icon-control" aria-label="显示密钥" title="显示密钥" data-icon="Eye"></button></div><small id="key-status">仅保存在此浏览器。</small></div>
     <label class="field"><span>模型名</span><input id="model-name" type="text" autocomplete="off" spellcheck="false" maxlength="200" placeholder="服务商提供的 Jev 模型名"><small>已填入平台默认值，也可以换成你的模型版本。</small></label>

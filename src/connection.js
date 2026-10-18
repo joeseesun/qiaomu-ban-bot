@@ -8,7 +8,7 @@ export const PROVIDERS = {
 };
 
 export function connectionFields(value={}) {
-  const p=PROVIDERS[value.provider]||PROVIDERS.magpie;
+  const p=PROVIDERS[value.provider]||PROVIDERS.typesafe;
   return {
     baseURL:typeof value.baseURL==='string'&&value.baseURL.trim()?value.baseURL.trim():p.baseURL,
     model:typeof value.model==='string'&&value.model.trim()?value.model.trim():p.model,

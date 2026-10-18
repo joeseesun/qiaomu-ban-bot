@@ -2,9 +2,9 @@
 
 整理回复，记住常聊的人，复盘你看好的帖子，把书签带走。用 TypeSafe Jev 辅助判断，操作与记录都留在你的掌控中。
 
-**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.10)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
+**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.11)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
 
-当前版本 **0.1.10 Preview**，已于 2026-10-19 提交 Chrome 应用商店，当前待审核，通过后自动发布。本版统一英文品牌与仓库名，沿用原存储标识。默认反馈联系人、书签与编辑器的验收边界见[测试记录](docs/QA.md)，商店提交不代表审核通过。
+当前版本 **0.1.11 Preview**，已于 2026-10-19 提交 Chrome 应用商店，当前待审核，通过后自动发布。本版默认使用 TypeSafe 官方，已配置用户继续使用原连接。默认反馈联系人、书签与编辑器的验收边界见[测试记录](docs/QA.md)，商店提交不代表审核通过。
 
 ## 界面
 
@@ -94,7 +94,7 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 
 需要 Chrome 120 或更新版本。
 
-1. 在 [Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.10) 下载 `qiaomu-x-helper-0.1.10-chrome.zip` 并解压到固定目录。
+1. 在 [Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.11) 下载 `qiaomu-x-helper-0.1.11-chrome.zip` 并解压到固定目录。
 2. 打开 `chrome://extensions`，开启右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择**包含 `manifest.json` 的文件夹**。
 4. 在 Chrome 扩展菜单固定「乔木 X 助手」，打开「连接」。

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11 Preview · 2026-10-19
+
+- 首次使用默认选择 TypeSafe 官方，预填官方地址和 `jev-latest`，可直接打开控制台获取密钥。
+- 已保存的服务、地址和密钥继续使用原配置；不跨服务复用密钥。
+
+
 ## 0.1.10 Preview · 2026-10-19
 
 - 统一品牌为「乔木 X 助手 · Qiaomu X Helper」，仓库与下载包改为 `qiaomu-x-helper`。
