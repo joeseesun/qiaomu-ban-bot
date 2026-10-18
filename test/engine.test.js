@@ -115,3 +115,10 @@ test('old 90% default becomes 50% once and custom thresholds survive',async()=>{
     assert.equal((await engine.snapshot()).settings.threshold,expected);
   }
 });
+
+test('explicit re-prediction bypasses a fresh cache while still respecting the daily budget',async()=>{
+  let calls=0;const {engine}=setup(async()=>{calls++;return result();});await engine.updateSettings({dailyLimit:2});
+  await engine.classify(item(1));assert.equal((await engine.classify(item(1))).cached,true);assert.equal(calls,1);
+  const fresh=await engine.classify(item(1),true);assert.equal(fresh.cached,undefined);assert.equal(calls,2);
+  await assert.rejects(engine.classify(item(1),true),/今日请求上限/);assert.equal(calls,2);
+});

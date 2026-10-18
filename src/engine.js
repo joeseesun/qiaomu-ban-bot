@@ -194,7 +194,7 @@ export class Engine {
     if (local.override) return local;
     const cached = this.data.cache[key];
     this.resetDay();
-    if (cached && cached.expires > Date.now()) { this.data.stats.cacheHits++; await this.save(); return { ...cached.result, cached: true, hot }; }
+    if (!manual && cached && cached.expires > Date.now()) { this.data.stats.cacheHits++; await this.save(); return { ...cached.result, cached: true, hot }; }
     if (this.inflight.has(key)) return this.inflight.get(key);
     if (this.queue.length >= 24) throw new Error('待判断的帖子较多，请稍后重试');
     const revision = this.revision;

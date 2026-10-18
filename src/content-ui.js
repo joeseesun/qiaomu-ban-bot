@@ -1,6 +1,6 @@
-import { createElement, Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink } from 'lucide';
+import { createElement, Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink, Flame } from 'lucide';
 
-export const icons = { Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink };
+export const icons = { Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink, Flame };
 export const icon = node => createElement(node, { width:16, height:16, 'stroke-width':1.7, 'aria-hidden':'true', focusable:'false' });
 
 // The panel is inline, so it remains inside the tweet at narrow widths and does

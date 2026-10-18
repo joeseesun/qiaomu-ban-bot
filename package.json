@@ -1,6 +1,6 @@
 {
   "name": "qiaomu-ban-bot",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "A Jev-powered Chrome extension for quieter X conversations.",
@@ -17,6 +17,7 @@
     "jsdom": "^26.0.0"
   },
   "dependencies": {
-    "lucide": "1.59.0"
+    "lucide": "1.59.0",
+    "pinyin-pro": "3.29.5"
   }
 }

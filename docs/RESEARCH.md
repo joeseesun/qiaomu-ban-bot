@@ -53,3 +53,35 @@
 设置采用平台预设 + 可编辑模型名，Base URL 收在高级设置，按实际目标域名单独请求权限。新目标不能使用旧已保存密钥，失败保留连接；原始模型分数与用户标签区分。已有标签历史从热路径移到 IndexedDB，页面用索引游标读 20 条，模型仅用最近 40 条作为候选、最多 6 条参考。
 
 文案参考 [Apple Writing](https://developer.apple.com/design/human-interface-guidelines/writing)：短、直接、说明当前状态与下一步。公众号/打赏资源复用作者自己的 Qiaomu Clipper 关于页资产；未复制其程序实现。图标为本项目原创几何对话气泡与过滤线，SVG 与确定性 PNG 生成器均在仓库。
+
+## 乔木 X 助手：互动与复盘 · 2026-10-18
+
+| 参考项目与核对材料 | 值得吸收 | 适用位置与交付边界 |
+| --- | --- | --- |
+| [Xhancer](https://github.com/Ceelog/Xhancer-Extension) | 中文拼音 @、账号备注、多账号隔离 | 本版常用 @。核对仓库目录只有 README，未发现许可证，不能当作可复用源码；仅参考产品方向 |
+| [Xplore](https://github.com/devploit/Xplore)、[排序实现](https://github.com/devploit/Xplore/blob/main/src/analytics/ranking.ts) | 帖子快照、值得处理的提及、区分曝光不足与表现差 | 本版实现“看好追踪”；互动列表和更完整曲线为后续。MIT；最近推送 2026-09-21。不能把缺数据当零，也不能把涨粉相关性当因果 |
+| [Bookmark X](https://github.com/LucasDitchun/export-bookmarks-x-twitter)、[导出仓库实现](https://github.com/LucasDitchun/export-bookmarks-x-twitter/blob/main/src/storage/export-repository.ts) | 本地书签、标签 / 文件夹 / 备注、Markdown 导出、备份 | 后续收藏页。MIT；最近推送 2026-10-13。导出应取一致数据快照，显示实际已采集数量，不能声称拿齐全部历史 |
+| [x-user-note](https://github.com/klntsky/x-user-note)、[页面备注实现](https://github.com/klntsky/x-user-note/blob/master/src/content.ts) | 给联系人写私有备注、记下屏蔽原因 | 本版联系人备注；屏蔽原因后续。仓库未检出许可证，不复制实现；其 Chrome Sync 路径不适用于本项目默认本机保存 |
+| [Control Panel for Twitter](https://github.com/insin/control-panel-for-twitter) | 可逐项关闭的界面增强、成熟的 X 页面兼容实践 | 保留克制的就近入口，不叠加整套页面美化。MIT，作为兼容设计参考 |
+
+以上是功能 / 实现结构对照，不是对这些扩展安装安全性或效果的背书。本版不复制这些扩展源码。拼音采用 [pinyin-pro](https://github.com/zh-lx/pinyin-pro) 3.29.5（MIT），离线生成搜索字段，许可随包附带；不会每次搜索调用模型。
+
+### 当前交付
+
+常用 @ 放在编辑器工具栏，以小弹层搜索、键盘选择、光标插入；集中管理放在账号页，与标注统计并列。成功回执必须同时有明确对象和草稿清空，不能把点发送或关闭弹窗当作成功。仅从启用后记录，不扫描历史。联系人与 AI 样本使用独立数据库。
+
+使用 [原生编辑命令](https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand)保留现有编辑器状态和撤销链。该 API 已弃用但这里仍是经过实际 X 编辑器验证的兼容路径；不通过写 innerHTML 改造 React 草稿。弹层采用 [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API/Using)，键盘交互参考 [WAI combobox](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/)。不自动发送，不替代 X 原生发布按钮。
+
+主帖头部只增加“火焰 + 概率”；正文下方的回复标注与正文列对齐。看好追踪保存原始概率 / 模型 / 目标、当时数据和最近观测，复盘默认 3 天后。三天后的数值不能反推发帖 24 小时的数值；没有期限内采样证据时不计算“准确率”，不自动校准模型。
+
+### 下一阶段：互动和收藏
+
+1. **值得回复的提及列表**：增加独立互动页，按未处理 / 已回复 / 稍后 / 忽略筛选。每项显示原文、作者、时间、与哪个主帖相关、模型推荐理由；只打开 X 原生回复框，不代发。被动读取已加载的提及，明确覆盖范围；已回复状态必须沿用成功回执，不能仅凭点击记录。
+2. **书签与导出**：集中收藏页；标签、搜索、备注；导出 Markdown 含标题、作者、原链接、保存时间与已采集正文，适配 Obsidian。显示实际采集条数，保留重复去重与删除策略；数据导入 / 导出要验证往返一致。不开启后台无限抓取。
+3. **更完整的帖子复盘**：在样本和时间点足够后展示初始、24 小时与 72 小时快照。分开呈现你的看好与模型判断；缺测不补零，尚无留出集前不声称概率已经校准。
+
+### 本机兴趣反馈（设计，未实现）
+
+Hot 右侧可放小号罗盘入口。三态为未标记、感兴趣、不感兴趣；弹层提供可选原因：喜欢话题、有新信息、内容太浅、重复看过。区分话题偏好与作者偏好，并支持撤销。先积累人工样本，再让 Jev 输出兴趣匹配度；默认只提示，是否按兴趣折叠必须由用户明确开启。独立兴趣页可查看 / 删除偏好和证据。
+
+本机反馈只个性化“乔木 X 助手”。它不会修改或训练 X 的推荐算法。若需要 X 的“不感兴趣”等原生操作，应清楚展示为另一个用户主动操作，不能把插件的兴趣点击偷偷映射成点赞、关注或平台负反馈。
