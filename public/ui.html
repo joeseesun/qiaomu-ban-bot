@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木净评</title><link rel="stylesheet" href="ui.css"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
 <body><main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木净评</h1><p>让好回复，更容易被看见。</p></div></div><span class="version">0.1.4</span></header>
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.5</span></header>
   <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
   <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -13,7 +13,14 @@
     <p id="preview-text" class="sample" hidden>示例回复：这个观点极具启发性，为我们理解未来趋势提供了全新视角。<br><small>94% 为演示分数。</small></p>
     <div class="section-top"><h2>看看主帖的热度潜力</h2><label class="switch small"><input id="radar" type="checkbox" role="switch" aria-label="显示热帖预测"><span></span></label></div>
     <p class="hint">根据发布时间与互动量，估计主帖能否达到你的浏览量目标。数据不足时不预测。</p>
+    <button id="open-forecasts" class="secondary full">查看我的看好追踪</button>
     <button id="open-options" class="secondary full">打开完整设置</button>
+  </section>
+  <section id="forecasts" class="panel" hidden>
+    <div class="page-heading"><div><h2>你看好的，后来怎么样了？</h2><p class="hint">保留当时判断，3 天后对照实际表现。</p></div><button id="refresh-forecasts" class="icon-control" aria-label="刷新追踪记录" title="刷新追踪记录" data-icon="RefreshCw"></button></div>
+    <label class="field contact-owner-field"><span>我的看好记录</span><select id="forecast-owner" aria-label="看好记录所属账号"></select></label>
+    <p class="hint">打开原帖时更新可见数据，不会后台自动抓取。到期但没有新数据时显示「待复盘」。</p>
+    <div id="forecast-list" aria-live="polite"></div><div class="pagination"><button id="forecasts-prev" class="secondary">上一页</button><span id="forecasts-page">第 1 页</span><button id="forecasts-next" class="secondary">下一页</button></div>
   </section>
   <section id="rules" class="panel" hidden>
     <h2>留下你想看的回复。</h2><p class="hint">选一种整理方式。你的手动标注始终优先。</p>
@@ -39,6 +46,25 @@
     <details class="fine-print"><summary>标注如何帮助后续判断？</summary><p>记录保存在本机，不会因为超过 40 条就删除。每次从最近 40 条标注中选最多 6 条相关案例，帮助模型理解你的判断。不会把全部记录发给模型，也不会重新训练模型。</p></details>
   </section>
   <section id="accounts" class="panel" hidden>
+    <div class="account-tabs" role="group" aria-label="账号页面"><button data-account-view="contacts" aria-pressed="false">常用 @</button><button data-account-view="accounts" aria-pressed="true">标注统计</button></div>
+    <div id="contacts-view" hidden>
+      <div class="page-heading"><div><h2>想找的人，随时 @。</h2><p class="hint">发帖或回复时，点编辑器工具栏的 @ 图标。</p></div><button id="contact-add" class="secondary"><span data-icon="Plus"></span>添加</button></div>
+      <label class="field contact-owner-field"><span>这份联系人属于</span><select id="contact-owner" aria-label="我的 X 账号"></select></label>
+      <div class="contact-tools"><label class="field"><span class="sr-only">搜索联系人</span><input id="contact-search" type="search" placeholder="昵称、拼音、@账号或备注" maxlength="160"></label><label class="contact-pinned"><input id="contacts-pinned" type="checkbox">只看置顶</label></div>
+      <div id="contact-editor" class="contact-editor" hidden><h3 id="contact-form-title">添加常用账号</h3><form id="contact-form">
+        <label class="field"><span>@账号或主页链接</span><input id="contact-handle" placeholder="@username 或 https://x.com/username" required maxlength="200" autocomplete="off"></label>
+        <label class="field"><span>昵称 <small>选填</small></span><input id="contact-name" maxlength="80" autocomplete="off"></label>
+        <label class="field"><span>备注 <small>选填，仅自己可见</small></span><input id="contact-note" maxlength="160" placeholder="例如：一起做开源的朋友" autocomplete="off"></label>
+        <label class="contact-pinned"><input id="contact-pin" type="checkbox">置顶，方便下次找到</label>
+        <div class="button-row"><button id="contact-save" class="primary">保存联系人</button><button id="contact-cancel" class="secondary" type="button">取消</button></div>
+      </form></div>
+      <div id="contact-list" aria-live="polite"></div>
+      <div class="pagination"><button id="contacts-prev" class="secondary">上一页</button><span id="contacts-page">第 1 页</span><button id="contacts-next" class="secondary">下一页</button></div>
+      <label class="toggle-row"><span>自动记下回复对象<small>确认发送成功后记录；取消或失败不计入</small></span><span class="switch small"><input id="contact-auto" type="checkbox" role="switch"><span></span></span></label>
+      <p class="hint">从启用后开始记录，不扫描历史回复。未记录的头像和昵称，会在你读到对方帖子时补上。联系人只存本机，不参与 AI 判断。</p>
+      <details id="contact-owner-setup" class="fine-print"><summary>手动添加我的 X 账号</summary><form id="contact-owner-form"><label class="field"><span>你用于发帖的 @用户名</span><input id="contact-owner-input" maxlength="16" placeholder="@my_account" required></label><button class="secondary">添加账号</button></form></details>
+    </div>
+    <div id="account-statistics">
     <div class="page-heading"><div><h2>哪些账号，最常出现在你的标注里？</h2><p class="hint">按你的标注条数排序。两种记录一起看，再决定保留谁。</p></div><button id="refresh-authors" class="icon-control" aria-label="刷新账号统计" title="刷新账号统计" data-icon="RefreshCw"></button></div>
     <div class="label-filters" role="group" aria-label="账号排序"><button data-author-filter="ai" aria-pressed="true"><span data-icon="Bot"></span>AI 标注最多</button><button data-author-filter="human" aria-pressed="false"><span data-icon="UserRoundCheck"></span>真人标注最多</button></div>
     <div id="author-list" aria-live="polite"></div>
@@ -49,6 +75,7 @@
     <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本机屏蔽</h3><div id="blocklist" class="account-list"></div>
     </details>
     <details class="fine-print"><summary>最近的保留与折叠操作</summary><div id="feedback"></div><p>“只保留此条”不会被当作真人标注。</p></details>
+    </div>
   </section>
   <section id="model" class="panel" hidden>
     <h2>连接一次，随时可用。</h2><p class="hint">用你的 Jev 密钥开始。验证成功后会自动保存。</p>
@@ -68,7 +95,7 @@
     <button id="test-model" class="secondary full">查看判断</button><div id="test-result" role="status" hidden></div></details>
   </section>
   <section id="about" class="panel" hidden>
-    <h2>把注意力，留给值得读的内容。</h2><p class="hint">乔木净评由向阳乔木开发，源码公开。你的反馈，让它更好用。</p>
+    <h2>把注意力，留给值得读的内容。</h2><p class="hint">乔木 X 助手由向阳乔木开发，源码公开。你的反馈，让它更好用。</p>
     <div class="support-links"><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot/issues/new" target="_blank" rel="noopener noreferrer"><span data-icon="MessageSquare"></span>反馈问题<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot" target="_blank" rel="noopener noreferrer"><span data-icon="CodeXml"></span>查看源码<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-ban-bot/releases" target="_blank" rel="noopener noreferrer"><span data-icon="History"></span>更新记录<span data-icon="ArrowUpRight"></span></a></div>
     <div class="about-qrs"><figure><img src="assets/about/wechat-public-account.jpg" width="148" height="148" loading="lazy" alt="向阳乔木推荐看公众号二维码"><figcaption><b>关注公众号</b><span>微信搜索「向阳乔木推荐看」</span></figcaption></figure><figure><img src="assets/about/reward.png" width="148" height="148" loading="lazy" alt="向阳乔木打赏二维码"><figcaption><b>请我喝杯咖啡</b><span>自愿支持，感谢你的心意</span></figcaption></figure></div>
     <div class="about-links"><a href="https://qiaomu.ai/" target="_blank" rel="noopener noreferrer">乔木主页</a><a href="https://blog.qiaomu.ai/" target="_blank" rel="noopener noreferrer">博客</a><a href="https://x.com/vista8" target="_blank" rel="noopener noreferrer">X @vista8</a></div>

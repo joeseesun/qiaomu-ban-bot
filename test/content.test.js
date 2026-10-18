@@ -172,3 +172,20 @@ test('expanding a long reply keeps its start in place and identifies the opened 
     [...host.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='收起').click();await pause(60);assert.equal(a.getBoundingClientRect().top,300);
   }finally{env.close();}
 });
+
+test('reply annotation controls align with the native body column, before the probability',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avatar">avatar</div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条真人回复</div><div role="group"><button>原生回复</button></div></div></div></div></article>';
+  const env=mount(html,async()=>result(.1));try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.annotation'));
+    const host=d.querySelector('.qb-host');assert.equal(host.parentElement,d.querySelector('.body-column'));assert.equal(host.shadowRoot.querySelector('.toolbar').firstElementChild.className,'annotation');
+    assert.equal(d.querySelector('article').children.length,1);assert.equal(d.querySelector('.body-column>[role=group] button').textContent,'原生回复');
+  }finally{env.close();}
+});
+test('hot badge follows timestamp, opens details, and removes cleanly when radar is disabled',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a></div><div data-testid="tweetText">A main post</div></div></article>';
+  const env=mount(html,async()=>({model:'fixture',analyzedAt:Date.now(),scores:{hot:.02,discussion:.1},hot:{status:'forecast',velocity:138}}));
+  try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-hot-host'));const badge=d.querySelector('.qb-hot-host'),b=badge.shadowRoot.querySelector('button'),bar=d.querySelector('.qb-host').shadowRoot.querySelector('.bar');
+    assert.equal(badge.previousElementSibling.tagName,'A');assert.equal(b.title,'爆款概率');assert.equal(b.textContent,'2%');assert.equal(bar.hidden,true);
+    b.click();assert.equal(bar.hidden,false);assert.equal(b.getAttribute('aria-expanded'),'true');assert.ok(bar.textContent.includes('我感觉能爆'));assert.ok(bar.textContent.includes('重新预测'));assert.ok(!bar.textContent.includes('更新判断'));
+    env.settings.radar=false;env.refresh();await until(()=>!d.querySelector('.qb-hot-host'));assert.equal(d.querySelector('[data-testid=User-Name] a').textContent,'Alice');
+  }finally{env.close();}
+});

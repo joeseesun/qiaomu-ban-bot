@@ -1,6 +1,7 @@
 import { DEFAULTS, decide, duplicateKey } from './core.js';
 import { ARTICLE, extractArticle } from './dom.js';
 import { CSS, icons, icon } from './content-ui.js';
+import { currentOwner } from './composer.js';
 const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
 let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() };
@@ -47,10 +48,16 @@ function hostFor(article) {
   // otherwise the toolbar competes with the avatar/text for horizontal space.
   const native = [...article.children].find(n => n !== host);
   if (!native) return null;
-  if (host.parentElement !== native) native.append(host);
+  // Replies have a native body column to the right of the avatar. Mount there
+  // so the annotation row aligns with the text at every avatar/viewport size.
+  const text=[...article.querySelectorAll('[data-testid="tweetText"]')].find(n=>n.closest(ARTICLE)===article&&!n.closest('[data-testid="quoteTweet"],div[role="link"][tabindex="0"]'));
+  let column=text?.parentElement;
+  while(column&&column!==native&&!column.querySelector('[role="group"]'))column=column.parentElement;
+  if(!column||!native.contains(column))column=native;
+  if (host.parentElement !== column) column.append(host);
   return host;
 }
-function resetArticle(article) { restore(article); states.get(article)?.host?.remove(); states.delete(article); }
+function resetArticle(article) { restore(article); states.get(article)?.hotHost?.remove(); states.get(article)?.host?.remove(); states.delete(article); }
 function detailLine(text) { return el('p', text, 'muted'); }
 // Anchor the visible toolbar, not the document's absolute scroll offset: a
 // folded reply changes height. Never scroll for an off-screen label update.
@@ -114,6 +121,7 @@ async function openXBlock(article, item) {
 function render(article, state) {
   if (!article.isConnected || states.get(article) !== state) return;
   const { item, result } = state;
+  state.hotHost?.remove(); state.hotHost=null;
   const isLocal = settings.blocklist.includes(item.handle) && !settings.allowlist.includes(item.handle);
   restore(article);
   if (!settings.enabled || (!isLocal && (item.kind === 'unknown' || (item.kind === 'post' && !settings.radar)))) { state.host?.remove(); return; }
@@ -134,21 +142,48 @@ function render(article, state) {
     toolbar.append(el('span', state.error, 'label muted'));
     toolbar.append(button('重试', () => { state.error = ''; state.started = false; return processArticle(article, state, true); })); return;
   }
-  if (!configured && !isLocal) { toolbar.append(el('span', '乔木净评 · 连接 Jev 后自动判断', 'label muted'), button('连接模型', () => send({ type: 'options' }))); return; }
+  if (!configured && !isLocal) { toolbar.append(el('span', '乔木 X 助手 · 连接 Jev 后自动判断', 'label muted'), button('连接模型', () => send({ type: 'options' }))); return; }
   if (item.kind === 'post' && !isLocal) {
     if (!settings.radar) return;
     if (!result) { toolbar.append(el('span', state.started ? '正在判断热帖潜力…' : '乔木热帖雷达', 'label muted'), button('判断热帖潜力', () => processArticle(article, state, true))); return; }
     const hot = result.hot;
-    if (hot?.status !== 'forecast') { toolbar.append(el('span', hot?.label || '暂不预测', 'label muted'), button('更新判断', () => processArticle(article, state, true))); return; }
+    if (hot?.status !== 'forecast') { toolbar.append(el('span', hot?.label || '暂不预测', 'label muted'), button('重新预测', () => processArticle(article, state, true))); return; }
     if (!result.scores) return;
-    toolbar.append(el('span', `热帖概率 ${Math.round(result.scores.hot * 100)}%`, 'label prob'));
-    toolbar.append(el('span', `${Math.round(hot.velocity).toLocaleString()} 浏览/小时`, 'muted'));
-    const details = disclosure(bar, toolbar, '热帖判断详情');
+    const percentage=Math.round(result.scores.hot*100);
+    toolbar.append(el('span', `爆款概率 ${percentage}%`, 'label prob'));
+    const details = disclosure(bar, toolbar, '爆款预测详情');
     details.append(el('p','模型估计 · 未校准','section-title'));
     details.append(detailLine(`目标：发布 24 小时内达到 ${settings.hotViews.toLocaleString()} 浏览。依据当前可见文字、发布时间和互动量估计；缺少粉丝基线、推荐曝光和完整传播轨迹。`));
-    details.append(detailLine(`模型 ${result.model} · ${new Date(result.analyzedAt).toLocaleTimeString()}${result.cached ? ' · 缓存结果' : ''}`));
-    if (result.scores.discussion >= 0.85) details.append(detailLine('模型认为这条主帖适合展开具体讨论。'));
-    details.append(button('更新判断', () => { state.started = false; return processArticle(article, state, true); }));
+    details.append(detailLine(`${Math.round(hot.velocity).toLocaleString()} 浏览/小时 · ${result.model} · ${new Date(result.analyzedAt).toLocaleTimeString()}${result.cached ? ' · 缓存结果' : ''}`));
+    const actions=el('div',null,'actions');
+    const watch=button(state.watched?'已加入看好追踪':'我感觉能爆',async()=>{
+      const latest=extractArticle(article,location.href,conversation);if(latest?.id!==item.id)throw Error('帖子已变化，请重新操作');
+      await send({type:'forecast-watch',owner:currentOwner(),item:latest,result,target:settings.hotViews});
+      state.watched=true;watch.textContent='已加入看好追踪';watch.setAttribute('aria-pressed','true');
+    },{glyph:icons.Flame});watch.setAttribute('aria-pressed',String(!!state.watched));
+    actions.append(watch,button('查看追踪',()=>send({type:'options',page:'forecasts'}),{glyph:icons.ExternalLink}));details.append(actions);
+    details.append(detailLine('记下你的看好、当前数据和模型概率，3 天后对照实际表现。再次打开原帖时更新数据。'));
+    details.append(button('重新预测', () => { state.started = false; return processArticle(article, state, true); }));
+    const time=[...article.querySelectorAll('time')].find(t=>t.closest('a')?.getAttribute('href')?.match(new RegExp(`/status/${item.id}(?:$|[/?])`))&&t.closest(ARTICLE)===article&&!t.closest('[data-testid="quoteTweet"]'));
+    const anchor=time?.closest('a');
+    // Inline timeline headers have a timestamp. Detail pages keep their native
+    // full date below the post; there the compact footer remains the fallback.
+    if(anchor?.closest('[data-testid="User-Name"]')){
+      const badge=el('span',null,'qb-hot-host');badge.attachShadow({mode:'open'});badge.style.cssText='display:inline-flex;flex:none;align-self:center;margin-left:6px;line-height:1';
+      for(const prop of ['bg','text','strong','button','border'])badge.style.setProperty('--qb-'+prop,host.style.getPropertyValue('--qb-'+prop));
+      const style=el('style');style.textContent=CSS+`:host{font:12px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:${dark?'#a1a1a1':'#65717d'}}.hot-toggle{display:inline-flex;min-height:20px;align-items:center;gap:3px;padding:2px 3px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;cursor:pointer;white-space:nowrap}.hot-toggle:hover{background:#8882}.hot-toggle svg{width:13px;height:13px;flex:none}.forecast-pop{position:fixed;inset:auto;width:min(350px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;margin:0;padding:0;background:var(--qb-button);color:var(--qb-text);border:1px solid var(--qb-border);border-radius:8px;box-shadow:0 8px 30px #0002}.forecast-pop .panel{border:0;margin:0;padding:16px;background:transparent}.forecast-pop .muted{line-height:1.7}`;
+      const hasPopover=typeof bar.showPopover==='function';
+      const setOpen=open=>{state.hotOpen=open;details.hidden=!open;hotButton.setAttribute('aria-expanded',String(open));
+        if(hasPopover){bar.hidden=false;if(open){bar.showPopover();const r=hotButton.getBoundingClientRect(),box=bar.getBoundingClientRect();bar.style.left=Math.max(12,Math.min(r.left,innerWidth-box.width-12))+'px';bar.style.top=Math.max(12,Math.min(r.bottom+8,innerHeight-box.height-12))+'px';}else bar.hidePopover();}else bar.hidden=!open;
+      };
+      const hotButton=button(`${percentage}%`,()=>setOpen(!state.hotOpen),{glyph:icons.Flame,className:'hot-toggle'});
+      hotButton.title='爆款概率';hotButton.setAttribute('aria-label',`爆款概率 ${percentage}%，查看详情`);hotButton.setAttribute('aria-expanded',String(!!state.hotOpen));
+      hotButton.onkeydown=e=>{if(e.key==='Escape'){e.stopPropagation();setOpen(false);}};
+      badge.shadowRoot.append(style,hotButton);badge.addEventListener('click',e=>e.stopPropagation());anchor.after(badge);state.hotHost=badge;
+      toolbar.hidden=true;
+      if(hasPopover){bar.classList.add('forecast-pop');bar.setAttribute('popover','auto');badge.shadowRoot.append(bar);bar.addEventListener('toggle',()=>{if(state.hotHost!==badge)return;state.hotOpen=bar.matches(':popover-open');hotButton.setAttribute('aria-expanded',String(state.hotOpen));});}
+      setOpen(!!state.hotOpen);
+    }
     return;
   }
   let decision = decide(item, result, settings);
@@ -178,7 +213,7 @@ function render(article, state) {
       control.title=selected ? `已${name}，再次点击撤销` : name;
       choices.append(control);
     }
-    toolbar.append(choices);
+    if(collapsed)toolbar.append(choices);else toolbar.prepend(choices);
   }
   toolbar.append(el('span',null,'toolbar-spacer'));
   if (decision.collapse) {
@@ -222,7 +257,7 @@ async function processArticle(article, state, manual = false) {
   const generation = epoch, fingerprint = state.fingerprint, version=state.version;
   try {
     const duplicateOnly = state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !manual;
-    const result = await send({ type: duplicateOnly ? 'local-decision' : 'classify', item: state.item });
+    const result = await send({ type: duplicateOnly ? 'local-decision' : 'classify', item: state.item, force:manual });
     const current = extractArticle(article, location.href, conversation);
     if (generation !== epoch || states.get(article) !== state || state.version!==version || state.fingerprint !== fingerprint || current?.id !== state.item.id || current.text !== state.item.text || current.parent !== state.item.parent) return;
     if(result?.skipped==='changed') { state.started=false; intersection.unobserve(article); intersection.observe(article); return; }
@@ -250,7 +285,7 @@ function scan() {
     if (conversation.replyIds.size > 2000) conversation.replyIds.delete(conversation.replyIds.values().next().value);
     const fingerprint = JSON.stringify([item.id, item.text, item.kind, item.parent]);
     const existing = states.get(article);
-    if (existing?.fingerprint === fingerprint) { existing.item.displayName=item.displayName; if (existing.host && !existing.host.isConnected) render(article, existing); continue; }
+    if (existing?.fingerprint === fingerprint) { existing.item.displayName=item.displayName; if ((existing.host && !existing.host.isConnected)||(existing.hotHost&&!existing.hotHost.isConnected)) render(article, existing); continue; }
     if (existing) { intersection.unobserve(article); resetArticle(article); }
     const key = item.kind === 'reply' ? duplicateKey(item.text) : '';
     const first = key && seenText.get(key);
@@ -270,10 +305,10 @@ async function refresh() {
 const observer = new MutationObserver(records => {
   if (records.some(r => {
     const target=r.target.nodeType===1 ? r.target : r.target.parentElement;
-    if (target?.closest('.qb-host')) return false;
+    if (target?.closest('.qb-host, .qb-hot-host')) return false;
     if (r.type==='characterData') return Boolean(target?.closest('[data-testid="tweetText"], [data-testid="User-Name"]'));
     if (r.type==='attributes') return Boolean(target?.closest(ARTICLE) && (target.matches('a[href*="/status/"]') || target.matches('time')));
-    return [...r.addedNodes,...r.removedNodes].some(n=>!(n instanceof Element && n.matches('.qb-host')));
+    return [...r.addedNodes,...r.removedNodes].some(n=>!(n instanceof Element && n.matches('.qb-host, .qb-hot-host')));
   })) schedule();
 });
 observer.observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['href','datetime'] });

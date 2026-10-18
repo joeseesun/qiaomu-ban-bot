@@ -1,8 +1,12 @@
 import { connectionFields, resolveConnection, sameCredentialTarget, mergeSettings } from './connection.js';
 import { DEFAULTS, PROVIDERS, handleOf } from './core.js';
 import { MemoryAnnotations } from './annotations.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus};
+import { Contacts } from './contacts.js';
+import { initContactsUI } from './ui-contacts.js';
+import { initForecastsUI } from './ui-forecasts.js';
+import { Forecasts } from './forecasts.js';
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
@@ -12,11 +16,25 @@ let snapshot,keyEditing=false,keyVisible=false,keyEpoch=0,labelFilter='all',page
 let authorFilter='ai',authorIndex=0,authorCursors=[null],authorNext=null,authorsEpoch=0;
 const MASK='••••••••••••••••';
 const demoLabels=new MemoryAnnotations();
+const demoContacts=demo?new Contacts(indexedDB,'qiaomu-banbot-demo-contacts'):null;
+const demoForecasts=demo?new Forecasts(indexedDB,'qiaomu-banbot-demo-forecasts'):null;
+const demoForecastsReady=demo?demoForecasts.watch('demo_me',{id:'10001',handle:'demo_author',displayName:'开源观察站',text:'一个开源小工具，能把三个小时的重复工作缩短到几分钟。',createdAt:Date.now()-3600000,metrics:{views:320,likes:8,replies:2}}, {scores:{hot:.32},model:'演示模型'},30000):Promise.resolve();
+const demoContactsReady=demo?Promise.all(Array.from({length:26},(_,n)=>demoContacts.put('demo_me',{handle:'friend_'+(n+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],note:n<2?'一起做开源的朋友':'',pinned:n<2},{at:Date.now()-n*3600000}))):Promise.resolve();
 const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n%25+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
 let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configured:true,stats:{requests:38,cacheHits:126,inputTokens:18420},feedback:[],connection:{model:'jev-1.13.0',verifiedAt:Date.now()},lastModel:'jev-1.13.0',lastError:''};
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
+    if(message.type==='forecast-page'){await demoForecastsReady;return demoForecasts.page(message);}
+    if(message.type==='forecast-remove')return demoForecasts.remove(message.owner,message.id);
+    if(message.type.startsWith('contacts-')){
+      await demoContactsReady;
+      if(message.type==='contacts-state')return demoContacts.state(message.owner);
+      if(message.type==='contacts-page')return demoContacts.page(message);
+      if(message.type==='contacts-save')return demoContacts.put(message.owner,message.contact);
+      if(message.type==='contacts-remove')return demoContacts.remove(message.owner,message.handle);
+      if(message.type==='contacts-configure')return demoContacts.configure(message.owner,message.automatic);
+    }
     if(message.type==='save'){demoState.settings={...demoState.settings,...message.settings};if(message.forgetKey){demoState.configured=false;demoState.connection=null;}}
     if(message.type==='connect'){demoState.settings={...demoState.settings,...message.settings};demoState.configured=true;demoState.connection={model:'演示模型',verifiedAt:Date.now()};}
     if(message.type==='reveal-key')return{apiKey:'demo-key-not-a-real-credential'};
@@ -68,14 +86,24 @@ function fillConnection(settings){
   renderKey();providerDetails();
 }
 async function tab(name){
-  if(!['overview','rules','annotations','accounts','model','about'].includes(name))name='overview';
+  const contactsView=name==='contacts';if(contactsView)name='accounts';
+  if(!['overview','rules','annotations','accounts','model','about','forecasts'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
-  for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===name);n.setAttribute('aria-current',n.dataset.tab===name?'page':'false');}
-  history.replaceState(null,'',`${location.pathname}${location.search}#${name}`);
+  for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===(name==='forecasts'?'overview':name));n.setAttribute('aria-current',n.dataset.tab===(name==='forecasts'?'overview':name)?'page':'false');}
+  history.replaceState(null,'',`${location.pathname}${location.search}#${contactsView?'contacts':name}`);
+  if(name==='forecasts')await forecastsUI.open();
   if(name==='annotations')await loadLabels(true);
-  if(name==='accounts'){snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);}
+  if(name==='accounts'){
+    $('contacts-view').hidden=!contactsView;$('account-statistics').hidden=contactsView;
+    for(const b of document.querySelectorAll('[data-account-view]'))b.setAttribute('aria-pressed',String((b.dataset.accountView==='contacts')===contactsView));
+    if(contactsView)await contactsUI.open();else{snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);}
+  }
 }
+const contactsUI=initContactsUI({send,notice,glyph});
+const forecastsUI=initForecastsUI({send,notice});
+$('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true));
+for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
 function renderAccounts(){
   for(const kind of ['allowlist','blocklist']){
@@ -220,3 +248,4 @@ bind('test-model',async()=>{
   }catch(e){$('test-result').textContent='这次没有收到判断。原设置未改变。';throw e;}
 });
 send({type:'snapshot'}).then(async data=>{snapshot=data;render();await tab(location.hash.slice(1));}).catch(e=>notice(e.message,true));
+window.addEventListener('hashchange',()=>{if(snapshot)void tab(location.hash.slice(1)).catch(e=>notice(e.message,true));});
