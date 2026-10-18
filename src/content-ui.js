@@ -11,6 +11,8 @@ export const CSS = `
 [hidden] { display:none !important; }
 .bar { padding:4px 0; }
 .bar.folded { margin:8px 0; padding:8px 10px; background:var(--qb-bg,#fafafa); border:1px solid var(--qb-border,#eaeaea); border-radius:6px; }
+.bar.expanded { margin:0 0 12px; padding:8px 0; border-bottom:1px solid var(--qb-border,#eaeaea); }
+.expanded .status { color:var(--qb-strong,#171717); font-weight:500; }
 .toolbar { display:flex; align-items:center; gap:6px; min-width:0; min-height:28px; }
 .label { flex:1; min-width:0; overflow-wrap:anywhere; }
 .score, .prob { font-variant-numeric:tabular-nums; }

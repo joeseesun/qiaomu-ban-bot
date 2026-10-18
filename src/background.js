@@ -23,6 +23,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
     if (message.type === 'options') { await chrome.runtime.openOptionsPage(); return {}; }
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
+    if(message.type==='authors')return engine.authorPage(message);
     if(message.type==='annotations')return engine.annotationPage(message);
     if(message.type==='reveal-key'){await engine.ready;return {apiKey:engine.data.apiKey};}
     if (message.type === 'remove-example' || message.type==='edit-annotation') {

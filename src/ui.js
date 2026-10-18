@@ -1,17 +1,18 @@
 import { connectionFields, resolveConnection, sameCredentialTarget, mergeSettings } from './connection.js';
 import { DEFAULTS, PROVIDERS, handleOf } from './core.js';
 import { MemoryAnnotations } from './annotations.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History};
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
 if(params.has('popup'))document.body.classList.add('popup');
 for(const node of document.querySelectorAll('[data-icon]'))node.append(glyph(node.dataset.icon));
 let snapshot,keyEditing=false,keyVisible=false,keyEpoch=0,labelFilter='all',pageIndex=0,cursors=[null],nextCursor=null,labelsEpoch=0;
+let authorFilter='ai',authorIndex=0,authorCursors=[null],authorNext=null,authorsEpoch=0;
 const MASK='••••••••••••••••';
 const demoLabels=new MemoryAnnotations();
-const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n+1),kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
+const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n%25+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
 let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configured:true,stats:{requests:38,cacheHits:126,inputTokens:18420},feedback:[],connection:{model:'jev-1.13.0',verifiedAt:Date.now()},lastModel:'jev-1.13.0',lastError:''};
 async function send(message){
   if(demo){
@@ -24,6 +25,7 @@ async function send(message){
       for(const k of ['allowlist','blocklist'])demoState.settings[k]=demoState.settings[k].filter(v=>v!==h);
       if(message.action!=='remove')demoState.settings[message.action==='allow'?'allowlist':'blocklist'].push(h);
     }
+    if(message.type==='authors')return demoLabels.authorPage(message);
     if(message.type==='annotations')return{...await demoLabels.page(message),counts:await demoLabels.stats()};
     if(message.type==='edit-annotation'){
       const entry=await demoLabels.get(message.key);
@@ -72,7 +74,7 @@ async function tab(name){
   for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===name);n.setAttribute('aria-current',n.dataset.tab===name?'page':'false');}
   history.replaceState(null,'',`${location.pathname}${location.search}#${name}`);
   if(name==='annotations')await loadLabels(true);
-  if(name==='accounts'){snapshot=await send({type:'snapshot'});renderAccounts();}
+  if(name==='accounts'){snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);}
 }
 for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
 function renderAccounts(){
@@ -83,7 +85,7 @@ function renderAccounts(){
       const row=document.createElement('div');row.className='account-row';
       const name=document.createElement('span');name.textContent='@'+handle;
       const remove=document.createElement('button');remove.className='quiet';remove.textContent='移除';remove.setAttribute('aria-label',`移除 @${handle}`);
-      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:'remove'});renderAccounts();}catch(e){notice(e.message,true);remove.disabled=false;}};
+      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:'remove'});renderAccounts();await loadAuthors();}catch(e){notice(e.message,true);remove.disabled=false;}};
       row.append(name,remove);container.append(row);
     }
   }
@@ -93,6 +95,38 @@ function renderAccounts(){
   }
   if(!snapshot.feedback?.length)$('feedback').textContent='还没有手动操作。';
 }
+async function loadAuthors(reset=false){
+  if(reset){authorCursors=[null];authorIndex=0;}
+  const generation=++authorsEpoch,list=$('author-list');list.setAttribute('aria-busy','true');$('authors-prev').disabled=$('authors-next').disabled=true;
+  try{
+    const page=await send({type:'authors',label:authorFilter,before:authorCursors[authorIndex]});if(generation!==authorsEpoch)return;
+    authorNext=page.next;list.replaceChildren();
+    if(!page.items.length&&authorIndex>0){authorIndex--;await loadAuthors();return;}
+    if(!page.items.length){const p=document.createElement('p');p.className='empty-state';p.textContent=`还没有${authorFilter==='ai'?' AI':'真人'}标注。你在 X 标注后，对应账号会出现在这里。`;list.append(p);}
+    for(const [index,entry] of page.items.entries()){
+      const row=document.createElement('article');row.className='author-row';row.dataset.handle=entry.handle;
+      const rank=document.createElement('span');rank.className='author-rank';rank.textContent=String(authorIndex*20+index+1).padStart(2,'0');
+      const info=document.createElement('div');info.className='author-info';const name=document.createElement('b');name.textContent=entry.displayName||'@'+entry.handle;
+      const handle=document.createElement('span');handle.className='author-handle';handle.textContent=entry.displayName?'@'+entry.handle:'昵称尚未记录';info.append(name,handle);
+      const counts=document.createElement('div');counts.className='author-counts';
+      for(const [type,title] of [['ai','AI'],['human','真人']]){const count=document.createElement('span');count.className=type===authorFilter?'active':'';count.textContent=`${title} ${entry[type]}`;counts.append(count);}
+      const head=document.createElement('div');head.className='author-head';head.append(rank,info,counts);
+      const actions=document.createElement('div');actions.className='author-actions';
+      for(const [action,title,icon,listKey] of [['block','本机屏蔽','UserRoundMinus','blocklist'],['allow','始终保留','ShieldCheck','allowlist']]){
+        const selected=snapshot.settings[listKey].includes(entry.handle),b=document.createElement('button');b.className='secondary';b.append(glyph(icon),document.createTextNode(selected?title==='本机屏蔽'?'已屏蔽':'已保留':title));b.setAttribute('aria-pressed',String(selected));b.setAttribute('aria-label',`${selected?'取消':''}${title} @${entry.handle}`);
+        b.onclick=async()=>{for(const n of actions.querySelectorAll('button'))n.disabled=true;try{snapshot=await send({type:'list',handle:entry.handle,action:selected?'remove':action});renderAccounts();await loadAuthors();notice(selected?'账号设置已取消。':`${title} @${entry.handle}。`);}catch(e){notice(e.message,true);for(const n of actions.querySelectorAll('button'))n.disabled=false;}};
+        actions.append(b);
+      }
+      const link=document.createElement('a');link.className='author-profile';link.textContent=authorFilter==='human'?'去 X 关注':'主页 / 拉黑';link.append(glyph('ArrowUpRight'));link.title=authorFilter==='human'?'打开主页，在 X 选择关注':'打开主页，在 X 的更多菜单选择拉黑';link.href=`https://x.com/${entry.handle}`;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);
+      row.append(head,actions);list.append(row);
+    }
+    $('authors-page').textContent=`第 ${authorIndex+1} 页 · 每页 20 个`;$('authors-prev').disabled=authorIndex===0;$('authors-next').disabled=!authorNext;
+  }finally{if(generation===authorsEpoch)list.removeAttribute('aria-busy');}
+}
+for(const b of document.querySelectorAll('[data-author-filter]'))b.onclick=async()=>{authorFilter=b.dataset.authorFilter;for(const n of document.querySelectorAll('[data-author-filter]'))n.setAttribute('aria-pressed',String(n===b));try{await loadAuthors(true);}catch(e){notice(e.message,true);}};
+bind('refresh-authors',async()=>{snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);});
+bind('authors-next',async()=>{if(!authorNext)return;authorCursors[++authorIndex]=authorNext;await loadAuthors();});
+bind('authors-prev',async()=>{if(!authorIndex)return;authorIndex--;await loadAuthors();});
 function thresholdCopy(){
   const mode=document.querySelector('input[name="filterMode"]:checked')?.value||'ai',value=$('threshold').value;
   const only=mode==='label';$('threshold').disabled=only;$('threshold-number').disabled=only;
@@ -144,7 +178,7 @@ bind('save-model',async()=>{
 });
 bind('forget-key',async()=>{keyEditing=false;hideKey();await save({},true);notice('密钥已移除。需要时可以重新连接。');});
 bind('clear-history',async()=>{if(!confirm('清空全部标注、手动记录和判断缓存？账号名单、密钥与今日用量会保留。'))return;snapshot=await send({type:'clear'});render();notice('本机记录与缓存已清空。');});
-$('account-form').addEventListener('submit',async event=>{event.preventDefault();const handle=handleOf($('account-handle').value);if(!handle)return notice('请填写有效的 X 用户名，不需要完整链接。',true);try{snapshot=await send({type:'list',handle,action:event.submitter.value});$('account-handle').value='';renderAccounts();notice('账号设置已保存。');}catch(e){notice(e.message,true);}});
+$('account-form').addEventListener('submit',async event=>{event.preventDefault();const handle=handleOf($('account-handle').value);if(!handle)return notice('请填写有效的 X 用户名，不需要完整链接。',true);try{snapshot=await send({type:'list',handle,action:event.submitter.value});$('account-handle').value='';renderAccounts();await loadAuthors();notice('账号设置已保存。');}catch(e){notice(e.message,true);}});
 async function loadLabels(reset=false){
   if(reset){cursors=[null];pageIndex=0;}
   const generation=++labelsEpoch;$('annotation-list').setAttribute('aria-busy','true');$('labels-prev').disabled=$('labels-next').disabled=true;
@@ -157,7 +191,7 @@ async function loadLabels(reset=false){
     if(!page.items.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent=page.counts.total?'这里还没有这类标注。':'在 X 回复下点机器人或真人图标，你的标注就会出现在这里。';list.append(empty);}
     for(const entry of page.items){
       const row=document.createElement('article');row.className='annotation-row';row.dataset.key=entry.key;
-      const head=document.createElement('div');head.className='annotation-head';const author=document.createElement('b');author.textContent='@'+entry.handle;const time=document.createElement('time');time.textContent=new Date(entry.at).toLocaleDateString();head.append(author,time);
+      const head=document.createElement('div');head.className='annotation-head';const author=document.createElement('b');author.textContent=(entry.displayName?entry.displayName+' · ':'')+'@'+entry.handle;const time=document.createElement('time');time.textContent=new Date(entry.at).toLocaleDateString();head.append(author,time);
       const text=document.createElement('p');text.className='annotation-text';text.textContent=entry.text;
       const actions=document.createElement('div');actions.className='annotation-actions';const group=document.createElement('div');group.className='label-choice';group.setAttribute('role','group');group.setAttribute('aria-label','修改标注');
       for(const [label,name,icon] of [['ai','AI','Bot'],['human','真人','UserRoundCheck']]){

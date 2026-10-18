@@ -7,7 +7,7 @@ const doc = html=>new JSDOM(html).window.document;
 test('correct own author, status, metrics; quoted content excluded',()=>{
   const d=doc(tweet('123','<div data-testid="quoteTweet"><a href="/bob/status/999"><time>2h</time></a><div data-testid="tweetText">quoted</div></div>'));
   const item=extractArticle(d.querySelector('article'),'https://x.com/alice/status/123');
-  assert.equal(item.id,'123');assert.equal(item.handle,'alice');assert.equal(item.kind,'post');assert.equal(item.text,'hello');assert.equal(item.metrics.views,12000);
+  assert.equal(item.id,'123');assert.equal(item.handle,'alice');assert.equal(item.displayName,'Alice');assert.equal(item.kind,'post');assert.equal(item.text,'hello');assert.equal(item.metrics.views,12000);
 });
 test('conversation chain identifies the original post and a reply opened as the focal status',()=>{
   const d=doc(`<div data-testid="primaryColumn">${tweet('100')}${tweet('123')}${tweet('124')}<h2>发现更多</h2>${tweet('125')}</div>`);

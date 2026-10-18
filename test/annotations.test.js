@@ -40,3 +40,39 @@ test('older labels remain effective beyond the 40-example prompt pool and surviv
   await reloaded.clearHistory();assert.equal((await archive.stats()).total,0);
   (await archive.ready).close();(await reloaded.annotations.ready).close();
 });
+test('account ranking adjusts on relabel, undo, concurrent writes and deletion',async()=>{
+  const store=new IndexedAnnotations(new IDBFactory(),IDBKeyRange,'authors');await store.migrate();
+  await Promise.all(Array.from({length:25},(_,n)=>store.put({...entry(n),handle:n<23?'alice':'bob',displayName:n<23?'Alice / 艾丽丝':'Bob',label:n===24?'human':'ai'})));
+  let ai=await store.authorPage();assert.equal(ai.items[0].handle,'alice');assert.equal(ai.items[0].ai,23);assert.equal(ai.items[0].displayName,'Alice / 艾丽丝');
+  await store.put({...entry(0),handle:'alice',displayName:'Alice 新昵称',at:9999,label:'human'});
+  ai=await store.authorPage();assert.equal(ai.items[0].ai,22);assert.equal(ai.items[0].human,1);assert.equal(ai.items[0].displayName,'Alice 新昵称');
+  await store.remove(entry(0).key);assert.equal((await store.authorPage({label:'human'})).items.length,1);
+  await store.remove(entry(23).key);assert.equal((await store.authorPage()).items.length,1);
+  await store.remove(entry(24).key);assert.equal((await store.authorPage({label:'human'})).items.length,0);
+  await store.clear();assert.equal((await store.authorPage()).items.length,0);(await store.ready).close();
+});
+test('version 1 upgrade preserves every annotation and builds stable indexed account pages',async()=>{
+  const factory=new IDBFactory();
+  await new Promise((resolve,reject)=>{const req=factory.open('old',1);req.onupgradeneeded=()=>{
+    const rows=req.result.createObjectStore('annotations',{keyPath:'key'});rows.createIndex('time',['at','key']);rows.createIndex('labelTime',['label','at','key']);rows.createIndex('label','label');
+    const meta=req.result.createObjectStore('meta');meta.put(true,'migrated');meta.put(19,'revision');
+    for(let n=0;n<45;n++)rows.put({...entry(n),handle:'reader_'+n,label:'human'});
+  };req.onsuccess=()=>{req.result.close();resolve();};req.onerror=()=>reject(req.error);});
+  const store=new IndexedAnnotations(factory,IDBKeyRange,'old');await store.migrate([entry(999)]);
+  assert.deepEqual(await store.stats(),{total:45,ai:0,human:45,revision:19});
+  const db=await store.ready,proto=Object.getPrototypeOf(db.transaction('authors').objectStore('authors')),old=proto.getAll;
+  proto.getAll=()=>{throw Error('ranking must not read the full archive');};
+  try{const first=await store.authorPage({label:'human'}),second=await store.authorPage({label:'human',before:first.next}),third=await store.authorPage({label:'human',before:second.next});
+    assert.equal(first.items.length,20);assert.equal(second.items.length,20);assert.equal(third.items.length,5);assert.equal(third.next,null);assert.equal(new Set([...first.items,...second.items,...third.items].map(a=>a.handle)).size,45);
+    assert.equal((await store.authorPage({label:'ai'})).items.length,0);assert.equal(first.items[0].displayName,'');
+  }finally{proto.getAll=old;db.close();}
+});
+
+test('reading an old labelled post fills its name without changing labels, counts or prompt revision',async()=>{
+  const archive=new IndexedAnnotations(new IDBFactory(),IDBKeyRange,'names'),engine=new Engine({get:async()=>({banbot:{apiKey:'fixture'}}),set:async()=>{}},async()=>{throw Error('must not call model');},archive);
+  await engine.learn(entry(1),'human');const before=await archive.stats();
+  const result=await engine.classify({...entry(1),displayName:'现在可见的昵称'});
+  assert.equal(result.annotation,'human');assert.deepEqual(await archive.stats(),before);assert.equal((await engine.authorPage({label:'human'})).items[0].displayName,'现在可见的昵称');
+  await archive.remove((await engine.annotationPage()).items[0].key);
+  await archive.rememberName(entry(1).key,'不能复活');assert.equal((await archive.stats()).total,0);(await archive.ready).close();
+});
