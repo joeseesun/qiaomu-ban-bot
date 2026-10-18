@@ -35,7 +35,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='contacts-reply'&&who==='content'){if(!/^\d{1,25}$/.test(message.replyId||''))throw Error('缺少回复成功凭据');return contacts.put(message.owner,message.contact,{replyId:message.replyId});}
     if(message.type==='contacts-refresh'&&who==='content')return contacts.refresh(message.owner,message.items);
     if(message.type==='contacts-use')return contacts.use(message.owner,message.handle);
-    if(message.type==='bookmarks-capture'&&who==='content'){if(!bookmarkPath(new URL(sender.url).pathname))throw Error('请在 X 的书签页开始收集。');return bookmarks.capture(message.owner,message.items);}
+    if(['bookmarks-status','bookmarks-configure','bookmarks-capture'].includes(message.type)&&who==='content'){
+      if(!bookmarkPath(new URL(sender.url).pathname))throw Error('请打开 X 的书签页。');
+      if(message.type==='bookmarks-status')return bookmarks.status(message.owner);
+      if(message.type==='bookmarks-configure'){const result=await bookmarks.configure(message.owner,message.automatic);await broadcast({type:'bookmarks-preference',owner:message.owner,...result});return result;}
+      return bookmarks.capture(message.owner,message.items);
+    }
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
     if(message.type==='bookmarks-state')return bookmarks.state();
     if(message.type==='bookmarks-page')return bookmarks.page(message);

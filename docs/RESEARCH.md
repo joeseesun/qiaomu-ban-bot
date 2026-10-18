@@ -91,3 +91,8 @@ Hot 右侧可放小号罗盘入口。三态为未标记、感兴趣、不感兴�
 借鉴 [Bookmark X 的 ExportRepository](https://github.com/LucasDitchun/export-bookmarks-x-twitter/blob/main/src/storage/export-repository.ts) 在同一只读事务取一致导出数据的方式。本项目独立实现按账号索引分页、游标生成 Markdown 块；导出直接在受信任的扩展页面访问同源数据库，避免将整库串行化通过后台消息返回。事务边界参照 [IndexedDB 文档](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Basic_Terminology)。未复制来源项目代码或引入其依赖。
 
 实际 X 页面于 2026-10-18 将 /i/bookmarks 跳到 /i/history，书签与喜欢位于不同路径。当前支持 /i/history、/i/bookmarks 及 /i/bookmarks/<数字文件夹 ID>，只提取帖子自身的 removeBookmark 状态，排除引用与未收藏推荐。点击开始后按已加载 DOM 采集，不使用私有 API、后台爬取或自动滚动；正文存在“显示更多”时明确为片段。X 收藏时间未暴露，首次收集时间独立记录。
+
+
+## 0.1.8 书签保存交互
+
+按用户反馈改为进入书签页默认保存，暂停按账号记忆；原先每次主动开始的设计已撤销。进度条采用原生 CSS sticky，在实际 X 标题 / 标签导航下方定位，使用实色背景，不改帖子容器。参考 [MDN position](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position) 对滚动祖先和包含块的说明，实测挂载父级与 107 px 原生顶栏边界；没有套用固定 top 常量。

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
 <body><main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.7</span></header>
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.8</span></header>
   <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
   <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="bookmarks">书签</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -77,15 +77,15 @@
     </div>
   </section>
   <section id="bookmarks" class="panel" hidden>
-    <div class="page-heading"><div><h2>收藏过的，留得住。</h2><p class="hint">本机整理，一份 Markdown 带走。</p></div><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
-    <div class="bookmark-toolbar"><a class="secondary" href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer"><span data-icon="ArrowUpRight"></span>去 X 收集</a><button id="bookmarks-export" class="primary" disabled><span data-icon="Download"></span><span id="bookmarks-export-label">导出 Markdown</span></button></div>
-    <p class="hint bookmark-help">打开 X 书签，点「开始收集」，随浏览保存已加载的帖子。仅保存在此浏览器。</p>
+    <div class="page-heading"><div><h2>已保存的书签</h2><p class="hint">搜索、添加备注，或导出为 Markdown。</p></div><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
+    <div class="bookmark-toolbar"><a class="secondary" href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer"><span data-icon="ArrowUpRight"></span>打开 X 书签</a><button id="bookmarks-export" class="primary" disabled><span data-icon="Download"></span><span id="bookmarks-export-label">导出 Markdown</span></button></div>
+    <p class="hint bookmark-help">打开 X 书签页即可自动保存。向下浏览以保存更多，也可在页面顶部暂停。内容仅保存在此浏览器。</p>
     <label class="field contact-owner-field"><span>我的 X 账号</span><select id="bookmark-owner" aria-label="书签所属账号"></select></label>
     <label class="field"><span class="sr-only">搜索书签</span><input id="bookmark-search" type="search" maxlength="160" placeholder="搜索正文、作者、标签或备注"></label>
-    <div class="bookmark-count" id="bookmarks-count" role="status">本机已收集 0 条</div>
+    <div class="bookmark-count" id="bookmarks-count" role="status">已保存 0 条</div>
     <div id="bookmark-editor" class="contact-editor" hidden><h3>留一点想法，下次更好找。</h3><form id="bookmark-edit-form"><label class="field"><span>备注</span><textarea id="bookmark-note" maxlength="2000" rows="3" placeholder="为什么收藏这条？"></textarea></label><label class="field"><span>标签</span><input id="bookmark-tags" maxlength="400" placeholder="用逗号分隔，例如：开源，产品"></label><div class="button-row"><button id="bookmark-edit-save" class="primary">保存</button><button id="bookmark-edit-cancel" type="button" class="secondary">取消</button></div></form></div>
     <div id="bookmark-list" aria-live="polite"></div><div class="pagination"><button id="bookmarks-prev" class="secondary">上一页</button><span id="bookmarks-page">第 1 页</span><button id="bookmarks-next" class="secondary">下一页</button></div>
-    <p class="hint bookmark-help">数量以本机实际收集为准。长帖可能仅有未展开的片段；X 收藏时间未知，以首次收集时间记录。导出保留原帖与图片链接，视频在原帖查看。</p>
+    <p class="hint bookmark-help">这里只显示已保存的书签，不代表全部收藏。长帖请在 X 展开后保存；记录时间为首次保存时间。导出保留原帖和图片链接，视频请在原帖查看。</p>
   </section>
   <section id="model" class="panel" hidden>
     <h2>连接一次，随时可用。</h2><p class="hint">用你的 Jev 密钥开始。验证成功后会自动保存。</p>
