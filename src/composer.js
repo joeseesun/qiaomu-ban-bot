@@ -24,7 +24,17 @@ export function saveCaret(editor){
   const range=selection.getRangeAt(0);if(!editor.contains(range.commonAncestorContainer))return null;
   return{range:range.cloneRange(),text:editor.textContent};
 }
-export function insertMention(editor,saved,handle){
+function caretOffsets(editor,range){
+  const prefix=editor.ownerDocument.createRange();prefix.selectNodeContents(editor);prefix.setEnd(range.startContainer,range.startOffset);const start=prefix.toString().length;
+  prefix.setEnd(range.endContainer,range.endOffset);return[start,prefix.toString().length];
+}
+function rangeAtOffsets(editor,start,end){
+  const doc=editor.ownerDocument,range=doc.createRange(),walker=doc.createTreeWalker(editor,4);let n,at=0,first=null,last=null;
+  while((n=walker.nextNode())){const size=n.textContent.length;if(!first&&start<=at+size)first=[n,start-at];if(end<=at+size){last=[n,end-at];break;}at+=size;}
+  if(first&&last){range.setStart(...first);range.setEnd(...last);}else if(start===0&&end===0){range.selectNodeContents(editor.querySelector('[data-block="true"]')||editor);range.collapse(false);}else throw Error('无法恢复插入位置，请重新选择。');
+  return range;
+}
+export async function insertMention(editor,saved,handle,displayName=''){
   handle=contactHandle(handle);
   if(!handle||!editor.isConnected||!saved||editor.textContent!==saved.text||!editor.contains(saved.range.commonAncestorContainer))throw Error('正文或光标已变化。请点回插入位置，再打开常用 @。');
   const doc=editor.ownerDocument,selection=doc.getSelection(),range=saved.range.cloneRange();range.collapse(false);
@@ -37,10 +47,43 @@ export function insertMention(editor,saved,handle){
   }
   const suffix=doc.createRange();suffix.selectNodeContents(block);suffix.setStart(range.endContainer,range.endOffset);
   const nextIsSpace=/^\s/.test(suffix.toString());
-  editor.focus({preventScroll:true});selection.removeAllRanges();selection.addRange(range);
-  // Native edit path keeps React/Draft.js and the browser's undo history in sync.
-  const value=(partial||!text||/\s$/.test(text)?'':' ')+`@${handle}`+(nextIsSpace?'':' ');
-  if(!doc.execCommand('insertText',false,value))throw Error('X 暂不支持插入。请在联系人页复制 @账号后粘贴。');
+  const [start,end]=caretOffsets(editor,range);
+  editor.focus({preventScroll:true});
+  // Draft ignores selection updates while its focus state is still committing.
+  await new Promise(resolve=>doc.defaultView.setTimeout(resolve,0));
+  if(!editor.isConnected||editor.textContent!==saved.text||doc.activeElement!==editor)throw Error('正文或光标已变化。请点回插入位置，再打开常用 @。');
+  // Focus can replace decorated spans while leaving the text unchanged.
+  selection.removeAllRanges();selection.addRange(rangeAtOffsets(editor,start,end));
+  // Let Draft's focus / selection handlers commit before replacing decorated @ spans.
+  // React's onSelect also listens to keyup on the focused editor. A neutral
+  // Shift release syncs the controlled selection without typing or moving it.
+  editor.dispatchEvent(new doc.defaultView.KeyboardEvent('keyup',{key:'Shift',bubbles:true}));
+  await new Promise(resolve=>doc.defaultView.setTimeout(resolve,0));
+  const current=selection.rangeCount?selection.getRangeAt(0):null;
+  if(!editor.isConnected||editor.textContent!==saved.text||doc.activeElement!==editor||!current||!editor.contains(current.commonAncestorContainer))throw Error('正文或光标已变化。请点回插入位置，再打开常用 @。');
+  const [actualStart,actualEnd]=caretOffsets(editor,current);if(actualStart!==start||actualEnd!==end)throw Error('插入位置已变化，请重新选择。');
+  const name=typeof displayName==='string'?Array.from(displayName.replace(/\s+/g,' ').replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g,'').trim()).slice(0,80).join(''):'';
+  // A display name is plain text, not another account mention or private note.
+  const readable=name&&name.replace(/^@/,'').toLowerCase()!==handle?name.replace(/@/g,'＠')+' ':'';
+  const value=(partial||!text||/\s$/.test(text)?'':' ')+readable+`@${handle}`+(nextIsSpace?'':' ');
+  // X's paste handler updates Draft's controlled state and undo history together.
+  // execCommand alone can corrupt text around decorated @ spans. This event owns
+  // its plain-text data; it never reads or writes the user's system clipboard.
+  const view=doc.defaultView,expected=saved.text.slice(0,start)+value+saved.text.slice(end);
+  let handled=false;
+  if(view.DataTransfer&&view.ClipboardEvent){
+    const data=new view.DataTransfer();data.setData('text/plain',value);
+    const paste=new view.ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data});
+    editor.dispatchEvent(paste);handled=paste.defaultPrevented;
+    await new Promise(resolve=>view.setTimeout(resolve,0));
+  }
+  // Plain contenteditables have no synthetic-paste default action. Never use this
+  // fallback for Draft, or retry an accepted paste that did not produce the edit.
+  if(!handled&&editor.textContent===saved.text&&!editor.querySelector('[data-contents="true"],[data-editor]')){
+    if(!editor.isConnected||doc.activeElement!==editor)throw Error('插入位置已变化，请重新选择。');
+    doc.execCommand?.('insertText',false,value);
+  }
+  if(editor.textContent!==expected)throw Error('未能完成插入，请检查正文，或在联系人页复制 @账号后粘贴。');
   if(nextIsSpace)selection.modify?.('move','forward','character');
   return value;
 }

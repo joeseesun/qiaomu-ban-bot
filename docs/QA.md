@@ -1,3 +1,26 @@
+# 0.1.6 Preview 原生 @ 按钮与昵称插入
+
+更新：2026-10-18。以下为本次验证，下方保留历史证据。
+
+## 已验证
+
+- `npm run package`：83 项自动测试通过，Chrome MV3 0.1.6 构建与 ZIP 生成成功。新增回归覆盖原生工具行挂载、颜色 / 尺寸跟随、昵称插入、聚焦时节点重建、只发送纯文本的粘贴事件、不安全回退拒绝和异步期间正文变更。
+- 真实 X 生产内容脚本：在任务自己的标签页使用内存联系人替身。按钮与相邻 GIF 按钮均为 36 px，图标均为 23.25 px，颜色均为 `rgb(130, 154, 171)`；@ 在原生 tablist 工具行内，非独立的工具栏子项。已查看实际截图与悬停态。
+- 空草稿点击联系人得到 `林一 @demo_friend `，X 保留 @ 高亮且发送按钮可用，一次 Cmd+Z 恢复空白。
+- 真实 X 中间补全：`请教 @dem 后文` → `请教 林一 @demo_friend 后文`，一次 Cmd+Z 精确恢复原文。旧 execCommand 路径在真实装饰过的 @ 节点中会错改前文，已改走 X 自己的纯文本粘贴处理；不访问系统剪贴板。
+- 浏览器模拟页：搜索联系人后 Enter 插入「昵称 @账号」，另一份草稿不变；私人备注不进入正文，撤销恢复原文。昵称缺失或等于账号时的简化、昵称内 @ 避免形成额外提及由自动测试覆盖。
+- 360 px 深色模拟页：@ 与原生工具图标均为 `rgb(29, 155, 240)`；弹层范围 x=18 至 348 px，宽 330 px；页面 scrollWidth=360。实际截图已查看，无横向溢出。
+
+## 验证边界
+
+没有发送真实帖子 / 回复，未写入用户的扩展联系人存储，测试草稿已恢复空白。本轮未调用 Jev，也未重复历史的全部模型与设置测试。完整安装到用户 Chrome、后台休眠、真实回复发送成功后的自动记录及所有 X 编辑器变体仍需实际使用验证；本次真实 X 验证的是生产内容脚本，后台消息为替身。
+
+技术依据：[Draft editOnSelect](https://github.com/facebookarchive/draft-js/blob/main/src/component/handlers/edit/editOnSelect.js)、[Draft editOnPaste](https://github.com/facebookarchive/draft-js/blob/main/src/component/handlers/edit/editOnPaste.js) 与 [React SelectEventPlugin](https://github.com/facebook/react/blob/main/packages/react-dom-bindings/src/events/plugins/SelectEventPlugin.js)。生产代码使用公开 DOM 事件，不依赖 React 内部属性。
+
+升级沿用原扩展目录，在扩展管理页重新加载，再刷新 X；无需删除现存密钥、标注或联系人。
+
+---
+
 # 0.1.5 Preview 常用 @、看好追踪与版式
 
 更新：2026-10-18。当前版本更名为“乔木 X 助手”，仓库及旧存储保持兼容。
