@@ -45,3 +45,40 @@ test('concurrent list edits preserve every author and partial preferences preser
   await engine.updateSettings({enabled:false});
   assert.deepEqual((await engine.snapshot()).settings.allowlist,['alice','bob','carol']);
 });
+test('one click validates a real model response before saving the candidate credentials',async()=>{
+  let calls=0;const {engine,saved}=setup(async(i,s,key)=>{calls++;assert.equal(key,'candidate');assert.ok(i.text);assert.equal(saved().banbot.apiKey,'fixture');return result();});
+  const snapshot=await engine.connect({provider:'magpie'},'candidate');
+  assert.equal(calls,1);assert.equal(snapshot.configured,true);assert.ok(snapshot.connection.verifiedAt);assert.equal(saved().banbot.apiKey,'candidate');
+  assert.equal(JSON.stringify(snapshot).includes('candidate'),false);
+});
+test('failed connection validation preserves the previous working setup',async()=>{
+  const {engine,saved}=setup(async()=>{throw new Error('unauthorized');});
+  await assert.rejects(engine.connect({provider:'typesafe'},'wrong'),/unauthorized/);
+  assert.equal(saved().banbot.apiKey,'fixture');assert.equal((await engine.snapshot()).settings.provider,'magpie');
+});
+test('user labels affect later requests, invalidate cached decisions, and can be removed',async()=>{
+  const requests=[];const {engine}=setup(async(i,s)=>{requests.push(structuredClone(s));return result();});
+  await engine.classify(item(2));
+  await engine.learn(item(1),'ai');
+  assert.equal((await engine.classify(item(1))).override,'hide');
+  await engine.classify(item(2));assert.equal(requests.length,2);assert.equal(requests[1].examples[0].label,'ai');
+  const snapshot=await engine.snapshot(true);assert.equal(snapshot.learning.length,1);
+  assert.equal((await engine.snapshot()).learning,undefined);
+  await engine.removeExample(snapshot.learning[0].key);assert.equal((await engine.snapshot(true)).learning.length,0);
+  assert.equal((await engine.localDecision(item(1))).override,undefined);
+});
+test('negative labels retain short replies and bound the personalization examples',async()=>{
+  let examples;const {engine}=setup(async(i,s)=>{examples=s.examples;return result();});
+  for(let n=0;n<45;n++)await engine.learn({...item(n),text:'谢谢，已解决。'},n%2?'ai':'human');
+  assert.equal((await engine.classify({...item(44),text:'谢谢，已解决。'})).override,'keep');
+  await engine.classify(item(100));assert.ok(examples.length<=6);assert.ok((await engine.snapshot(true)).learning.length<=40);
+});
+test('clear history ordered after a label removes examples and overrides together',async()=>{
+  const {engine}=setup(async()=>result());await Promise.all([engine.learn(item(1),'ai'),engine.clearHistory()]);
+  assert.equal((await engine.snapshot(true)).learning.length,0);assert.deepEqual(await engine.localDecision(item(1)),{});
+});
+test('explicit human labels survive provider and semantic-rule changes',async()=>{
+  const {engine}=setup(async()=>result());await engine.learn(item(1),'human');
+  await engine.updateSettings({provider:'typesafe',customRule:'hide unrelated ads'});
+  assert.equal((await engine.classify(item(1))).override,'keep');
+});

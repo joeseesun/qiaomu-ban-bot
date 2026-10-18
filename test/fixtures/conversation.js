@@ -1,4 +1,5 @@
 import { DEFAULTS } from '../../src/core.js';
+import { Engine } from '../../src/engine.js';
 history.replaceState(null,'','/demo/status/100');
 let settings={...DEFAULTS},listeners=[];
 window.qa={calls:[],blocks:0,feedback:[],notify:()=>listeners.forEach(fn=>fn({type:'refresh'}))};
@@ -12,23 +13,27 @@ function article(id,handle){
 }
 for(const [id,h] of [[100,'builder'],[101,'botdemo'],[102,'tester'],[103,'copycat'],[104,'reader']])document.getElementById('timeline').append(article(id,h));
 const h2=document.createElement('h2');h2.textContent='发现更多';document.getElementById('timeline').append(h2,article(105,'suggested'));
+let saved={banbot:{settings,apiKey:'fixture-only'}};
+const engine=new Engine({get:async()=>saved,set:async value=>{saved=structuredClone(value);}},async(item,config)=>{
+  window.qa.calls.push({id:item.id,kind:item.kind,examples:config.examples?.length||0});
+  return {model:'fixture-only',analyzedAt:Date.now(),inputTokens:10,scores:item.kind==='post'?{hot:.68,discussion:.91}:{ai_written:item.id==='101'?.94:.15,low_value:item.id==='101'?.92:.12,useful:item.id==='102'?.96:.1,spam:.02}};
+});
+window.qa.engine=engine;
 window.chrome={runtime:{onMessage:{addListener:fn=>listeners.push(fn)},sendMessage:async m=>{
-  if(m.type==='snapshot')return {ok:true,data:{settings,configured:true}};
-  if(m.type==='classify'){
-    window.qa.calls.push(m.item.id);await new Promise(r=>setTimeout(r,60));
-    if(m.item.kind==='post')return {ok:true,data:{model:'fixture-only',analyzedAt:Date.now(),hot:{status:'forecast',velocity:3200},scores:{hot:.68,discussion:.91}}};
-    return {ok:true,data:{model:'fixture-only',scores:{ai_written:m.item.id==='101'?.94:.15,low_value:m.item.id==='101'?.92:.12,useful:m.item.id==='102'?.96:.1,spam:.02}}};
-  }
-  if(m.type==='list'){
-    for(const k of ['allowlist','blocklist'])settings[k]=settings[k].filter(h=>h!==m.handle);
-    if(m.action!=='remove')settings[m.action==='allow'?'allowlist':'blocklist'].push(m.handle);
-    window.qa.notify();return {ok:true,data:{settings}};
-  }
-  if(m.type==='feedback'){window.qa.feedback.push(m);settings.allowlist.push(m.item.handle);window.qa.notify();return {ok:true,data:{}};}
-  return {ok:true,data:{}};
+  try{
+    let data={};
+    if(m.type==='snapshot')data=await engine.snapshot();
+    if(m.type==='classify')data=await engine.classify(m.item);
+    if(m.type==='local-decision')data=await engine.localDecision(m.item);
+    if(m.type==='list')data=await engine.listAction(m.handle,m.action);
+    if(m.type==='feedback')data=await engine.feedback(m.item,m.label);
+    if(m.type==='learn')data=await engine.learn(m.item,m.label);
+    if(['list','feedback','learn'].includes(m.type))window.qa.notify();
+    return{ok:true,data};
+  }catch(error){return{ok:false,error:error.message};}
 }}};
 document.getElementById('toggle-dark').onclick=()=>{document.body.classList.toggle('dark');window.qa.notify();};
-document.getElementById('toggle-enabled').onclick=()=>{settings.enabled=!settings.enabled;document.getElementById('toggle-enabled').textContent=settings.enabled?'暂停自动判断':'继续自动判断';window.qa.notify();};
+document.getElementById('toggle-enabled').onclick=async()=>{const enabled=!(await engine.snapshot()).settings.enabled;await engine.updateSettings({enabled});document.getElementById('toggle-enabled').textContent=enabled?'暂停自动判断':'继续自动判断';window.qa.notify();};
 document.getElementById('recycle').onclick=()=>{const a=document.querySelector('[data-fixture-id="101"]');a.querySelector('a').href='/human/status/200';a.querySelector('[data-testid=tweetText]').textContent='我实际运行了一遍，刷新后缓存仍然有效。';};
 document.getElementById('confirm-block').onclick=()=>{window.qa.blocks++;document.getElementById('confirmation').classList.remove('open');};
 document.getElementById('cancel-block').onclick=()=>document.getElementById('confirmation').classList.remove('open');

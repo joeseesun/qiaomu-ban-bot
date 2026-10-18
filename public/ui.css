@@ -89,6 +89,10 @@ footer{display:flex;gap:12px;justify-content:space-between;border-top:1px solid 
 #test-result{margin-top:16px;padding:12px;background:var(--soft);border-radius:6px;font-size:13px}
 .score-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0}
 [hidden]{display:none!important}
+.reply-test>summary{cursor:pointer;font-size:14px;padding:4px 0}
+.learning-list{max-height:420px;overflow:auto;font-size:13px;color:var(--muted)}
+.learning-list .account-row{border:0;padding:0}
+.learning-list p{white-space:pre-wrap}
 @media(min-width:700px){body:not(.popup) #app{padding:40px}
 body:not(.popup) header{padding-bottom:28px}
 body:not(.popup) .stats{padding:25px 0}
