@@ -1,12 +1,15 @@
 # Chrome 应用商店提交记录
 
-更新：2026-10-19（Asia/Shanghai）。
+更新：2026-10-19 00:28（Asia/Shanghai）。
 
 - 名称：乔木 X 助手 · Qiaomu X Helper
 - 版本：0.1.10
 - 仓库：https://github.com/joeseesun/qiaomu-x-helper
 - 商店条目：`npbekbjlplpiopckedfiggpdkgaaflll`
-- 状态：已上传，商品介绍、4 张截图、小型宣传图、隐私披露及审核说明已保存；尚未提交审核。
+- 状态：已成功提交，开发者后台回读「待审核」「该草稿尚待审核」。通过审核后自动发布；尚未上架。
+- 提交时间：2026-10-19 00:27（Asia/Shanghai）。免费、公开、所有可选分发地区。
+- 发布基线：PR #12 合并提交 `ad05f5823f3e6465b5eb72eeab3116b0fb3ae94e`。
+- GitHub：[v0.1.10 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.10)。主分支 CI [39145041511](https://github.com/joeseesun/qiaomu-x-helper/actions/runs/39145041511) 通过；CI 与已上传本机包的 22 个 ZIP 条目逐项相同。
 - 包：`artifacts/qiaomu-x-helper-0.1.10-chrome.zip`
 - SHA-256：`897d3f866637eb1adee13b0386170a6fcc3055129ecc832c8c7bea43d229d520`
 

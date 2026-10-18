@@ -7,7 +7,7 @@
 - `npm run package`：99 项测试通过，0 失败 / 跳过，Chrome MV3 0.1.10 构建与 ZIP 完成。manifest、设置页、package 与锁文件版本一致；打包文件名和 CI 上传路径同步为 `qiaomu-x-helper`。
 - 改名仅影响品牌、链接及包名，未改动运行逻辑、权限、存储键或 IndexedDB 名称。原 GitHub 地址重定向到新仓库。
 - 浏览器中查看 0.1.10 设置页（常用 @、书签、追踪）和生产内容脚本会话夹具。商店素材为 4 张 1280 × 800 RGB PNG、1 张 440 × 280 RGB PNG；均已查看渲染，明确标注示例数据。没有使用真实用户浏览数据。
-- 上传到 Chrome 商店的新条目 ID 为 `npbekbjlplpiopckedfiggpdkgaaflll`。提交与审核状态见 [商店记录](store/SUBMISSION.md)。
+- 上传到 Chrome 商店的新条目 ID 为 `npbekbjlplpiopckedfiggpdkgaaflll`。已完成提审，后台回读「待审核」；通过后自动发布。提交与审核状态见 [商店记录](store/SUBMISSION.md)。
 
 ## 验证边界
 
