@@ -4,7 +4,7 @@
 
 **[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.10)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
 
-当前版本 **0.1.10 Preview**，正在准备 Chrome 应用商店提交。本版统一英文品牌与仓库名，沿用原存储标识。默认反馈联系人、书签与编辑器的验收边界见[测试记录](docs/QA.md)，商店提交不代表审核通过。
+当前版本 **0.1.10 Preview**，已于 2026-10-19 提交 Chrome 应用商店，当前待审核，通过后自动发布。本版统一英文品牌与仓库名，沿用原存储标识。默认反馈联系人、书签与编辑器的验收边界见[测试记录](docs/QA.md)，商店提交不代表审核通过。
 
 ## 界面
 
