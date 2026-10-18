@@ -1,4 +1,4 @@
-# Qiaomu Banbot
+# Qiaomu X Helper
 
 - Read qiaomu-dev-skill and references/ui.md, native-helper.md, hunt.md, ship.md before extension/release work.
 - If available, use personal skills from ~/Nutstore Files/.agents/skills; these are optional local maintainer tools, not build dependencies.

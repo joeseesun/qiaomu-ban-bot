@@ -14,7 +14,7 @@ await cp(path.join(root, 'node_modules/pinyin-pro/LICENSE'), path.join(output, '
 await icons(output);
 await Promise.all(['background', 'content', 'mentions', 'bookmark-content', 'ui'].map(name => build({ entryPoints: [path.join(root, `src/${name}.js`)], bundle: true, outfile: path.join(output, `${name}.js`), format: name === 'background' ? 'esm' : 'iife', target: 'chrome120', minify: false, legalComments: 'eof' })));
 const manifest = {
-  manifest_version: 3, name: '乔木 X 助手 · Qiaomu Banbot', version: pkg.version,
+  manifest_version: 3, name: '乔木 X 助手 · Qiaomu X Helper', version: pkg.version,
   description: '用 Jev 整理 X 回复，记录常用 @ 联系人，追踪你看好的帖子，导出本机书签。', minimum_chrome_version: '120',
   permissions: ['storage'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'],
   optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
