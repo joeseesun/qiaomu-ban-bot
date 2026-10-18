@@ -53,3 +53,15 @@ test('DOM collection excludes unsaved posts, quotes and promotions, preserves em
   const a=dom.window.document.querySelector('article'),c=extractBookmark(a);assert.equal(c.id,'123');assert.equal(c.text,'你好🌳\n第二行 例子');assert.equal(c.displayName,'艾丽丝');assert.equal(c.partial,true);assert.equal(c.translated,true);assert.equal(c.images.length,1);assert.equal(c.hasVideo,true);assert.equal(c.hasQuote,true);
   dom.window.document.querySelector('#saved').remove();assert.equal(extractBookmark(a),null,'quoted saved-state is not the parent saved-state');dom.window.close();
 });
+
+test('automatic saving defaults on, persists per-account pause and rejects late captures while paused',async()=>{
+  const factory=new IDBFactory(),store=new Bookmarks(factory);
+  assert.deepEqual(await store.status('me'),{count:0,automatic:true});
+  await store.capture('me',[item()]);await store.configure('me',false);
+  assert.deepEqual(await store.capture('me',[item('2')]),{count:1,added:0,automatic:false});
+  assert.deepEqual(await new Bookmarks(factory).status('me'),{count:1,automatic:false});
+  assert.equal((await store.status('other')).automatic,true);
+  await store.remove('me','1');assert.deepEqual(await store.status('me'),{count:0,automatic:false});
+  await store.configure('me',true);await store.capture('me',[item('2')]);assert.deepEqual(await store.status('me'),{count:1,automatic:true});
+  await assert.rejects(store.configure('me','false'),/请选择/);
+});

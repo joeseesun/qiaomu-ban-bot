@@ -47,12 +47,19 @@ export class Bookmarks{
     const items=[...new Map(inputs.map(v=>{const c=cleanBookmark(v);return[c.id,c];})).values()];
     const db=await this.db,tx=db.transaction(['bookmarks','owners'],'readwrite'),done=finished(tx),s=tx.objectStore('bookmarks'),o=tx.objectStore('owners');
     let added=0;const profile=await request(o.get(owner));
+    if(profile?.automatic===false){await done;return{added:0,count:profile.count||0,automatic:false};}
     for(const c of items){const old=await request(s.get([owner,c.id]));if(!old)added++;
       // A shorter/truncated revisit must not overwrite previously expanded text.
       const content=old&&((!old.partial&&c.partial)||(old.partial===c.partial&&old.text.length>c.text.length))?{...c,text:old.text,partial:old.partial,translated:old.translated,links:[...new Set([...old.links,...c.links])].slice(0,30),images:[...new Set([...old.images,...c.images])].slice(0,8),hasVideo:old.hasVideo||c.hasVideo}:c;
       s.put({...content,displayName:content.displayName||old?.displayName||'',publishedAt:content.publishedAt||old?.publishedAt||null,owner,collectedAt:old?.collectedAt||at,lastSeenAt:at,note:old?.note||'',tags:old?.tags||[]});
     }
-    o.put({owner,count:(profile?.count||0)+added,updatedAt:at});await done;return{added,count:(profile?.count||0)+added};
+    o.put({...profile,owner,count:(profile?.count||0)+added,updatedAt:at});await done;return{added,count:(profile?.count||0)+added,automatic:true};
+  }
+  async status(owner){owner=ownerOf(owner);const db=await this.db,tx=db.transaction('owners'),profile=await request(tx.objectStore('owners').get(owner));return{count:profile?.count||0,automatic:profile?.automatic!==false};}
+  async configure(owner,automatic){
+    owner=ownerOf(owner);if(typeof automatic!=='boolean')throw Error('请选择是否自动保存书签。');
+    const db=await this.db,tx=db.transaction('owners','readwrite'),done=finished(tx),s=tx.objectStore('owners'),profile=await request(s.get(owner));
+    s.put({...profile,owner,count:profile?.count||0,updatedAt:profile?.updatedAt||Date.now(),automatic});await done;return{count:profile?.count||0,automatic};
   }
   async state(){const db=await this.db,tx=db.transaction('owners');const owners=await request(tx.objectStore('owners').getAll());owners.sort((a,b)=>b.updatedAt-a.updatedAt);return{owners};}
   async page({owner,query='',before=null,limit=20}={}){
