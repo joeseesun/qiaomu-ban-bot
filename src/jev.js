@@ -1,8 +1,10 @@
 import { resolveConnection } from './connection.js';
 import { buildRequest, parseResponse } from './core.js';
 export async function analyze(item, settings, apiKey, fetchImpl = fetch) {
+  return analyzeDecision(buildRequest(item, settings),settings,apiKey,fetchImpl);
+}
+export async function analyzeDecision(payload, settings, apiKey, fetchImpl = fetch) {
   if (!apiKey) throw new Error('请先在模型设置中保存 API Key');
-  const payload = buildRequest(item, settings);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
