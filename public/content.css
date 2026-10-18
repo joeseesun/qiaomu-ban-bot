@@ -1,2 +1,2 @@
-article[data-testid="tweet"].qb-collapsed > :not(.qb-host) { display: none !important; }
+article[data-testid="tweet"][data-qb-collapsed] > :not(.qb-host) { display: none !important; }
 article[data-testid="tweet"] .qb-host { display: block; width: 100%; min-width: 0; flex: 0 0 auto; box-sizing: border-box; }

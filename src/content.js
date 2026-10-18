@@ -1,19 +1,40 @@
 import { DEFAULTS, decide, duplicateKey } from './core.js';
 import { ARTICLE, extractArticle } from './dom.js';
-const CSS = `:host{font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:var(--qb-text,#536471);display:block;color-scheme:light dark}.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0}.bar.folded{padding:12px;background:var(--qb-bg,#fafafa);border-radius:6px;border:1px solid var(--qb-border,#eaeaea)}.label{flex:1;min-width:120px}.good{color:inherit;font-weight:600}.muted{font-size:12px;opacity:.8}button,a{font:inherit;font-size:12px;cursor:pointer;border:0;background:transparent;color:inherit;padding:5px 8px;border-radius:5px;text-decoration:none;white-space:nowrap}button:hover,a:hover{background:rgba(127,127,127,.13)}button:active{background:rgba(127,127,127,.22)}button:focus-visible,a:focus-visible{outline:1px solid currentColor;outline-offset:2px}button:disabled{opacity:.5;cursor:wait}details{font-size:12px;min-width:0;margin-left:auto}details[open]{flex-basis:100%;width:100%;margin:0}summary{cursor:pointer;padding:5px 0}p{margin:7px 0}.actions{display:flex;gap:4px;flex-wrap:wrap}.prob{font-variant-numeric:tabular-nums;font-weight:600}.err{color:#b45325}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}`;
+import { CSS, icons, icon } from './content-ui.js';
 const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
 let conversation = { replyIds: new Set(), parents: new Map() };
 const states = new Map(), shown = new Set(), seenText = new Map();
 function el(tag, text, className) { const n = document.createElement(tag); if (text) n.textContent = text; if (className) n.className = className; return n; }
-function button(text, run) {
-  const b = el('button', text); b.type = 'button';
+function button(text, run, { glyph, iconOnly = false, className = '' } = {}) {
+  const b = el('button', iconOnly ? null : text, className); b.type = 'button';
+  if (glyph) b.prepend(icon(glyph));
+  if (iconOnly) { b.classList.add('icon-button'); b.setAttribute('aria-label', text); b.title = text; }
   b.addEventListener('click', async e => {
-    e.preventDefault(); e.stopPropagation(); b.disabled = true;
-    try { await run(); } catch (error) { const p = el('p', error.message, 'err'); b.parentElement?.append(p); } finally { b.disabled = false; }
+    e.preventDefault(); e.stopPropagation();
+    try { const pending = run(); if (pending?.then) { b.disabled = true; await pending; } }
+    catch (error) { const p = el('p', error.message, 'err'); b.parentElement?.append(p); }
+    finally { b.disabled = false; }
   }); return b;
 }
-function restore(article) { article.classList.remove('qb-collapsed'); }
+function disclosure(bar, toolbar, label = '判断与操作') {
+  const panel = el('section', null, 'panel'); panel.id = 'qb-panel'; panel.hidden = true;
+  panel.setAttribute('aria-label', label);
+  const toggle = button(label, () => {
+    panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden));
+  }, { glyph:icons.ChevronDown, iconOnly:true, className:'disclosure' });
+  toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', panel.id);
+  const escape = e => { if (e.key === 'Escape') { e.stopPropagation(); panel.hidden = true; toggle.setAttribute('aria-expanded','false'); toggle.focus(); } };
+  toggle.addEventListener('keydown', escape); panel.addEventListener('keydown', escape);
+  toolbar.append(toggle); bar.append(panel); return panel;
+}
+function actionSection(panel, title) {
+  const section = el('section', null, 'section'), actions = el('div', null, 'actions');
+  section.append(el('h3',title,'section-title'),actions); panel.append(section); return { section, actions };
+}
+// X replaces className on hover. Keep extension state in an attribute it does
+// not own, so native React updates cannot reveal text beside the folded bar.
+function restore(article) { article.removeAttribute('data-qb-collapsed'); }
 function hostFor(article) {
   const state = states.get(article);
   let host = state?.host;
@@ -71,57 +92,76 @@ function render(article, state) {
   const dark = rgb && rgb.reduce((a, b) => a + b, 0) < 350;
   host.style.setProperty('--qb-bg', dark ? '#171717' : '#fafafa');
   host.style.setProperty('--qb-text', dark ? '#a1a1a1' : '#666');
+  host.style.setProperty('--qb-strong', dark ? '#ededed' : '#171717');
+  host.style.setProperty('--qb-button', dark ? '#171717' : '#fff');
   host.style.setProperty('--qb-border', dark ? '#333' : '#eaeaea');
-  const bar = el('div', null, 'bar'); root.append(bar);
+  const bar = el('div', null, 'bar'), toolbar = el('div', null, 'toolbar'); bar.append(toolbar); root.append(bar);
   if (state.error) {
-    bar.append(el('span', state.error, 'label muted'));
-    bar.append(button('重试', () => { state.error = ''; state.started = false; return processArticle(article, state, true); })); return;
+    toolbar.append(el('span', state.error, 'label muted'));
+    toolbar.append(button('重试', () => { state.error = ''; state.started = false; return processArticle(article, state, true); })); return;
   }
-  if (!configured && !isLocal) { bar.append(el('span', '乔木净评 · 连接 Jev 后自动判断', 'label muted'), button('连接模型', () => send({ type: 'options' }))); return; }
+  if (!configured && !isLocal) { toolbar.append(el('span', '乔木净评 · 连接 Jev 后自动判断', 'label muted'), button('连接模型', () => send({ type: 'options' }))); return; }
   if (item.kind === 'post' && !isLocal) {
     if (!settings.radar) return;
-    if (!result) { bar.append(el('span', state.started ? '正在判断热帖潜力…' : '乔木热帖雷达', 'label muted'), button('判断热帖潜力', () => processArticle(article, state, true))); return; }
+    if (!result) { toolbar.append(el('span', state.started ? '正在判断热帖潜力…' : '乔木热帖雷达', 'label muted'), button('判断热帖潜力', () => processArticle(article, state, true))); return; }
     const hot = result.hot;
-    if (hot?.status !== 'forecast') { bar.append(el('span', hot?.label || '暂不预测', 'label muted'), button('更新判断', () => processArticle(article, state, true))); return; }
+    if (hot?.status !== 'forecast') { toolbar.append(el('span', hot?.label || '暂不预测', 'label muted'), button('更新判断', () => processArticle(article, state, true))); return; }
     if (!result.scores) return;
-    bar.append(el('span', `热帖概率 ${Math.round(result.scores.hot * 100)}%`, 'label prob'));
-    bar.append(el('span', `${Math.round(hot.velocity).toLocaleString()} 浏览/小时`, 'muted'));
-    const details = el('details'); details.append(el('summary', '模型估计 · 未校准'));
+    toolbar.append(el('span', `热帖概率 ${Math.round(result.scores.hot * 100)}%`, 'label prob'));
+    toolbar.append(el('span', `${Math.round(hot.velocity).toLocaleString()} 浏览/小时`, 'muted'));
+    const details = disclosure(bar, toolbar, '热帖判断详情');
+    details.append(el('p','模型估计 · 未校准','section-title'));
     details.append(detailLine(`目标：发布 24 小时内达到 ${settings.hotViews.toLocaleString()} 浏览。依据当前可见文字、发布时间和互动量估计；缺少粉丝基线、推荐曝光和完整传播轨迹。`));
     details.append(detailLine(`模型 ${result.model} · ${new Date(result.analyzedAt).toLocaleTimeString()}${result.cached ? ' · 缓存结果' : ''}`));
     if (result.scores.discussion >= 0.85) details.append(detailLine('模型认为这条主帖适合展开具体讨论。'));
     details.append(button('更新判断', () => { state.started = false; return processArticle(article, state, true); }));
-    bar.append(details); return;
+    return;
   }
   let decision = decide(item, result, settings);
   if (result?.override) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '你标记为 AI' : '你标记为非 AI' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
   if (!decision.collapse && !result?.override && state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !settings.allowlist.includes(item.handle)) decision = { collapse: true, label: '与已读回复文字重复' };
   const expanded = shown.has(item.id);
   const collapsed = decision.collapse && !expanded;
-  if (collapsed) { article.append(host); article.classList.add('qb-collapsed'); bar.classList.add('folded'); }
-  const title = (decision.label || (state.started && !result ? '正在判断回复…' : '')) + (decision.label && settings.filterMode==='label' && !result?.override ? ' · 仅标记' : '');
-  if (title) bar.append(el('span', `${title}${collapsed ? ` · @${item.handle}` : ''}`, `label${decision.useful && !decision.collapse ? ' good' : ''}`));
-  if (!collapsed && item.kind === 'reply') bar.append(button('标记 AI', () => annotate(item,'learn','ai')));
-  if (decision.collapse) bar.append(button(collapsed ? '展开' : '收起', () => { collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); }));
-  if (collapsed) bar.append(button('误判，保留', () => send({ type: 'feedback', item, label: 'keep' })));
-  const details = el('details'); details.append(el('summary', '判断与操作'));
+  if (collapsed) { article.append(host); article.setAttribute('data-qb-collapsed', ''); bar.classList.add('folded'); }
+  const hasScore = typeof result?.scores?.ai_written === 'number';
+  const title = result?.override || isLocal || (collapsed && state.duplicate) ? decision.label : hasScore ? `疑似 AI ${Math.round(result.scores.ai_written * 100)}%` : decision.label || (state.started && !result ? '正在判断回复…' : '');
+  const signals = el('div', null, 'signals'), label = el('span', `${title}${collapsed ? ` · @${item.handle}` : ''}`, 'label score');
+  const extra = settings.filterMode === 'label' && hasScore ? '仅标记' : hasScore && decision.label && !decision.useful && !/AI/.test(decision.label) && !state.duplicate ? decision.label : '';
+  if (extra) label.append(el('span', extra, 'status'));
+  signals.append(label);
+  if (decision.useful && !decision.collapse) {
+    const good = el('span', null, 'good'); good.title = '值得一读'; good.setAttribute('role','img'); good.setAttribute('aria-label','值得一读'); good.append(icon(icons.BookOpenCheck)); signals.append(good);
+  }
+  toolbar.append(signals);
+  if (!collapsed && item.kind === 'reply') toolbar.append(button('标记 AI', () => annotate(item,'learn','ai'), { glyph:icons.Bot, iconOnly:true }));
+  if (decision.collapse) toolbar.append(button(collapsed ? '展开' : '收起', () => { collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); }));
+  if (collapsed) toolbar.append(button('误判，保留', () => send({ type: 'feedback', item, label: 'keep' })));
+  const panel = disclosure(bar, toolbar);
   if (result?.scores) {
-    const s = result.scores;
-    details.append(detailLine(`疑似 AI ${Math.round(s.ai_written * 100)}% · 低信息量 ${Math.round(s.low_value * 100)}% · 引流 ${Math.round(s.spam * 100)}%`));
-    details.append(detailLine('这些是模型判断，不能证明作者身份；中文短回复尤其需要复核。'));
-    details.append(detailLine(`${result.model} · ${result.cached ? '本地缓存' : '本次判断'}`));
+    const scores = el('dl', null, 'scores');
+    for (const [key,name] of [['ai_written','疑似 AI'],['low_value','低信息量'],['spam','引流']]) {
+      const cell = el('div'); cell.append(el('dt',name),el('dd',`${Math.round(result.scores[key]*100)}%`)); scores.append(cell);
+    }
+    panel.append(scores);
   }
-  const actions = el('div', null, 'actions');
   if (item.kind === 'reply') {
-    actions.append(button('标记为 AI', () => annotate(item,'learn','ai')));
-    actions.append(button('标记为非 AI', () => annotate(item,'learn','human')));
+    const { section, actions } = actionSection(panel, '纠正判断');
+    const ai = button('标记为 AI', () => annotate(item,'learn','ai'), {glyph:icons.Bot});
+    const human = button('标记为非 AI', () => annotate(item,'learn','human'), {glyph:icons.UserRoundCheck});
+    if (result?.learned) { ai.setAttribute('aria-pressed',String(result.override === 'hide')); human.setAttribute('aria-pressed',String(result.override === 'keep')); }
+    actions.append(ai,human);
+    section.append(el('p','标记会用于后续判断，可在设置中删除。','hint'));
   }
-  actions.append(button('始终保留作者', () => send({ type: 'list', handle: item.handle, action: 'allow' })));
-  actions.append(button(isLocal ? '取消本地屏蔽' : '本地屏蔽作者', () => send({ type: 'list', handle: item.handle, action: isLocal ? 'remove' : 'block' })));
-  actions.append(button('在 X 拉黑…', () => openXBlock(article, item)));
-  if (!collapsed && item.kind === 'reply') actions.append(button('折叠此条', () => annotate(item,'feedback','hide')));
-  if (!result && !state.started && item.kind !== 'unknown') actions.append(button('重新判断', () => processArticle(article, state, true)));
-  details.append(actions, detailLine('AI / 非 AI 标记会作为后续判断样本，可在账号名单中删除。短回复不等于 AI。'), detailLine('本地屏蔽只影响此浏览器；在 X 拉黑需要你完成 X 的确认。')); bar.append(details);
+  const { section, actions } = actionSection(panel, `显示与账号 · @${item.handle}`);
+  if (item.kind === 'reply') actions.append(button(collapsed ? '展开原文' : '折叠此条', () => {
+    if (collapsed) { shown.add(item.id); render(article,state); return; }
+    return annotate(item,'feedback','hide');
+  }, {glyph:collapsed ? icons.Eye : icons.EyeOff}));
+  actions.append(button('始终保留作者', () => send({ type: 'list', handle: item.handle, action: 'allow' }), {glyph:icons.ShieldCheck}));
+  actions.append(button(isLocal ? '取消本地屏蔽' : '本地屏蔽作者', () => send({ type: 'list', handle: item.handle, action: isLocal ? 'remove' : 'block' }), {glyph:icons.UserRoundMinus}));
+  actions.append(button('在 X 拉黑…', () => openXBlock(article, item), {glyph:icons.ExternalLink}));
+  section.append(el('p','本地屏蔽仅影响此浏览器；X 拉黑需再次确认。','hint'));
+  panel.append(el('p', `${result?.model ? `${result.model} · ${result.cached ? '缓存' : '本次判断'} · ` : ''}模型估计不代表作者身份`, 'meta'));
 }
 async function processArticle(article, state, manual = false) {
   if (state.started && !manual) return;

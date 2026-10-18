@@ -9,6 +9,7 @@ await mkdir(output, { recursive: true });
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 await cp(path.join(root, 'public'), output, { recursive: true });
 await cp(path.join(root, 'LICENSE'), path.join(output, 'LICENSE'));
+await cp(path.join(root, 'node_modules/lucide/LICENSE'), path.join(output, 'LICENSE.lucide'));
 await icons(output);
 await Promise.all(['background', 'content', 'ui'].map(name => build({ entryPoints: [path.join(root, `src/${name}.js`)], bundle: true, outfile: path.join(output, `${name}.js`), format: name === 'background' ? 'esm' : 'iife', target: 'chrome120', minify: false, legalComments: 'eof' })));
 const manifest = {
