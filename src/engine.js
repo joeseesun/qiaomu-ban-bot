@@ -1,6 +1,6 @@
-import { mergeSettings, sameCredentialTarget, resolveConnection, connectionIdentity } from './connection.js';
+import { mergeSettings, sameCredentialTarget, resolveConnection, connectionIdentity, connectionFields } from './connection.js';
 import { normalizeSettings, validateItem, cacheKey, annotationKey, hotStatus, handleOf } from './core.js';
-import { analyze } from './jev.js';
+import { analyze, analyzeDecision } from './jev.js';
 import { examplesFor } from './learning.js';
 import { MemoryAnnotations } from './annotations.js';
 
@@ -9,7 +9,8 @@ const emptyStats = () => ({ day: day(), requests: 0, cacheHits: 0, inputTokens: 
 const CACHE_VERSION = 4;
 const connectionSample = { id: '0', handle: 'connection_test', kind: 'reply', text: '我实际测试了三个例子，第二个需要补充上下文才能判断。', parent: '你测试这个方法时发现了什么？', metrics: {} };
 export class Engine {
-  constructor(storage, request = analyze, annotations = new MemoryAnnotations()) {
+  constructor(storage, request = analyze, annotations = new MemoryAnnotations(), decisionRequest = analyzeDecision) {
+    this.decisionRequest=decisionRequest;
     this.annotations=annotations;
     this.storage = storage; this.request = request; this.active = 0; this.queue = []; this.inflight = new Map(); this.revision = 0; this.cooldown = 0; this.writes = Promise.resolve(); this.mutations = Promise.resolve();
     this.ready = this.load();
@@ -224,6 +225,33 @@ export class Engine {
     }).finally(() => this.inflight.delete(key));
     this.inflight.set(key, promise);
     return promise;
+  }
+  async evaluate(state,questions,namespace='workspace') {
+    await this.ready;
+    const settings=structuredClone(this.data.settings),revision=this.revision;
+    const payload={model:connectionFields(settings).model,state,questions};
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([namespace,connectionIdentity(settings),payload])));
+    const key='feature-'+[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const cached=this.data.cache[key];this.resetDay();
+    if(cached?.expires>Date.now()){this.data.stats.cacheHits++;await this.save();return{...cached.result,cached:true};}
+    if(this.inflight.has(key))return this.inflight.get(key);
+    if(this.queue.length>=24)throw Error('待判断内容较多，请稍后重试。');
+    const promise=this.enqueue(async()=>{
+      if(revision!==this.revision)return{skipped:'changed'};
+      this.resetDay();if(Date.now()<this.cooldown)throw Error('模型服务冷却中，稍后重试。');
+      if(!this.data.apiKey)throw Error('请先在「连接」中保存模型密钥。');
+      if(this.data.stats.requests>=settings.dailyLimit)throw Error('已达到今日请求上限，可在连接设置中调整。');
+      const apiKey=this.data.apiKey;this.data.stats.requests++;await this.save();
+      if(revision!==this.revision)return{skipped:'changed'};
+      try{
+        const result=await this.decisionRequest(payload,settings,apiKey);
+        if(revision!==this.revision)return{skipped:'changed'};
+        this.data.stats.inputTokens+=result.inputTokens||0;this.data.lastModel=result.model;this.data.lastError='';
+        this.data.cache[key]={result,expires:Date.now()+900000};
+        this.data.cache=Object.fromEntries(Object.entries(this.data.cache).filter(([,v])=>v.expires>Date.now()).sort((a,b)=>(b[1].result.analyzedAt||0)-(a[1].result.analyzedAt||0)).slice(0,1000));
+        await this.save();return result;
+      }catch(error){if([401,403,429].includes(error.status))this.cooldown=Date.now()+60000;this.data.stats.errors++;this.data.lastError=error.message;await this.save();throw error;}
+    }).finally(()=>this.inflight.delete(key));this.inflight.set(key,promise);return promise;
   }
   enqueue(fn) {
     return new Promise((resolve, reject) => { this.queue.push({ fn, resolve, reject }); this.pump(); });

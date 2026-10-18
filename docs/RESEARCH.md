@@ -96,3 +96,11 @@ Hot 右侧可放小号罗盘入口。三态为未标记、感兴趣、不感兴�
 ## 0.1.8 书签保存交互
 
 按用户反馈改为进入书签页默认保存，暂停按账号记忆；原先每次主动开始的设计已撤销。进度条采用原生 CSS sticky，在实际 X 标题 / 标签导航下方定位，使用实色背景，不改帖子容器。参考 [MDN position](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position) 对滚动祖先和包含块的说明，实测挂载父级与 107 px 原生顶栏边界；没有套用固定 top 常量。
+
+## 0.2.0 工作台落地 · 2026-10-19
+
+[neonwatty/x-search-pro](https://github.com/neonwatty/x-search-pro)（MIT，1e017142355e25282daa5ab16f2de35a14b2bd60）提供条件构建、搜索库与模板的参考。阅读其 query-builder/storage 后独立实现：多词保留为独立条件，直到日期包含所选当天，相对日期在执行时更新，避免保存语句过期。仅打开 X 原生搜索，遵循 [X 高级搜索说明](https://help.x.com/en/using-x/x-advanced-search)，操作符支持由 X 决定。
+
+[foru17/make-x-great-again](https://github.com/foru17/make-x-great-again)（AGPL-3.0，0da0e50f4f11090727c3898d6b23860bb47964de）的 KOL 浮卡仍列为计划，没有可直接复用的值得关注算法。本项目未复制其代码。按用户选择，使用内容 / 独立表达 / 互动三个 Jev 原子问题；有限样本显示覆盖范围，不以粉丝数作为质量依据。
+
+兴趣与待回复、复盘现已实现，取代上文旧版设计状态。记录采用本机 IndexedDB 游标分页，按账号隔离；人工兴趣正反例最多 6 条参与后续请求，删除即失效。收藏、提及与搜索没有后台抓取；人工“已处理”不等于已发出回复。模型 JSON 不会提供它没有生成的解释摘要；界面提供实际样本与维度定义，概率未校准。

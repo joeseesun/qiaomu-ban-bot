@@ -2,9 +2,9 @@
 
 整理回复，记住常聊的人，复盘你看好的帖子，把书签带走。用 TypeSafe Jev 辅助判断，操作与记录都留在你的掌控中。
 
-**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.11)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
+**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.2.0)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
 
-当前版本 **0.1.11 Preview**，已于 2026-10-19 提交 Chrome 应用商店，当前待审核，通过后自动发布。本版默认使用 TypeSafe 官方，已配置用户继续使用原连接。默认反馈联系人、书签与编辑器的验收边界见[测试记录](docs/QA.md)，商店提交不代表审核通过。
+当前版本 **0.2.0 Preview**。默认连接 TypeSafe 官方，已有连接继续保留；新增高级搜索、KOL 样本评分、兴趣反馈、待回复和数据复盘。商店审核状态见[提交记录](docs/store/SUBMISSION.md)，提交不代表审核通过。
 
 ## 界面
 
@@ -42,13 +42,18 @@ Vercel 风格的黑白灰界面：细边框、克制的间距、浅色与深色�
 | 原生编辑器插入 | 工具栏 @ 打开联系人，搜索后按 Enter 将「昵称 @账号」插到光标处，可撤销；不会替你发帖 |
 | 书签导出 | 打开 X 书签页即自动保存已加载书签，进度吸顶，暂停按账号记住；搜索正文 / 作者 / 标签 / 备注，导出全部或搜索结果为 Markdown |
 | 看好追踪 | “我感觉能爆”保存当时模型概率和互动量，3 天后复盘；再次打开原帖时更新数据，没有新数据时显示待复盘 |
+| 高级搜索 | 条件构建、7 个模板、保存 / 编辑 / 置顶 / 分类、JSON 导入导出；打开 X 原生搜索 |
+| 值得关注 | 账号主页主动分析至少 5 条已加载主帖，保留三维度评分、样本与模型记录 |
+| 兴趣助手 | 兴趣 / 避开主题、感兴趣 / 不感兴趣与原因；可撤销，按账号隔离 |
+| 待回复 | 通知页已加载提及与手动加入，评估值得回复、置顶、已处理 / 稍后 / 恢复 |
+| 帖子复盘 | 原始预测、最多 60 个观测点、浏览与互动增长、CSV 导出 |
 | 回复测试台 | 粘贴回复和主帖上下文，查看 Jev 的实际判断 |
 
 只处理当前已加载、进入视口的帖子，不自动翻页。支持中英文回复标记；详情页会区分原帖、回复链与推荐区域；从某条回复的链接进入，也会把它识别为回复。无法确定类型时保留原文，不插入类型选择按钮。
 
 ## 设置与标注
 
-设置分为概览、过滤、标注、账号、书签、连接、关于。过滤页可输入 1–99% 阈值，默认严格高于 50% 才折叠。「标注」按 AI / 真人筛选，每页只读 20 条；升级保留旧版现存样本，以前已被旧 40 条上限淘汰的记录无法恢复。「账号」分为「常用 @」与「标注统计」，每页 20 个。统计随改标、撤销同步更新，旧记录升级后继续计入；缺失的昵称会在再次读到对应帖子时补充。关于页提供公众号、打赏和 GitHub 反馈入口。
+设置分为概览、过滤、标注、账号、书签、工作台、连接、关于。过滤页可输入 1–99% 阈值，默认严格高于 50% 才折叠。「标注」按 AI / 真人筛选，每页只读 20 条；升级保留旧版现存样本，以前已被旧 40 条上限淘汰的记录无法恢复。「账号」分为「常用 @」与「标注统计」，每页 20 个。统计随改标、撤销同步更新，旧记录升级后继续计入；缺失的昵称会在再次读到对应帖子时补充。关于页提供公众号、打赏和 GitHub 反馈入口。
 
 <img src="docs/images/annotations.png" alt="独立标注页面，全部为演示数据" width="360"> <img src="docs/images/about.png" alt="关于页：反馈、更新、公众号和打赏" width="360">
 
@@ -90,11 +95,23 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 
 <img src="docs/images/bookmarks.png" alt="书签页：按账号搜索、添加备注和标签，导出 Markdown；全部为模拟数据" width="480">
 
+## 工作台：搜索、账号与互动
+
+- **高级搜索**：点 X 侧栏「高级搜索」，或打开工作台 → 搜索。填关键词、账号、时间和互动条件，即时预览语句；也可直接编辑 X 语法。7 个模板可改、保存、分类、置顶和导入导出。近七天等相对日期在每次搜索时重新计算；日期结束日包含当天。搜索在 X 原生页打开，结果由 X 决定。
+- **KOL 值得关注**：进入账号主页，浏览至少 5 条该作者的主帖，再点「分析值得关注」。内容质量 45%、独立表达 30%、互动质量 25%；不足 3 条作者回复时，互动显示“样本不足”，只对已有维度重新分配权重。工作台 → 账号保留分数、模型、采样文字和原帖链接，可备注、打开主页关注或本机屏蔽。分数不使用粉丝数，不证明事实正确、原创归属或账号身份。
+- **兴趣**：在工作台 → 兴趣填写想看和避开的主题。默认按需点击时间旁的星光图标，查看兴趣与值得回复估计、标记感兴趣 / 不感兴趣，可选原因；再点已选项可撤销。只有主动开启「浏览时自动估计兴趣」，才对进入视口的帖子追加模型判断，和过滤共享每天额度与并发。最多使用 6 条正反例作为请求参考，不重新训练模型，也不会训练 X 推荐算法。
+- **待回复**：在帖子星光弹层选「稍后回复」，或浏览通知 / 提及页，保存已经加载且提及你的帖子。可暂停自动保存。列表支持搜索、评估这条、置顶、稍后、已处理与恢复；“已处理”是你的管理状态，不声称已发出回复。移除后不被自动提及收集重新加入，手动添加可恢复。
+- **复盘**：工作台 → 复盘显示你看好的帖子、原始概率、浏览和互动增长、可见观测点，并可导出 CSV。再次读到原帖才更新，最多保留初始点与最近 59 个点；缺少期限内数据时保持未知，不用几天后的浏览量冒充第 24 小时结果。
+
+记录保存在 IndexedDB，按自己的 @账号分开，每页读取 20 条。搜索库支持 JSON 往返，其他工作台记录可按搜索结果导出 JSON；超过 20 MB 时提示缩小范围。账号改名不会自动合并记录。
+
+<img src="docs/images/advanced-search.png" alt="高级搜索工作台，使用示例数据" width="480"> <img src="docs/images/kol.png" alt="账号样本评估与来源记录，使用示例数据" width="480">
+
 ## 安装
 
 需要 Chrome 120 或更新版本。
 
-1. 在 [Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.11) 下载 `qiaomu-x-helper-0.1.11-chrome.zip` 并解压到固定目录。
+1. 在 [Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.2.0) 下载 `qiaomu-x-helper-0.2.0-chrome.zip` 并解压到固定目录。
 2. 打开 `chrome://extensions`，开启右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择**包含 `manifest.json` 的文件夹**。
 4. 在 Chrome 扩展菜单固定「乔木 X 助手」，打开「连接」。
@@ -107,8 +124,8 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 
 | 服务 | 默认模型名 | Base URL | 获取 API Key |
 | --- | --- | --- | --- |
-| 乔木 Magpie | `typesafe/jev-latest` | `https://magpie.qiaomu.ai/v1` | [乔木控制台](https://magpie.qiaomu.ai/) |
 | TypeSafe 官方 | `jev-latest` | `https://api.typesafe.ai/v1` | [注册与控制台](https://console.typesafe.ai/) |
+| 乔木 Magpie | `typesafe/jev-latest` | `https://magpie.qiaomu.ai/v1` | [乔木控制台](https://magpie.qiaomu.ai/) |
 | OpenRouter | `typesafe/jev-1.14` | `https://openrouter.ai/api` | [登录 / 创建密钥](https://openrouter.ai/settings/keys) |
 | Vercel AI Gateway | `typesafe-ai/jev` | `https://ai-gateway.vercel.sh/typesafe` | [Gateway 密钥入口](https://vercel.com/d?title=Get+API+key&to=%2F%5Bteam%5D%2F~%2Fai-gateway%2Fquick-start%3FshowCreateKeyModal%3Dauto%26utm_source%3Dgateway-model-page%26utm_campaign%3Dai-gateway-models) |
 | 自定义服务 | 手动填写 | 在高级设置填写 | 向服务商获取 |
@@ -170,15 +187,13 @@ npm run preview
 
 访问 `http://127.0.0.1:4178/dist/chrome/ui.html?demo=1&popup=1` 预览设置；访问 `http://127.0.0.1:4178/test/fixtures/conversation.html` 测试模拟会话。两者均使用明确标识的模拟数据，不调用模型，不连接 X。
 
-可选的 `npm run test:live` 适用于已配置 `qiaomu-llm` 的本机开发环境：从既有注册表读取 Magpie 密钥，仅在进程内调用真实模型，执行 6 条构造样例。`python3 scripts/live.py --post` 执行一个热帖样例。`python3 scripts/live.py --connection` 实测一键连接及带人工样本的后续判断。它们会产生少量 API 用量，不是准确率基准，也不在 CI 中执行。
+可选的 `npm run test:live` 适用于已配置 `qiaomu-llm` 的本机开发环境：从既有注册表读取 Magpie 密钥，仅在进程内调用真实模型，执行 6 条构造样例。`python3 scripts/live.py --post` 执行一个热帖样例。`python3 scripts/live.py --connection` 实测一键连接及带人工样本的后续判断。`python3 scripts/live.py --advanced` 实测 KOL 与兴趣决策。它们会产生少量 API 用量，不是准确率基准，也不在 CI 中执行。
 
 代码分为 DOM 提取、策略/协议、后台队列与存储、页面渲染、设置 UI；只有后台向模型服务发请求。没有远程脚本、后台爬虫或私有 X API。
 
-## 后续设计（未实现）
+## 后续验证
 
-- **值得回复的提及**：未处理 / 已回复 / 稍后队列，给出推荐理由，打开原生回复框。
-- **本机兴趣匹配**：罗盘入口，感兴趣 / 不感兴趣与原因，帮助插件个性化；不会训练 X 推荐算法。
-- **预测回测**：积累期限内快照、人工标签及独立评测后，再评估概率校准。
+模型概率尚未做独立留出集评估。后续需要积累期限内快照和人工标签，测量误判与校准；不能用构造样例代替准确率基准。
 
 来源、许可核对与具体交互见 [项目研究](docs/RESEARCH.md)。
 
