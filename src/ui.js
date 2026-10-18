@@ -5,8 +5,10 @@ import { Contacts } from './contacts.js';
 import { initContactsUI } from './ui-contacts.js';
 import { initForecastsUI } from './ui-forecasts.js';
 import { Forecasts } from './forecasts.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil};
+import { Bookmarks } from './bookmarks.js';
+import { initBookmarksUI } from './ui-bookmarks.js';
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
@@ -16,6 +18,9 @@ let snapshot,keyEditing=false,keyVisible=false,keyEpoch=0,labelFilter='all',page
 let authorFilter='ai',authorIndex=0,authorCursors=[null],authorNext=null,authorsEpoch=0;
 const MASK='••••••••••••••••';
 const demoLabels=new MemoryAnnotations();
+let exportBookmarks;
+const getBookmarks=()=>exportBookmarks??=(demo?new Bookmarks(indexedDB,'qiaomu-banbot-demo-bookmarks'):new Bookmarks());
+const demoBookmarksReady=demo?getBookmarks().capture('demo_me',Array.from({length:25},(_,n)=>({id:String(30001+n),handle:'demo_author_'+(n%3),displayName:['开源观察站','产品随记','小夏同学'][n%3],text:['一个值得反复使用的小工具：把复杂的步骤，变成一次清晰的操作。\n这是模拟书签，方便预览导出效果。','做产品时，先找到那个每天都会发生的小麻烦。','留存思考的过程，比堆积链接更重要。'][n%3],publishedAt:Date.now()-86400000,partial:n===1,links:['https://example.com'],images:[]}))):Promise.resolve();
 const demoContacts=demo?new Contacts(indexedDB,'qiaomu-banbot-demo-contacts'):null;
 const demoForecasts=demo?new Forecasts(indexedDB,'qiaomu-banbot-demo-forecasts'):null;
 const demoForecastsReady=demo?demoForecasts.watch('demo_me',{id:'10001',handle:'demo_author',displayName:'开源观察站',text:'一个开源小工具，能把三个小时的重复工作缩短到几分钟。',createdAt:Date.now()-3600000,metrics:{views:320,likes:8,replies:2}}, {scores:{hot:.32},model:'演示模型'},30000):Promise.resolve();
@@ -25,6 +30,7 @@ let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configur
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
+    if(message.type.startsWith('bookmarks-')){await demoBookmarksReady;const b=getBookmarks();if(message.type==='bookmarks-state')return b.state();if(message.type==='bookmarks-page')return b.page(message);if(message.type==='bookmarks-edit')return b.edit(message.owner,message.id,message);if(message.type==='bookmarks-remove')return b.remove(message.owner,message.id);}
     if(message.type==='forecast-page'){await demoForecastsReady;return demoForecasts.page(message);}
     if(message.type==='forecast-remove')return demoForecasts.remove(message.owner,message.id);
     if(message.type.startsWith('contacts-')){
@@ -87,11 +93,12 @@ function fillConnection(settings){
 }
 async function tab(name){
   const contactsView=name==='contacts';if(contactsView)name='accounts';
-  if(!['overview','rules','annotations','accounts','model','about','forecasts'].includes(name))name='overview';
+  if(!['overview','rules','annotations','accounts','model','about','forecasts','bookmarks'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
   for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===(name==='forecasts'?'overview':name));n.setAttribute('aria-current',n.dataset.tab===(name==='forecasts'?'overview':name)?'page':'false');}
   history.replaceState(null,'',`${location.pathname}${location.search}#${contactsView?'contacts':name}`);
+  if(name==='bookmarks')await bookmarksUI.open();
   if(name==='forecasts')await forecastsUI.open();
   if(name==='annotations')await loadLabels(true);
   if(name==='accounts'){
@@ -101,6 +108,7 @@ async function tab(name){
   }
 }
 const contactsUI=initContactsUI({send,notice,glyph});
+const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
 const forecastsUI=initForecastsUI({send,notice});
 $('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true));
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
