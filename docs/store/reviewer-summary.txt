@@ -1,0 +1,3 @@
+扩展无需注册；请使用审核员自己的 X 账号。免费功能：刷新 X 后，在「账号→常用 @」添加、搜索联系人；编辑器 @ 按钮插入昵称+账号，不自动发送。打开书签页自动保存已加载内容，可暂停；在「书签」编辑备注、导出 Markdown。回复下的机器人/真人按钮可人工标注。
+可选模型功能需自备 TypeSafe/OpenRouter Jev API Key，在「连接」点「连接并保存」授权所选域名并验证。使用 systemone/decisions JSON 决策接口，不是 chat completions；不执行远程代码。设置阈值可测试自动折叠；火焰按钮可记录看好。
+完整步骤与权限说明：https://github.com/joeseesun/qiaomu-x-helper/blob/main/docs/store/reviewer-notes.txt
