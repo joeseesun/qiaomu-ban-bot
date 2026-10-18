@@ -14,7 +14,7 @@ provider = llm.get_provider(llm.load_registry(llm.DEFAULT_REGISTRY), 'magpie-ope
 llm.ensure_enabled(provider)
 secret = llm.resolve_secret(provider)
 root = pathlib.Path(__file__).resolve().parent.parent
-args = ['--post'] if '--post' in sys.argv else []
+args = [arg for arg in sys.argv[1:] if arg in ['--post','--connection']]
 result = subprocess.run(['node', str(root / 'scripts/live.mjs'), *args], input=json.dumps({'apiKey': secret}), text=True, cwd=root, capture_output=True)
 print(result.stdout, end='')
 if result.returncode:

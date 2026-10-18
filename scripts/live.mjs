@@ -1,8 +1,20 @@
 import { analyze } from '../src/jev.js';
 import { DEFAULTS, decide } from '../src/core.js';
+import { Engine } from '../src/engine.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
 const { apiKey } = JSON.parse(input); input = '';
+if (process.argv.includes('--connection')) {
+  let saved={},examplesSent=0;
+  const engine=new Engine({get:async()=>saved,set:async data=>{saved=structuredClone(data);}},async(item,settings,key)=>{examplesSent=settings.examples?.length||0;return analyze(item,settings,key);});
+  const connected=await engine.connect({provider:'magpie'},apiKey);
+  const source={id:'991',handle:'fixture',kind:'reply',text:'谢谢，已经解决了',parent:'这个设置对你有用吗？',metrics:{}};
+  await engine.learn(source,'human');
+  const result=await engine.classify({...source,id:'992',text:'谢谢，改好后已经能用了。'});
+  const record={verifiedAt:connected.connection.verifiedAt,model:connected.connection.model,examplesSent,scores:result.scores,requests:(await engine.snapshot()).stats.requests};
+  await mkdir('artifacts',{recursive:true});await writeFile('artifacts/live-connection-learning.json',JSON.stringify(record,null,2));
+  console.log(JSON.stringify(record));process.exit(0);
+}
 const samples = [
   ['assistant-artifact', '作为一个人工智能语言模型，我无法访问你的项目，但这个观点极具启发性，值得深入探讨。'],
   ['specific-human-style', '我刚在 Chrome 141 试了一下，刷新后白名单会丢，关掉同步以后就正常了。你能复现吗？'],

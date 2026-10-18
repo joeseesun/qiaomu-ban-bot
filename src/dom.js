@@ -1,6 +1,6 @@
 export const ARTICLE = 'article[data-testid="tweet"]';
 function ownElements(article, selector) {
-  return [...article.querySelectorAll(selector)].filter(node => node.closest(ARTICLE) === article && !node.closest('[data-testid="quoteTweet"], [data-testid="card.wrapper"]') && !node.closest('[role="link"][tabindex="0"]'));
+  return [...article.querySelectorAll(selector)].filter(node => node.closest(ARTICLE) === article && !node.closest('[data-testid="quoteTweet"], [data-testid="card.wrapper"]') && !node.closest('div[role="link"][tabindex="0"]'));
 }
 export function parseCount(text) {
   const match = String(text || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*([kmb万萬千亿億])?/i);
@@ -23,16 +23,23 @@ export function extractArticle(article, href = location.href, conversation = {})
   const visible = ownElements(article, '[dir]').filter(el => !el.closest('[data-testid="tweetText"], .qb-host') && !el.querySelector('[data-testid="tweetText"]')).map(el => el.textContent).join('\n');
   const explicitReply = /(?:Replying to\s|回复\s*@|回覆\s*@|返信先:|En respuesta a)/i.test(visible);
   let kind = id === rootID ? 'post' : explicitReply ? 'reply' : !rootID ? 'post' : 'unknown';
-  // In a conversation, only classify the consecutive tweet cells after the focal post.
-  // A heading/recommendation boundary ends that scope; ancestors before the root are not replies.
-  if (kind === 'unknown' && rootID) {
-    const timeline = article.closest('[aria-label][role="region"]') || article.closest('[data-testid="primaryColumn"]');
+  let parentArticle = null;
+  // A permalink can focus a reply. Earlier conversation cells are its ancestor chain,
+  // not unknown posts; the focal URL does not by itself prove original authorship.
+  if (rootID) {
+    const timeline = article.closest('[aria-label][role="region"]') || article.closest('[data-testid="primaryColumn"]') || article.parentElement;
     if (timeline) {
       const all = [...timeline.querySelectorAll(`${ARTICLE}, h2`)].filter(n => n.matches(ARTICLE) || !n.closest(ARTICLE));
-      const rootPresent = all.some(n => n.matches(ARTICLE) && ownElements(n, 'time').some(t => new RegExp(`/status/${rootID}(?:$|[/?])`).test(t.closest('a')?.getAttribute('href') || '')));
+      const rootIndex = all.findIndex(n => n.matches(ARTICLE) && ownElements(n, 'time').some(t => new RegExp(`/status/${rootID}(?:$|[/?])`).test(t.closest('a')?.getAttribute('href') || '')));
+      const rootPresent = rootIndex >= 0, index = all.indexOf(article);
+      const chainStart = rootPresent ? all.slice(0, rootIndex).findLastIndex(n => n.matches('h2')) + 1 : 0;
+      if (rootPresent && index >= chainStart && index <= rootIndex) {
+        kind = explicitReply || index > chainStart ? 'reply' : 'post';
+        if (index > chainStart) parentArticle = all[index - 1];
+      }
       let afterRoot = !rootPresent && conversation.rootId === rootID && conversation.passedRoot && !conversation.ended;
       for (const node of all) {
-        if (node === article) { if (afterRoot) kind = 'reply'; break; }
+        if (node === article) { if (afterRoot) { kind = 'reply'; parentArticle = all[rootIndex] || null; } break; }
         if (node.matches('h2')) { afterRoot = false; continue; }
         const links = ownElements(node, 'time').map(t => t.closest('a')?.getAttribute('href') || '');
         if (links.some(h => new RegExp(`/status/${rootID}(?:$|[/?])`).test(h))) afterRoot = true;
@@ -56,13 +63,15 @@ export function extractArticle(article, href = location.href, conversation = {})
   const createdAt = Date.parse(timestamp.getAttribute('datetime') || '');
   let parent = '';
   if (kind === 'reply' && rootID) {
+    if (parentArticle) parent = ownElements(parentArticle, '[data-testid="tweetText"]').map(e => e.textContent).join('\n').slice(0, 3000);
     const primary = article.closest('[data-testid="primaryColumn"]') || article.parentElement;
-    for (const candidate of primary.querySelectorAll(ARTICLE)) {
+    for (const candidate of parent ? [] : primary.querySelectorAll(ARTICLE)) {
+      if (candidate === article) continue;
       if (ownElements(candidate, 'time').some(t => t.closest('a')?.getAttribute('href')?.includes(`/status/${rootID}`))) {
         parent = ownElements(candidate, '[data-testid="tweetText"]').map(e => e.textContent).join('\n').slice(0, 3000); break;
       }
     }
-    if (!parent && conversation.rootId === rootID) parent = conversation.parent || '';
+    if (!parent && conversation.rootId === rootID) parent = conversation.parents?.get(id) || (id !== rootID ? conversation.parent || '' : '');
   }
   return { id, handle, text, kind, parent, metrics, createdAt: Number.isFinite(createdAt) ? createdAt : null };
 }

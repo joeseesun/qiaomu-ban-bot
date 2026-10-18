@@ -2,7 +2,7 @@
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木净评 · Qiaomu Banbot</title><link rel="stylesheet" href="ui.css"></head>
 <body>
   <main id="app">
-    <header><div class="identity"><span class="mark" aria-hidden="true">qb</span><div><h1>乔木净评</h1><p>把注意力留给值得读的回复</p></div></div><span class="version">0.1.0</span></header>
+    <header><div class="identity"><span class="mark" aria-hidden="true">qb</span><div><h1>乔木净评</h1><p>把注意力留给值得读的回复</p></div></div><span class="version">0.1.1</span></header>
     <div id="demo-note" hidden>界面演示 · 示例数据，不调用模型</div>
     <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤规则</button><button data-tab="accounts">账号名单</button><button data-tab="model">模型</button></nav>
     <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -36,7 +36,10 @@
       <form id="account-form"><label class="field"><span>X 用户名</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终保留</button><button class="secondary" name="action" value="block">本地屏蔽</button></div></form>
       <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本地屏蔽</h3><div id="blocklist" class="account-list"></div>
       <div class="section-top"><h2>最近的手动反馈</h2><button id="clear-history" class="quiet">清空记录与缓存</button></div><div id="feedback"></div>
-      <p class="hint">反馈只保存于本机，用来覆盖本条判断；不会自动训练模型。</p>
+      <p class="hint">“保留此条”只覆盖本条判断，不推断作者身份。</p>
+      <div class="section-top"><h2>我的判断样本</h2><span id="learning-count" class="pill">0 / 40</span></div>
+      <p class="hint">手动标记 AI / 非 AI，后续会选取最多 6 条相关样本随回复发送给模型，学习你的判断偏好。短回复本身不算问题。这不是重新训练模型；样本可随时删除。</p>
+      <div id="learning" class="learning-list"></div>
     </section>
     <section id="model" class="panel" hidden>
       <h2>连接你的 Jev</h2><p class="hint">开启后，可见帖子文字和页面上可读到的互动量会发送给所选服务。不会发送 Cookie 或私信。</p>
@@ -44,11 +47,13 @@
       <p id="provider-details" class="technical"></p>
       <label class="field"><span>API Key</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="输入 API Key"><small id="key-status">密钥仅保存在本机扩展存储，不参与同步。</small></label>
       <label class="field"><span>每日请求上限</span><input id="dailyLimit" type="number" min="1" max="3000"><small>命中缓存不消耗请求；失败请求也计入上限。并发最多 3 个。</small></label>
-      <div class="button-row"><button id="save-model" class="primary">保存并连接</button><button id="forget-key" class="quiet">移除密钥</button></div>
-      <div class="divider"></div><h2>拿一条回复试试</h2><p class="hint">保存配置后测试。此处会调用模型，计入当日请求。</p>
+      <div class="button-row"><button id="save-model" class="primary">测试并保存</button><button id="forget-key" class="quiet">移除密钥</button></div>
+      <p class="hint">点击一次，用内置样例自动验证连接，通过后保存并生效。无需自己准备测试文本。</p>
+      <div class="divider"></div><details class="reply-test"><summary>用自己的回复检查判断（选填）</summary><p class="hint">连接已验证后，可在这里检查具体回复的判断，会调用模型并计入当日请求。</p>
       <label class="field"><span>主帖上下文（选填）</span><textarea id="test-parent" rows="2" maxlength="3000" placeholder="主帖在讨论什么？"></textarea></label>
       <label class="field"><span>待判断的回复</span><textarea id="test-text" rows="3" maxlength="6000" placeholder="粘贴一条回复，检查模型是否符合你的预期"></textarea></label>
       <button id="test-model" class="secondary full">测试这条回复</button><div id="test-result" role="status" hidden></div>
+      </details>
     </section>
     <footer><span id="model-state">尚未连接</span><span>可撤销 · 本地名单</span></footer>
   </main><script src="ui.js" defer></script>

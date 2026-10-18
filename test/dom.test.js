@@ -9,9 +9,15 @@ test('correct own author, status, metrics; quoted content excluded',()=>{
   const item=extractArticle(d.querySelector('article'),'https://x.com/alice/status/123');
   assert.equal(item.id,'123');assert.equal(item.handle,'alice');assert.equal(item.kind,'post');assert.equal(item.text,'hello');assert.equal(item.metrics.views,12000);
 });
-test('conversation ancestors and recommendations are not classified as replies',()=>{
+test('conversation chain identifies the original post and a reply opened as the focal status',()=>{
   const d=doc(`<div data-testid="primaryColumn">${tweet('100')}${tweet('123')}${tweet('124')}<h2>发现更多</h2>${tweet('125')}</div>`);
-  assert.deepEqual([...d.querySelectorAll('article')].map(a=>extractArticle(a,'https://x.com/alice/status/123').kind),['unknown','post','reply','unknown']);
+  assert.deepEqual([...d.querySelectorAll('article')].map(a=>extractArticle(a,'https://x.com/alice/status/123').kind),['post','reply','reply','unknown']);
+});
+test('reply permalink retains earlier context and does not forecast a reply as a main post',()=>{
+  const d=doc(`<div data-testid="primaryColumn">${tweet('100','','original question')}${tweet('101','','first answer')}${tweet('102','','follow-up')}</div>`);
+  const items=[...d.querySelectorAll('article')].map(a=>extractArticle(a,'https://x.com/alice/status/102'));
+  assert.deepEqual(items.map(i=>i.kind),['post','reply','reply']);
+  assert.equal(items[2].parent,'first answer');
 });
 test('timeline reply markers work without detail route; other posts go to radar',()=>{
   const d=doc(tweet('123','<div dir="auto">Replying to @bob</div>')+tweet('124'));
@@ -31,4 +37,8 @@ test('virtualized conversation retains parent and reply classification after roo
 test('quoted or authored Replying to text is not an actual reply marker',()=>{
   const d=doc(tweet('123','<div data-testid="quoteTweet"><div dir="auto">Replying to @bob</div></div>','<span dir="auto">Replying to is a label on X.</span>'));
   assert.equal(extractArticle(d.querySelector('article'),'https://x.com/home').kind,'post');
+});
+test('own timestamp anchor with role=link and tabindex is not excluded as a quote',()=>{
+  const a=doc(tweet('123')).querySelector('article');const link=a.querySelector('time').closest('a');link.setAttribute('role','link');link.setAttribute('tabindex','0');
+  assert.equal(extractArticle(a,'https://x.com/alice/status/123').id,'123');
 });

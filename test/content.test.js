@@ -22,6 +22,21 @@ function mount(html,request){
   return{dom,calls,settings,refresh:()=>listeners.forEach(fn=>fn({type:'refresh'})),close:()=>dom.window.close()};
 }
 const result=(ai=.95)=>({model:'fixture',scores:{ai_written:ai,low_value:.1,spam:.1,useful:.1}});
+test('normal controls mount within the native column, never beside it in the article row',async()=>{
+  const env=mount(markup(1,'A useful human reply.'),async()=>result(.1));
+  try{const a=env.dom.window.document.getElementById('a1');a.style.display='flex';a.style.flexDirection='row';a.firstElementChild.style.display='flex';a.firstElementChild.style.flexDirection='column';
+    await until(()=>a.querySelector('.qb-host'));
+    assert.equal(a.querySelector('.qb-host').parentElement,a.querySelector('.original'));
+    assert.equal(a.children.length,1);
+  }finally{env.close();}
+});
+test('turning off post radar does not disable an explicit author block',async()=>{
+  const env=mount(markup(1,'A main post.').replace('<div dir="auto">Replying to @parent</div>',''),async()=>result(.1));
+  try{env.settings.radar=false;env.settings.blocklist=['person1'];env.refresh();
+    await until(()=>env.dom.window.document.getElementById('a1').classList.contains('qb-collapsed'));
+    assert.equal(env.calls.length,0);
+  }finally{env.close();}
+});
 test('fold/expand preserves original nodes; disabling restores every post',async()=>{
   const env=mount(markup(1,'A reply with enough detail to test folding.'),async()=>result());
   try{

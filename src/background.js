@@ -19,9 +19,17 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'local-decision') return engine.localDecision(message.item);
     if (message.type === 'list') { const result = await engine.listAction(message.handle, message.action); await broadcast(); return result; }
     if (message.type === 'feedback') { const result = await engine.feedback(message.item, message.label); await broadcast(); return result; }
+    if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); await broadcast(); return result; }
     if (message.type === 'options') { await chrome.runtime.openOptionsPage(); return {}; }
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
+    if (message.type === 'remove-example') { const result = await engine.removeExample(message.key); await broadcast(); return result; }
+    if (message.type === 'connect') {
+      const provider = PROVIDERS[message.settings?.provider];
+      if (!provider || !await chrome.permissions.contains({ origins:[provider.origin] })) throw new Error('尚未授予模型服务访问权限');
+      const result = await engine.connect(message.settings,message.apiKey); await broadcast(); return result;
+    }
     if (message.type === 'save') {
+      if (message.apiKey) throw new Error('请使用“测试并保存”验证新的模型密钥');
       const provider = PROVIDERS[message.settings?.provider ?? (await engine.snapshot()).settings.provider];
       if (!provider) throw new Error('无效的模型服务');
       if (message.apiKey && !await chrome.permissions.contains({ origins: [provider.origin] })) throw new Error('尚未授予模型服务访问权限');
