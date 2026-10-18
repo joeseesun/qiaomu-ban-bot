@@ -75,7 +75,7 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 | 乔木 Magpie | `typesafe/jev-latest` | `https://magpie.qiaomu.ai/v1` | [乔木控制台](https://magpie.qiaomu.ai/) |
 | TypeSafe 官方 | `jev-latest` | `https://api.typesafe.ai/v1` | [注册与控制台](https://console.typesafe.ai/) |
 | OpenRouter | `typesafe/jev-1.14` | `https://openrouter.ai/api` | [登录 / 创建密钥](https://openrouter.ai/settings/keys) |
-| Vercel AI Gateway | `typesafe-ai/jev` | `https://ai-gateway.vercel.sh/typesafe` | [Gateway 密钥入口](https://vercel.com/d?to=%2F%5Bteam%5D%2Fai-gateway%2Fapi-keys&title=Get+an+AI+Gateway+API+key) |
+| Vercel AI Gateway | `typesafe-ai/jev` | `https://ai-gateway.vercel.sh/typesafe` | [Gateway 密钥入口](https://vercel.com/d?title=Get+API+key&to=%2F%5Bteam%5D%2F~%2Fai-gateway%2Fquick-start%3FshowCreateKeyModal%3Dauto%26utm_source%3Dgateway-model-page%26utm_campaign%3Dai-gateway-models) |
 | 自定义服务 | 手动填写 | 在高级设置填写 | 向服务商获取 |
 
 模型名可以编辑；Base URL 与接口选择放在「高级设置」。OpenRouter 使用 `/alpha/decisions`，其余预设使用 `/v1/systemone`，都发送 `state + questions` 并读取 Noul 概率。自定义服务须兼容其中一种决策接口，普通 `chat/completions` 服务不能直接接入。支持 HTTPS，以及本机 `localhost` / `127.0.0.1` 的 HTTP 服务；实际请求地址会显示在高级设置中。

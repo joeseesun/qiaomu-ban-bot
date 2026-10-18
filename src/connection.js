@@ -3,7 +3,7 @@ export const PROVIDERS = {
   magpie: { name:'乔木 Magpie', baseURL:'https://magpie.qiaomu.ai/v1', model:'typesafe/jev-latest', protocol:'systemone', keyURL:'https://magpie.qiaomu.ai/', help:'已有乔木 Magpie 账号？在控制台创建 API Key。' },
   typesafe: { name:'TypeSafe 官方', baseURL:'https://api.typesafe.ai/v1', model:'jev-latest', protocol:'systemone', keyURL:'https://console.typesafe.ai/', help:'注册 TypeSafe，进入控制台创建 API Key。' },
   openrouter: { name:'OpenRouter', baseURL:'https://openrouter.ai/api', model:'typesafe/jev-1.14', protocol:'decisions', keyURL:'https://openrouter.ai/settings/keys', help:'注册 OpenRouter，在 Keys 页面创建密钥，并确认账户有可用额度。' },
-  vercel: { name:'Vercel AI Gateway', baseURL:'https://ai-gateway.vercel.sh/typesafe', model:'typesafe-ai/jev', protocol:'systemone', keyURL:'https://vercel.com/d?to=%2F%5Bteam%5D%2Fai-gateway%2Fapi-keys&title=Get+an+AI+Gateway+API+key', help:'登录 Vercel，在 AI Gateway 中创建 API Key。请使用 Gateway 密钥。' },
+  vercel: { name:'Vercel AI Gateway', baseURL:'https://ai-gateway.vercel.sh/typesafe', model:'typesafe-ai/jev', protocol:'systemone', keyURL:'https://vercel.com/d?title=Get+API+key&to=%2F%5Bteam%5D%2F~%2Fai-gateway%2Fquick-start%3FshowCreateKeyModal%3Dauto%26utm_source%3Dgateway-model-page%26utm_campaign%3Dai-gateway-models', help:'登录 Vercel，在 AI Gateway 中创建 API Key。请使用 Gateway 密钥。' },
   custom: { name:'自定义服务', baseURL:'', model:'', protocol:'systemone', help:'使用支持 Jev 决策接口的服务。请向你的服务商获取地址、密钥和模型名。' },
 };
 
