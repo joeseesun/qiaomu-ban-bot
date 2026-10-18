@@ -145,4 +145,3 @@ footer{font-size:11px}
 @media(prefers-color-scheme:dark){:root{--bg:#0a0a0a;--ink:#ededed;--muted:#a1a1a1;--line:#2e2e2e;--soft:#141414;--hover:#222;--field:#111;--focus:#777;--primary:#ededed;--on-primary:#171717;--accent:#ededed}
 #notice.error{background:#301512;color:#ffb4a9}
 }
-
