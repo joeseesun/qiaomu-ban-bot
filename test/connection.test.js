@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PROVIDERS,resolveConnection} from '../src/connection.js';
+import {PROVIDERS,resolveConnection,connectionFields} from '../src/connection.js';
 import {DEFAULTS,normalizeSettings,cacheKey} from '../src/core.js';
 import {analyze} from '../src/jev.js';
 import {Engine} from '../src/engine.js';
@@ -27,7 +27,7 @@ test('a new destination cannot reuse a saved key; successful model changes inval
   let saved={},calls=[];const engine=new Engine({get:async()=>saved,set:async v=>{saved=structuredClone(v);}},async(i,s,key)=>{calls.push({s,key});return answer;});
   await engine.connect({},'private-fixture');
   await assert.rejects(engine.connect({baseURL:'https://different.example/v1'},''),/API Key/);
-  assert.equal(calls.length,1);assert.equal(saved.banbot.settings.baseURL,'https://magpie.qiaomu.ai/v1');
+  assert.equal(calls.length,1);assert.equal(saved.banbot.settings.baseURL,'https://api.typesafe.ai/v1');
   await engine.connect({model:'typesafe/jev-other'},'');assert.equal(calls.at(-1).key,'private-fixture');assert.equal(calls.at(-1).s.model,'typesafe/jev-other');
   await engine.connect({provider:'openrouter'},'router-fixture');assert.equal(calls.at(-1).s.baseURL,PROVIDERS.openrouter.baseURL);assert.equal(calls.at(-1).s.model,PROVIDERS.openrouter.model);
   const key=await cacheKey(item,DEFAULTS);for(const patch of [{model:'another'},{baseURL:'https://different.example'},{protocol:'decisions'}])assert.notEqual(await cacheKey(item,{...DEFAULTS,...patch}),key);
@@ -39,4 +39,21 @@ test('changing providers while request accounting is saving never sends the new 
   const update=engine.updateSettings({provider:'openrouter'},'new-key');
   await new Promise(r=>setTimeout(r,0));release();await update;
   assert.equal((await request).skipped,'changed');assert.equal(calls.length,0);
+});
+
+test('first install and invalid providers default to TypeSafe without changing existing credentials',async()=>{
+  for(const settings of [{},{provider:'missing'}]){
+    const normalized=normalizeSettings(settings);
+    assert.equal(normalized.provider,'typesafe');
+    assert.equal(resolveConnection(normalized).endpoint,'https://api.typesafe.ai/v1/systemone');
+    assert.equal(normalized.model,'jev-latest');
+  }
+  assert.equal(connectionFields().baseURL,'https://api.typesafe.ai/v1');
+  const saved={banbot:{settings:{provider:'magpie'},apiKey:'existing-fixture-key'}};
+  const calls=[];
+  const engine=new Engine({get:async()=>saved,set:async()=>{}},async(item,settings,key)=>{calls.push({settings,key});return answer;});
+  assert.equal((await engine.snapshot()).settings.provider,'magpie');
+  await engine.classify(item);
+  assert.equal(calls[0].key,'existing-fixture-key');
+  assert.equal(resolveConnection(calls[0].settings).endpoint,'https://magpie.qiaomu.ai/v1/systemone');
 });

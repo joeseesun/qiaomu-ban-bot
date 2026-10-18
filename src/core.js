@@ -4,7 +4,7 @@ export { PROVIDERS } from './connection.js';
 export const DEFAULTS = {
   enabled: true, filterMode: 'ai', threshold: 0.5, duplicates: true,
   highlightUseful: true, radar: true, hotViews: 10000, dailyLimit: 10000,
-  customRule: '', allowlist: [], blocklist: [], provider: 'magpie', baseURL:'', model:'', protocol:'',
+  customRule: '', allowlist: [], blocklist: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
 };
 export const handleOf = value => typeof value === 'string' && /^@?[a-zA-Z0-9_]{1,15}$/.test(value.trim()) ? value.trim().replace(/^@/, '').toLowerCase() : '';
 const bound = (n, min, max, fallback) => typeof n === 'number' && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
