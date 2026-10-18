@@ -6,7 +6,7 @@ import { MemoryAnnotations } from './annotations.js';
 
 const day = () => new Date().toLocaleDateString('en-CA');
 const emptyStats = () => ({ day: day(), requests: 0, cacheHits: 0, inputTokens: 0, errors: 0 });
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const connectionSample = { id: '0', handle: 'connection_test', kind: 'reply', text: '我实际测试了三个例子，第二个需要补充上下文才能判断。', parent: '你测试这个方法时发现了什么？', metrics: {} };
 export class Engine {
   constructor(storage, request = analyze, annotations = new MemoryAnnotations()) {

@@ -20,7 +20,7 @@ const h2=document.createElement('h2');h2.textContent='发现更多';document.get
 let saved={banbot:{settings,apiKey:'fixture-only'}};
 const engine=new Engine({get:async()=>saved,set:async value=>{saved=structuredClone(value);}},async(item,config)=>{
   window.qa.calls.push({id:item.id,kind:item.kind,examples:config.examples?.length||0});
-  return {model:'fixture-only',analyzedAt:Date.now(),inputTokens:10,scores:item.kind==='post'?{hot:.68,discussion:.91}:{ai_written:item.id==='101'?.94:.15,low_value:item.id==='101'?.92:.12,useful:item.id==='102'?.96:.1,spam:.02}};
+  return {model:'fixture-only',analyzedAt:Date.now(),inputTokens:10,scores:item.kind==='post'?{hot:.68,discussion:.91}:{ai_written:item.id==='101'?.94:.15,useful:item.id==='102'?.96:.1,spam:.02}};
 });
 window.qa.engine=engine;
 window.chrome={runtime:{onMessage:{addListener:fn=>listeners.push(fn)},sendMessage:async m=>{

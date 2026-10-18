@@ -223,7 +223,7 @@ function render(article, state) {
   const panel = disclosure(bar, toolbar);
   if (result?.scores) {
     const scores = el('dl', null, 'scores');
-    for (const [key,name] of [['ai_written','AI 概率'],['low_value','低信息量'],['spam','引流']]) {
+    for (const [key,name] of [['ai_written','AI 概率'],['spam','引流']]) {
       const cell = el('div'); cell.append(el('dt',name),el('dd',`${Math.round(result.scores[key]*100)}%`)); scores.append(cell);
     }
     panel.append(scores);

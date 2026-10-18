@@ -24,6 +24,20 @@ function mount(html,request){
   return{dom,calls,settings,refresh:()=>listeners.forEach(fn=>fn({type:'refresh'})),close:()=>dom.window.close()};
 }
 const result=(ai=.95)=>({model:'fixture',scores:{ai_written:ai,low_value:.1,spam:.1,useful:.1}});
+test('legacy low-information results never appear in the toolbar or expanded scores',async()=>{
+  const env=mount(markup(1,'我现在都是扔给 Bot 让它抓数据'),async()=>({...result(.26),scores:{ai_written:.26,low_value:.99,spam:.01,useful:.1}}));
+  try{
+    const a=env.dom.window.document.getElementById('a1');
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 概率：26%'));
+    const root=a.querySelector('.qb-host').shadowRoot;
+    assert.equal(a.hasAttribute('data-qb-collapsed'),false);
+    assert.equal(root.querySelector('.status'),null);
+    root.querySelector('button[aria-label="判断与操作"]').click();
+    assert.deepEqual([...root.querySelectorAll('.scores dt')].map(n=>n.textContent),['AI 概率','引流']);
+    assert.equal(root.textContent.includes('低信息量'),false);
+    assert.ok(root.querySelector('button[aria-label="标记真人"]'));
+  }finally{env.close();}
+});
 test('normal controls mount within the native column, never beside it in the article row',async()=>{
   const env=mount(markup(1,'A useful human reply.'),async()=>result(.1));
   try{const a=env.dom.window.document.getElementById('a1');a.style.display='flex';a.style.flexDirection='row';a.firstElementChild.style.display='flex';a.firstElementChild.style.flexDirection='column';

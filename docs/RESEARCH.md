@@ -7,13 +7,13 @@
 | [fxzer/x-focus](https://github.com/fxzer/x-focus) | X 回复过滤、名单、基于时间和浏览量的热度观察 | 独立实现 DOM 提取；增加 Jev 判断，区分观测速度与预测概率 |
 | [turkerdev/hide-the-annoying](https://github.com/turkerdev/hide-the-annoying) | Jev 过滤、软折叠、语义规则、缓存和测试入口 | 保留可撤销操作；严格验证 noul 字段，错误时不折叠 |
 | [mattn/go-jev](https://github.com/mattn/go-jev) | 清晰的原生类型、超时和限流处理 | 使用轻量 JS 适配器，限制并发和日额度；限流后冷却，无无限重试 |
-| [sebastianbugal/jev](https://github.com/sebastianbugal/jev) | 把问题拆成独立决策、约束状态大小 | AI、信息量、价值、推广分别提问，避免一个总分混淆不同判断 |
+| [sebastianbugal/jev](https://github.com/sebastianbugal/jev) | 把问题拆成独立决策、约束状态大小 | AI 来源、正向阅读提示、推广分别提问；已移除信息量评分 |
 | [huzeyfe07/jev-route](https://github.com/huzeyfe07/jev-route) | 先决策、再按阈值触发允许的操作 | 只自动折叠；账号拉黑由用户确认。该项目接口示例不作为本项目协议依据 |
 | [awesome-typesafe-jev](https://github.com/AbdelStark/awesome-typesafe-jev) | 接入项目索引 | 只用于发现，再回到原始仓库核对 |
 
 [官方 noul 文档](https://docs.typesafe.ai/primitives/noul) 将 noul 定义为 0–1 的“是”概率。[官方介绍](https://docs.typesafe.ai/introduction) 展示原生决策用法。实际请求采用 `/v1/systemone`、`state`、`questions`；没有将 Jev 冒充通用聊天或摘要模型。
 
-当前一次回复请求询问 AI 来源可能性、低信息量、有内容的回复、引流推广，按需附加用户自定义规则。正文属于不可信证据，不允许它覆盖判断指令。仅靠 prompt 无法证明完全抵抗注入，测试中包含一条构造注入样例，但不宣称完成安全评测。
+当前一次回复请求询问 AI 来源可能性、有内容的回复、引流推广，按需附加用户自定义规则。0.1.5 已移除低信息量问题、标签和折叠模式，简短表达不作为质量负面依据。正文属于不可信证据，不允许它覆盖判断指令。仅靠 prompt 无法证明完全抵抗注入，测试中包含一条构造注入样例，但不宣称完成安全评测。
 
 热帖必须先定义事件：默认“发帖后 24 小时累计达到 10,000 浏览”。缺少发布时间、浏览量或足够观测时间就不显示概率。没有历史训练集和留出集校准，当前分数必须明确标为模型估计。相比新增自动回复，后续优先做回测与误判样本。
 
