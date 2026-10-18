@@ -19,10 +19,16 @@
 
 权限和后台跨域请求依据 [Chrome 存储文档](https://developer.chrome.com/docs/extensions/reference/api/storage) 与 [扩展网络请求文档](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests) 设计：模型凭据留在受信任后台，服务访问按需授权，内容脚本不直接请求模型。
 
-研究代码仅用于阅读；本仓库没有复制这些第三方项目的源码、图标或字体。运行包不加载远程代码。
+研究代码仅用于阅读；本仓库没有复制上述过滤扩展项目的源码、图标或字体。运行包不加载远程代码。
 
 ## 0.1.1 对照复查
 
 本轮直接重读 [x-focus/article-state.ts](https://github.com/fxzer/x-focus/blob/main/content-scripts/spam/article-state.ts) 的占位与恢复、[scanner.ts](https://github.com/fxzer/x-focus/blob/main/content-scripts/spam/scanner.ts) 的详情范围，以及 [hide-the-annoying/content.js](https://github.com/turkerdev/hide-the-annoying/blob/main/extension/content.js) 与 [content.css](https://github.com/turkerdev/hide-the-annoying/blob/main/extension/content.css) 的折叠恢复设计。新版选择在原生内层纵向容器挂正常工具条，折叠时独立占位，不再把正常工具条插进 X article 的横向行。没有复制这些项目代码。
 
 人工标记采用有上限的 few-shot 样本，按文字相关性和正负标签平衡选取；不以作者或短文本长度直接推广结论，不把用户标签当作真实训练标签。
+
+## 0.1.2 折叠与操作面板回归
+
+- [hide-the-annoying 的悬停/React class 覆盖处理](https://github.com/turkerdev/hide-the-annoying/blob/main/extension/content.js)：参考其对原生 className 重写的防护思路。本项目用独立 data 属性驱动折叠，不复制其恢复 class 的实现，也不与 X 争抢原生样式类。
+- [Lucide 官方 Vanilla 接入](https://lucide.dev/guide/lucide/getting-started)：按需导入本地图标，用 SVG 创建 API 渲染在 Shadow DOM；不用 CDN 或整包图标注册表。完整许可附在安装包的 LICENSE.lucide。
+- 工具条只保留概率、值得一读图标、人工 AI 图标和下拉入口。展开内容在帖子内部排版，分数和按钮分组；避免浮层遮住 X 原生操作。图标保留 title/aria-label，下拉按钮维护 aria-expanded，支持 Escape。
