@@ -4,7 +4,7 @@
 - If available, use personal skills from ~/Nutstore Files/.agents/skills; these are optional local maintainer tools, not build dependencies.
 - Never automate WeChat/Weixin or embedded WeChat pages.
 - Never commit credentials or user browsing data. Read local test credentials into the test process only through qiaomu-llm.
-- Jev uses /v1/systemone with state + questions, not chat completions.
+- Jev uses typed state + questions: TypeSafe-compatible /v1/systemone or OpenRouter /alpha/decisions, not chat completions. Never reuse a saved key for a different endpoint.
 - AI authorship is uncertain. Fail open on unknown/invalid responses; never infer an account is a bot from one reply.
 - Never automatically block an X account. User-initiated X actions stop at X's own confirmation.
 - Test code, rendered fixtures, actual extension runtime, model calls, and real X behavior are separate acceptance boundaries.

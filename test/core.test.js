@@ -46,7 +46,12 @@ test('input boundary and duplicates do not confuse short human replies', () => {
   assert.throws(() => validateItem({...reply,id:'bad-id'}));
   assert.throws(() => validateItem({...reply,kind:'unknown'}));
   assert.deepEqual(normalizeSettings({allowlist:['@Alice','ALICE','bad handle']}).allowlist,['alice']);
-  assert.equal(normalizeSettings({threshold:Infinity}).threshold,.9);
+  assert.equal(normalizeSettings({threshold:Infinity}).threshold,.5);
+});
+test('AI folds strictly above 50%, without relaxing promotion and custom rules',()=>{
+  for(const [p,collapse] of [[.49,false],[.5,false],[.51,true]]) assert.equal(decide(reply,result({ai_written:p}),DEFAULTS).collapse,collapse);
+  assert.equal(decide(reply,result({ai_written:.2,spam:.6,rule_match:.6}),{...DEFAULTS,customRule:'promotion'}).collapse,false);
+  assert.equal(decide(reply,result({ai_written:.51}),{...DEFAULTS,filterMode:'label'}).collapse,false);
 });
 test('actual HTTP adapter uses decisions protocol, rejects redirects and handles status/errors', async () => {
   const valid = { model: 'jev-test', answers: Object.fromEntries(['ai_written','low_value','useful','spam'].map(k=>[k,{type:'noul',noul:.3}])) };

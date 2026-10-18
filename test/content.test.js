@@ -17,7 +17,7 @@ function mount(html,request){
     if(m.type==='snapshot')return {ok:true,data:{settings,configured:true}};
     if(m.type==='local-decision')return {ok:true,data:overrides.has(m.item.id)?{override:overrides.get(m.item.id)}:{}};
     if(m.type==='classify'){calls.push(m.item.id);return{ok:true,data:await request(m.item)};}
-    if(m.type==='feedback'){overrides.set(m.item.id,m.label);listeners.forEach(fn=>fn({type:'refresh'}));return{ok:true,data:{}};}
+    if(m.type==='feedback'){overrides.set(m.item.id,m.label);listeners.forEach(fn=>fn({type:'annotation-changed',id:m.item.id}));return{ok:true,data:{}};}
     return{ok:true,data:{}};
   }}};
   dom.window.eval(code);
@@ -87,7 +87,7 @@ test('probability and accessible icon controls stay compact; the action panel cl
   const env=mount(markup(1,'A concrete useful reply.'),async()=>({...result(.27),scores:{ai_written:.27,low_value:.1,spam:.1,useful:.96}}));
   try{
     const a=env.dom.window.document.getElementById('a1');
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('疑似 AI 27%'));
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 概率：27%'));
     const root=a.querySelector('.qb-host').shadowRoot;
     const mark=root.querySelector('button[aria-label="标记 AI"]'),toggle=root.querySelector('button[aria-label="判断与操作"]');
     assert.ok(mark.querySelector('svg'));assert.equal(mark.textContent,'');
@@ -95,7 +95,7 @@ test('probability and accessible icon controls stay compact; the action panel cl
     assert.equal(toggle.textContent,'');assert.equal(toggle.getAttribute('aria-expanded'),'false');
     const panel=root.getElementById(toggle.getAttribute('aria-controls'));assert.equal(panel.hidden,true);
     toggle.click();assert.equal(panel.hidden,false);assert.equal(toggle.getAttribute('aria-expanded'),'true');
-    const human=[...panel.querySelectorAll('button')].find(b=>b.textContent==='标记为非 AI');
+    const human=panel.querySelector('button');
     human.dispatchEvent(new env.dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
     assert.equal(panel.hidden,true);assert.equal(root.activeElement,toggle);
   }finally{env.close();}
@@ -114,7 +114,7 @@ test('manual keep overrides duplicate folding without another model request',asy
   try{
     const a=env.dom.window.document.getElementById('a2');await until(()=>a.hasAttribute('data-qb-collapsed'));await pause(20);
     assert.deepEqual(env.calls,['1']);
-    [...a.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='误判，保留').click();
+    [...a.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='只保留此条').click();
     await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('你已保留此条'));
     assert.equal(a.hasAttribute('data-qb-collapsed'),false);assert.ok(!env.calls.includes('2'));
   }finally{env.close();}

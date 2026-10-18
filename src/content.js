@@ -13,7 +13,11 @@ function button(text, run, { glyph, iconOnly = false, className = '' } = {}) {
   b.addEventListener('click', async e => {
     e.preventDefault(); e.stopPropagation();
     try { const pending = run(); if (pending?.then) { b.disabled = true; await pending; } }
-    catch (error) { const p = el('p', error.message, 'err'); b.parentElement?.append(p); }
+    catch (error) {
+      const area=b.getRootNode().querySelector?.('.bar') || b.parentElement;
+      area?.querySelector('.err')?.remove();
+      const p=el('p',error.message,'err'); p.setAttribute('role','alert'); area?.append(p);
+    }
     finally { b.disabled = false; }
   }); return b;
 }
@@ -48,6 +52,35 @@ function hostFor(article) {
 }
 function resetArticle(article) { restore(article); states.get(article)?.host?.remove(); states.delete(article); }
 function detailLine(text) { return el('p', text, 'muted'); }
+// Anchor the visible toolbar, not the document's absolute scroll offset: a
+// folded reply changes height. Never scroll for an off-screen label update.
+function keepReadingPosition(article, state, update) {
+  const host=state.host, active=host?.shadowRoot.activeElement;
+  const action=active?.dataset.label;
+  let anchor=host;
+  const rect=anchor?.getBoundingClientRect();
+  if (!rect || rect.bottom<0 || rect.top>innerHeight) {
+    anchor=[...states.keys()].find(a=>a!==article && a.getBoundingClientRect().top>=0 && a.getBoundingClientRect().top<innerHeight);
+  }
+  const top=anchor?.getBoundingClientRect().top, url=location.href;
+  const restorePosition=()=>{
+    if (!anchor?.isConnected || location.href!==url || top===undefined) return;
+    const delta=anchor.getBoundingClientRect().top-top;
+    if(Math.abs(delta)>.5) window.scrollBy({top:delta,behavior:'instant'});
+  };
+  update(); restorePosition();
+  if(action) host?.shadowRoot.querySelector(`[data-label="${action}"]`)?.focus({preventScroll:true});
+  // X's virtual list can measure after our synchronous mutation. Stop anchoring
+  // immediately when the user scrolls or starts another gesture.
+  let cancelled=false;
+  const cancel=()=>{cancelled=true;};
+  const events=['wheel','touchstart','pointerdown','keydown'];
+  events.forEach(e=>window.addEventListener(e,cancel,{once:true,passive:true}));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!cancelled) restorePosition();
+    events.forEach(e=>window.removeEventListener(e,cancel));
+  }));
+}
 async function annotate(item, type, label) {
   const wasExpanded = shown.has(item.id);
   if (label === 'ai' || label === 'hide') shown.delete(item.id);
@@ -118,45 +151,52 @@ function render(article, state) {
     return;
   }
   let decision = decide(item, result, settings);
-  if (result?.override) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '你标记为 AI' : '你标记为非 AI' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
+  if (result?.override) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '已标注 AI' : '已标注真人' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
   if (!decision.collapse && !result?.override && state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !settings.allowlist.includes(item.handle)) decision = { collapse: true, label: '与已读回复文字重复' };
   const expanded = shown.has(item.id);
   const collapsed = decision.collapse && !expanded;
   if (collapsed) { article.append(host); article.setAttribute('data-qb-collapsed', ''); bar.classList.add('folded'); }
   const hasScore = typeof result?.scores?.ai_written === 'number';
-  const title = result?.override || isLocal || (collapsed && state.duplicate) ? decision.label : hasScore ? `疑似 AI ${Math.round(result.scores.ai_written * 100)}%` : decision.label || (state.started && !result ? '正在判断回复…' : '');
-  const signals = el('div', null, 'signals'), label = el('span', `${title}${collapsed ? ` · @${item.handle}` : ''}`, 'label score');
-  const extra = settings.filterMode === 'label' && hasScore ? '仅标记' : hasScore && decision.label && !decision.useful && !/AI/.test(decision.label) && !state.duplicate ? decision.label : '';
+  const title = hasScore ? `AI 概率：${Math.round(result.scores.ai_written * 100)}%` : 'AI 概率：—';
+  const signals = el('div', null, 'signals'), label = el('span', title, 'label score');
+  label.title=hasScore ? result?.annotation ? '标注前的模型估计；人工标注不会改写这个分数' : '模型估计，不能证明作者身份' : '尚无模型评分';
+  const extra = collapsed ? `@${item.handle}${result?.annotation ? ' · '+decision.label : ''}` : result?.annotation ? decision.label : settings.filterMode === 'label' && hasScore ? '仅标记' : decision.label && !decision.useful && !/AI/.test(decision.label) ? decision.label : '';
   if (extra) label.append(el('span', extra, 'status'));
   signals.append(label);
   if (decision.useful && !decision.collapse) {
     const good = el('span', null, 'good'); good.title = '值得一读'; good.setAttribute('role','img'); good.setAttribute('aria-label','值得一读'); good.append(icon(icons.BookOpenCheck)); signals.append(good);
   }
   toolbar.append(signals);
-  if (!collapsed && item.kind === 'reply') toolbar.append(button('标记 AI', () => annotate(item,'learn','ai'), { glyph:icons.Bot, iconOnly:true }));
-  if (decision.collapse) toolbar.append(button(collapsed ? '展开' : '收起', () => { collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); }));
-  if (collapsed) toolbar.append(button('误判，保留', () => send({ type: 'feedback', item, label: 'keep' })));
+  if (item.kind === 'reply') {
+    const choices=el('div',null,'annotation'); choices.setAttribute('role','group'); choices.setAttribute('aria-label','人工标注');
+    for(const [value,name,glyph] of [['ai','标记 AI',icons.Bot],['human','标记真人',icons.UserRoundCheck]]) {
+      const selected=result?.annotation===value;
+      const control=button(name,()=>annotate(item,'learn',selected?null:value),{glyph,iconOnly:true});
+      control.dataset.label=value; control.setAttribute('aria-pressed',String(selected));
+      control.title=selected ? `已${name}，再次点击撤销` : name;
+      choices.append(control);
+    }
+    toolbar.append(choices);
+  }
+  toolbar.append(el('span',null,'toolbar-spacer'));
+  if (decision.collapse) toolbar.append(button(collapsed ? '展开' : '收起', () => keepReadingPosition(article,state,()=>{ collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); })));
   const panel = disclosure(bar, toolbar);
   if (result?.scores) {
     const scores = el('dl', null, 'scores');
-    for (const [key,name] of [['ai_written','疑似 AI'],['low_value','低信息量'],['spam','引流']]) {
+    for (const [key,name] of [['ai_written','AI 概率'],['low_value','低信息量'],['spam','引流']]) {
       const cell = el('div'); cell.append(el('dt',name),el('dd',`${Math.round(result.scores[key]*100)}%`)); scores.append(cell);
     }
     panel.append(scores);
   }
   if (item.kind === 'reply') {
-    const { section, actions } = actionSection(panel, '纠正判断');
-    const ai = button('标记为 AI', () => annotate(item,'learn','ai'), {glyph:icons.Bot});
-    const human = button('标记为非 AI', () => annotate(item,'learn','human'), {glyph:icons.UserRoundCheck});
-    if (result?.learned) { ai.setAttribute('aria-pressed',String(result.override === 'hide')); human.setAttribute('aria-pressed',String(result.override === 'keep')); }
-    actions.append(ai,human);
-    section.append(el('p','标记会用于后续判断，可在设置中删除。','hint'));
+    panel.append(el('p','机器人 / 真人：点击标注，再点撤销。标注用于后续判断，不会改写上方模型分数。','hint'));
   }
   const { section, actions } = actionSection(panel, `显示与账号 · @${item.handle}`);
   if (item.kind === 'reply') actions.append(button(collapsed ? '展开原文' : '折叠此条', () => {
-    if (collapsed) { shown.add(item.id); render(article,state); return; }
+    if (collapsed) { keepReadingPosition(article,state,()=>{shown.add(item.id); render(article,state);}); return; }
     return annotate(item,'feedback','hide');
   }, {glyph:collapsed ? icons.Eye : icons.EyeOff}));
+  if(collapsed) actions.append(button('只保留此条',()=>annotate(item,'feedback','keep'),{glyph:icons.Eye}));
   actions.append(button('始终保留作者', () => send({ type: 'list', handle: item.handle, action: 'allow' }), {glyph:icons.ShieldCheck}));
   actions.append(button(isLocal ? '取消本地屏蔽' : '本地屏蔽作者', () => send({ type: 'list', handle: item.handle, action: isLocal ? 'remove' : 'block' }), {glyph:icons.UserRoundMinus}));
   actions.append(button('在 X 拉黑…', () => openXBlock(article, item), {glyph:icons.ExternalLink}));
@@ -174,15 +214,16 @@ async function processArticle(article, state, manual = false) {
   if (!settings.enabled || !configured || (state.item.kind === 'post' && !settings.radar)) { render(article, state); return; }
   if (settings.allowlist.includes(state.item.handle) || settings.blocklist.includes(state.item.handle)) { render(article, state); return; }
   state.started = true; state.error = ''; render(article, state);
-  const generation = epoch, fingerprint = state.fingerprint;
+  const generation = epoch, fingerprint = state.fingerprint, version=state.version;
   try {
     const duplicateOnly = state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !manual;
     const result = await send({ type: duplicateOnly ? 'local-decision' : 'classify', item: state.item });
     const current = extractArticle(article, location.href, conversation);
-    if (generation !== epoch || states.get(article) !== state || state.fingerprint !== fingerprint || current?.id !== state.item.id || current.text !== state.item.text || current.parent !== state.item.parent) return;
+    if (generation !== epoch || states.get(article) !== state || state.version!==version || state.fingerprint !== fingerprint || current?.id !== state.item.id || current.text !== state.item.text || current.parent !== state.item.parent) return;
+    if(result?.skipped==='changed') { state.started=false; intersection.unobserve(article); intersection.observe(article); return; }
     state.result = result;
-  } catch (error) { if (generation === epoch && states.get(article) === state) state.error = error.message; }
-  if (generation === epoch) render(article, state);
+  } catch (error) { if (generation === epoch && states.get(article) === state && state.version===version) state.error = error.message; }
+  if (generation === epoch && state.version===version) render(article, state);
 }
 const intersection = new IntersectionObserver(entries => {
   for (const entry of entries) if (entry.isIntersecting) { const state = states.get(entry.target); if (state) void processArticle(entry.target, state); }
@@ -224,7 +265,28 @@ const observer = new MutationObserver(records => {
   if (records.some(r => !(r.target instanceof Element && r.target.closest('.qb-host')) && [...r.addedNodes, ...r.removedNodes].some(n => !(n instanceof Element && n.matches('.qb-host'))))) schedule();
 });
 observer.observe(document.body, { childList: true, subtree: true });
-chrome.runtime.onMessage.addListener(message => { if (message.type === 'refresh') void refresh(); });
+async function refreshAnnotation(id) {
+  for(const [article,state] of states) {
+    if(state.item.id!==id) continue;
+    const version=state.version=(state.version||0)+1, generation=epoch;
+    try {
+      const patch=await send({type:'local-decision',item:state.item});
+      const current=extractArticle(article,location.href,conversation);
+      if(generation!==epoch || states.get(article)!==state || state.version!==version || current?.id!==id || current.text!==state.item.text) continue;
+      keepReadingPosition(article,state,()=>{
+        const {override,learned,annotation,...previous}=state.result||{};
+        state.result={...previous,...patch}; state.error=''; render(article,state);
+      });
+      if(!state.result.scores && !state.result.override) {
+        state.started=false; intersection.unobserve(article); intersection.observe(article);
+      }
+    } catch { /* A failed notification must leave the current reading state intact. */ }
+  }
+}
+chrome.runtime.onMessage.addListener(message => {
+  if (message.type === 'refresh') void refresh();
+  if (message.type === 'annotation-changed') void refreshAnnotation(message.id);
+});
 window.addEventListener('popstate', schedule);
 // Also catches X's pushState navigation when no tweet has mounted yet.
 setInterval(() => { if (location.href !== lastUrl) schedule(); }, 1000);
