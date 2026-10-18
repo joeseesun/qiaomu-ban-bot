@@ -2,9 +2,9 @@
 
 整理回复，记住常聊的人，复盘你看好的帖子，把书签带走。用 TypeSafe Jev 辅助判断，操作与记录都留在你的掌控中。
 
-**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-ban-bot/releases/tag/v0.1.8)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
+**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-ban-bot/releases/tag/v0.1.9)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
 
-当前版本 **0.1.8 Preview**，尚未上架 Chrome 应用商店。本版验证了自动保存、暂停记忆、真实 X 滚动吸顶与窄屏布局；真实页面后台使用内存替身，没有修改 X 书签。模型链路的历史验证与本版边界见测试记录，完整 Chrome 安装后流程仍待人工验收。
+当前版本 **0.1.9 Preview**，尚未上架 Chrome 应用商店。本版验证了默认反馈联系人、新旧账号兼容、移除后不恢复，以及常用 @ 页展示；此前书签与编辑器的真实页面验证边界保留在测试记录。模型链路的历史验证与本版边界见测试记录，完整 Chrome 安装后流程仍待人工验收。
 
 ## 界面
 
@@ -71,6 +71,8 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 
 <img src="docs/images/contacts.png" alt="常用联系人页面，支持头像、备注、拼音搜索与手动添加，全部为模拟账号" width="360"> <img src="docs/images/forecasts.png" alt="看好追踪：原始概率与最近观测分别展示，全部为模拟数据" width="360">
 
+常用 @ 默认提供 **向阳乔木 @vista8**，备注为「插件作者 · 问题反馈」。可搜索账号、昵称、拼音或“反馈”，选择后沿用「昵称 @账号」插入。已有自定义资料保持不变，可编辑或移除；移除后不会自动恢复。登录 @vista8 本人时不重复添加自己。
+
 ## 书签导出
 
 1. 打开 X 的书签页（新版在 **历史 → 书签**），插件会自动保存已加载的书签，无需先点开始。
@@ -92,7 +94,7 @@ Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px
 
 需要 Chrome 120 或更新版本。
 
-1. 在 [Release](https://github.com/joeseesun/qiaomu-ban-bot/releases/tag/v0.1.8) 下载 `qiaomu-ban-bot-0.1.8-chrome.zip` 并解压到固定目录。
+1. 在 [Release](https://github.com/joeseesun/qiaomu-ban-bot/releases/tag/v0.1.9) 下载 `qiaomu-ban-bot-0.1.9-chrome.zip` 并解压到固定目录。
 2. 打开 `chrome://extensions`，开启右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择**包含 `manifest.json` 的文件夹**。
 4. 在 Chrome 扩展菜单固定「乔木 X 助手」，打开「连接」。

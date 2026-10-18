@@ -20,6 +20,7 @@ const ownerOf=v=>{const h=contactHandle(v);if(!h)throw Error('先选择你的 X 
 const order=c=>[c.owner,c.pinned?1:0,c.activity,c.handle];
 export class Contacts {
   constructor(factory=globalThis.indexedDB,name='qiaomu-banbot-contacts'){
+    this.defaultsReady=new Set();
     this.db=new Promise((resolve,reject)=>{
       const r=factory.open(name,1);
       r.onupgradeneeded=()=>{
@@ -30,6 +31,22 @@ export class Contacts {
       };r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
     });
   }
+  async ensureDefaults(owner){
+    if(this.defaultsReady.has(owner))return;
+    const db=await this.db,tx=db.transaction(['contacts','owners','removed'],'readwrite'),done=finished(tx),o=tx.objectStore('owners');
+    const profile=await request(o.get(owner));
+    if(!profile){await done;return;}
+    if(!profile.feedbackContactInitialized){
+      const s=tx.objectStore('contacts'),key=[owner,'vista8'];
+      const [existing,removed]=await Promise.all([request(s.get(key)),request(tx.objectStore('removed').get(key))]);
+      if(owner!=='vista8'&&!existing&&!removed){
+        const contact={owner,handle:'vista8',displayName:'向阳乔木',avatar:'',note:'插件作者 · 问题反馈',pinned:false,pinnedOrder:0,replyCount:0,lastReplyAt:0,activity:0};
+        contact.search=searchText(contact);s.put(contact);
+      }
+      o.put({...profile,feedbackContactInitialized:true});
+    }
+    await done;this.defaultsReady.add(owner);
+  }
   async observe(owner){
     owner=ownerOf(owner);const db=await this.db,tx=db.transaction('owners','readwrite'),done=finished(tx),s=tx.objectStore('owners');
     const old=await request(s.get(owner));s.put({...old,handle:owner,automatic:old?.automatic!==false,seenAt:Date.now()});await done;return this.state(owner);
@@ -37,6 +54,7 @@ export class Contacts {
   async state(owner){
     const db=await this.db,tx=db.transaction('owners','readonly');
     const owners=await request(tx.objectStore('owners').getAll());owners.sort((a,b)=>b.seenAt-a.seenAt);
+    await Promise.all(owners.filter(o=>!o.feedbackContactInitialized).map(o=>this.ensureDefaults(o.handle)));
     return{owners,owner:contactHandle(owner)||owners[0]?.handle||''};
   }
   async configure(owner,automatic){
@@ -74,6 +92,7 @@ export class Contacts {
   }
   async page({owner,query='',before=null,limit=20,pinned=false}={}){
     owner=ownerOf(owner);query=clean(query,160).toLowerCase().replace(/^@/,'');limit=Math.min(20,Math.max(1,Number(limit)||20));
+    await this.ensureDefaults(owner);
     const valid=Array.isArray(before)&&before.length===4&&before[0]===owner&&(pinned?before[1]===1:[0,1].includes(before[1]))&&Number.isFinite(before[2])&&contactHandle(before[3])===before[3];
     const range=IDBKeyRange.bound([owner,pinned?1:0,0,''],valid?before:[owner,1,Number.MAX_SAFE_INTEGER,'\uffff'],false,!!valid);
     const db=await this.db,tx=db.transaction('contacts','readonly'),index=tx.objectStore('contacts').index('recent');
