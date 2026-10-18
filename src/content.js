@@ -3,7 +3,7 @@ import { ARTICLE, extractArticle } from './dom.js';
 import { CSS, icons, icon } from './content-ui.js';
 const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
-let conversation = { replyIds: new Set(), parents: new Map() };
+let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() };
 const states = new Map(), shown = new Set(), seenText = new Map();
 function el(tag, text, className) { const n = document.createElement(tag); if (text) n.textContent = text; if (className) n.className = className; return n; }
 function button(text, run, { glyph, iconOnly = false, className = '' } = {}) {
@@ -54,10 +54,10 @@ function resetArticle(article) { restore(article); states.get(article)?.host?.re
 function detailLine(text) { return el('p', text, 'muted'); }
 // Anchor the visible toolbar, not the document's absolute scroll offset: a
 // folded reply changes height. Never scroll for an off-screen label update.
-function keepReadingPosition(article, state, update) {
+function keepReadingPosition(article, state, update, fromTop = false) {
   const host=state.host, active=host?.shadowRoot.activeElement;
-  const action=active?.dataset.label;
-  let anchor=host;
+  const action=active?.dataset.label, expansion=active?.dataset.action==='expand';
+  let anchor=fromTop ? article : host;
   const rect=anchor?.getBoundingClientRect();
   if (!rect || rect.bottom<0 || rect.top>innerHeight) {
     anchor=[...states.keys()].find(a=>a!==article && a.getBoundingClientRect().top>=0 && a.getBoundingClientRect().top<innerHeight);
@@ -70,6 +70,7 @@ function keepReadingPosition(article, state, update) {
   };
   update(); restorePosition();
   if(action) host?.shadowRoot.querySelector(`[data-label="${action}"]`)?.focus({preventScroll:true});
+  else if(expansion) host?.shadowRoot.querySelector('[data-action="expand"]')?.focus({preventScroll:true});
   // X's virtual list can measure after our synchronous mutation. Stop anchoring
   // immediately when the user scrolls or starts another gesture.
   let cancelled=false;
@@ -156,11 +157,12 @@ function render(article, state) {
   const expanded = shown.has(item.id);
   const collapsed = decision.collapse && !expanded;
   if (collapsed) { article.append(host); article.setAttribute('data-qb-collapsed', ''); bar.classList.add('folded'); }
+  else if (expanded && decision.collapse) { host.parentElement.prepend(host); bar.classList.add('expanded'); }
   const hasScore = typeof result?.scores?.ai_written === 'number';
   const title = hasScore ? `AI 概率：${Math.round(result.scores.ai_written * 100)}%` : 'AI 概率：—';
   const signals = el('div', null, 'signals'), label = el('span', title, 'label score');
   label.title=hasScore ? result?.annotation ? '标注前的模型估计；人工标注不会改写这个分数' : '模型估计，不能证明作者身份' : '尚无模型评分';
-  const extra = collapsed ? `@${item.handle}${result?.annotation ? ' · '+decision.label : ''}` : result?.annotation ? decision.label : settings.filterMode === 'label' && hasScore ? '仅标记' : decision.label && !decision.useful && !/AI/.test(decision.label) ? decision.label : '';
+  const extra = expanded && decision.collapse ? `已展开 · @${item.handle}` : collapsed ? `@${item.handle}${result?.annotation ? ' · '+decision.label : ''}` : result?.annotation ? decision.label : settings.filterMode === 'label' && hasScore ? '仅标记' : decision.label && !decision.useful && !/AI/.test(decision.label) ? decision.label : '';
   if (extra) label.append(el('span', extra, 'status'));
   signals.append(label);
   if (decision.useful && !decision.collapse) {
@@ -179,7 +181,10 @@ function render(article, state) {
     toolbar.append(choices);
   }
   toolbar.append(el('span',null,'toolbar-spacer'));
-  if (decision.collapse) toolbar.append(button(collapsed ? '展开' : '收起', () => keepReadingPosition(article,state,()=>{ collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); })));
+  if (decision.collapse) {
+    const toggle=button(collapsed ? '展开' : '收起', () => keepReadingPosition(article,state,()=>{ collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); }, true));
+    toggle.dataset.action='expand';toggle.setAttribute('aria-expanded',String(!collapsed));toolbar.append(toggle);
+  }
   const panel = disclosure(bar, toolbar);
   if (result?.scores) {
     const scores = el('dl', null, 'scores');
@@ -193,7 +198,7 @@ function render(article, state) {
   }
   const { section, actions } = actionSection(panel, `显示与账号 · @${item.handle}`);
   if (item.kind === 'reply') actions.append(button(collapsed ? '展开原文' : '折叠此条', () => {
-    if (collapsed) { keepReadingPosition(article,state,()=>{shown.add(item.id); render(article,state);}); return; }
+    if (collapsed) { keepReadingPosition(article,state,()=>{shown.add(item.id); render(article,state);}, true); return; }
     return annotate(item,'feedback','hide');
   }, {glyph:collapsed ? icons.Eye : icons.EyeOff}));
   if(collapsed) actions.append(button('只保留此条',()=>annotate(item,'feedback','keep'),{glyph:icons.Eye}));
@@ -230,7 +235,7 @@ const intersection = new IntersectionObserver(entries => {
 }, { rootMargin: '40px', threshold: 0.05 });
 function scan() {
   scheduled = false;
-  if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } seenText.clear(); shown.clear(); conversation = { replyIds: new Set(), parents: new Map() }; }
+  if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } seenText.clear(); shown.clear(); conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() }; }
   for (const [article] of states) if (!article.isConnected) { intersection.unobserve(article); resetArticle(article); }
   if (!settings.enabled) return;
   for (const article of document.querySelectorAll(ARTICLE)) {
@@ -238,12 +243,14 @@ function scan() {
     const rootId = location.pathname.match(/^\/[^/]+\/status\/(\d+)/)?.[1];
     if (item.id === rootId) { conversation.rootId = rootId; conversation.parent = item.text; conversation.passedRoot = true; }
     if (item.kind === 'reply' && rootId) conversation.replyIds.add(item.id);
+    if (item.kind === 'unknown' && conversation.passedRoot) conversation.otherIds.add(item.id);
+    if (conversation.otherIds.size > 2000) conversation.otherIds.delete(conversation.otherIds.values().next().value);
     if (item.kind === 'reply' && item.parent) conversation.parents.set(item.id,item.parent);
     if (conversation.parents.size > 2000) conversation.parents.delete(conversation.parents.keys().next().value);
     if (conversation.replyIds.size > 2000) conversation.replyIds.delete(conversation.replyIds.values().next().value);
     const fingerprint = JSON.stringify([item.id, item.text, item.kind, item.parent]);
     const existing = states.get(article);
-    if (existing?.fingerprint === fingerprint) { if (existing.host && !existing.host.isConnected) render(article, existing); continue; }
+    if (existing?.fingerprint === fingerprint) { existing.item.displayName=item.displayName; if (existing.host && !existing.host.isConnected) render(article, existing); continue; }
     if (existing) { intersection.unobserve(article); resetArticle(article); }
     const key = item.kind === 'reply' ? duplicateKey(item.text) : '';
     const first = key && seenText.get(key);
@@ -251,7 +258,6 @@ function scan() {
     if (key && !first) { seenText.set(key, item.id); if (seenText.size > 1000) seenText.delete(seenText.keys().next().value); }
     states.set(article, state); intersection.observe(article);
   }
-  if (conversation.passedRoot && [...document.querySelectorAll('[data-testid="primaryColumn"] h2')].some(n => !n.closest(ARTICLE) && /发现更多|探索更多|Discover more|More posts/i.test(n.textContent))) conversation.ended = true;
 }
 function schedule() { if (!scheduled) { scheduled = true; setTimeout(scan, 120); } }
 async function refresh() {
@@ -262,9 +268,15 @@ async function refresh() {
   } catch { /* An unloaded extension must not disturb X. */ }
 }
 const observer = new MutationObserver(records => {
-  if (records.some(r => !(r.target instanceof Element && r.target.closest('.qb-host')) && [...r.addedNodes, ...r.removedNodes].some(n => !(n instanceof Element && n.matches('.qb-host'))))) schedule();
+  if (records.some(r => {
+    const target=r.target.nodeType===1 ? r.target : r.target.parentElement;
+    if (target?.closest('.qb-host')) return false;
+    if (r.type==='characterData') return Boolean(target?.closest('[data-testid="tweetText"], [data-testid="User-Name"]'));
+    if (r.type==='attributes') return Boolean(target?.closest(ARTICLE) && (target.matches('a[href*="/status/"]') || target.matches('time')));
+    return [...r.addedNodes,...r.removedNodes].some(n=>!(n instanceof Element && n.matches('.qb-host')));
+  })) schedule();
 });
-observer.observe(document.body, { childList: true, subtree: true });
+observer.observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['href','datetime'] });
 async function refreshAnnotation(id) {
   for(const [article,state] of states) {
     if(state.item.id!==id) continue;

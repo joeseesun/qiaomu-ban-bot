@@ -31,7 +31,7 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     await until(()=>d.getElementById('notice').textContent.includes('密钥已保存'));
     assert.equal(calls.length,1);assert.equal(d.getElementById('test-text').value,'');assert.equal(d.getElementById('api-key').value,'••••••••••••••••');assert.equal(d.getElementById('api-key').readOnly,true);assert.equal(saved.banbot.apiKey,'fixture-secret');
     assert.equal(d.getElementById('key-badge').hidden,false);
-    assert.equal((await dispatch({type:'reveal-key'},page.window.location.href,true)).ok,false);
+    assert.equal((await dispatch({type:'reveal-key'},page.window.location.href,true)).ok,false);assert.equal((await dispatch({type:'authors'},page.window.location.href,true)).ok,false);
     d.getElementById('toggle-key').click();await until(()=>d.getElementById('api-key').type==='text');
     assert.equal(d.getElementById('api-key').value,'fixture-secret');
     d.getElementById('toggle-key').click();await until(()=>d.getElementById('api-key').type==='password');
@@ -55,6 +55,9 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     await until(()=>!reply.hasAttribute('data-qb-collapsed') && reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('已标注真人'));
     assert.equal(reply.firstElementChild,original);assert.equal(reply.querySelector('.qb-host').parentElement,original);assert.equal((await dispatch({type:'annotations'},settings.window.location.href)).data.items[0].label,'human');
     d.querySelector('nav [data-tab="annotations"]').click();await until(()=>d.querySelector('.annotation-row [aria-pressed="true"]')?.textContent==='真人');
+    d.querySelector('nav [data-tab="accounts"]').click();await until(()=>d.querySelector('#author-list .empty-state'));
+    d.querySelector('[data-author-filter="human"]').click();await until(()=>d.querySelector('.author-row'));
+    assert.ok(d.querySelector('.author-row').textContent.includes('真人 1'));assert.equal(d.querySelector('.author-profile').href,'https://x.com/reader');
     const response=await dispatch({type:'classify',item:{id:'999',handle:'another',kind:'reply',text:'谢谢，确实解决了问题。',metrics:{}}},page.window.location.href,true);
     assert.equal(response.ok,true);assert.equal(calls.at(-1).state.user_labelled_examples[0].label,'human');
     const root=reply.querySelector('.qb-host').shadowRoot;

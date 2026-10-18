@@ -204,3 +204,19 @@ button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 #threshold{appearance:none;width:100%;height:4px;background:var(--line);border:0;border-radius:2px;cursor:pointer;margin:14px 0}
 #threshold::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:var(--ink);border:2px solid var(--bg)}
 #threshold:focus-visible{outline:1px solid var(--muted);outline-offset:5px}#threshold:disabled{opacity:.4}
+
+.author-row{padding:18px 0;border-bottom:1px solid var(--line)}
+.author-head{display:flex;align-items:center;gap:12px;min-width:0}
+.author-rank{font:11px/1.5 ui-monospace,monospace;color:var(--muted);align-self:flex-start;padding-top:3px;flex:none}
+.author-info{min-width:0;flex:1;display:grid;gap:2px}
+.author-info b{font-size:13px;font-weight:600;overflow-wrap:anywhere;line-height:1.5}
+.author-handle{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.author-counts{display:grid;gap:3px;flex:none;text-align:right;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.author-counts .active{color:var(--ink);font-weight:600}
+.author-actions{display:flex;align-items:center;gap:8px;margin:13px 0 0 26px;flex-wrap:wrap}
+.author-actions button{font-size:11px;padding:7px 9px;min-height:32px}
+.author-actions button svg{width:14px;height:14px}
+.author-actions button[aria-pressed=true]{background:var(--primary);color:var(--on-primary);box-shadow:none}
+.author-profile{display:inline-flex;align-items:center;gap:3px;margin-left:auto;color:var(--muted);font-size:11px;min-height:32px}
+#accounts>.hint{margin:0 0 8px}.author-profile svg{width:13px;height:13px}
+@media(max-width:380px){.author-actions{gap:6px;margin-left:0}.author-head{gap:8px}}

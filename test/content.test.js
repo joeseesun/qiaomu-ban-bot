@@ -132,3 +132,43 @@ test('X block helper opens the native confirmation without confirming a block',a
     await until(()=>opened);assert.equal(blocked,0);
   }finally{env.close();}
 });
+test('a preloaded recommendation heading must not stop new replies after the root is recycled',async()=>{
+  const base=id=>markup(id,'Unique reply '+id).replace('<div dir="auto">Replying to @parent</div>','');
+  const env=mount(base(100)+base(101)+'<h2>发现更多</h2>'+base(999),async()=>result(.1));
+  try{
+    env.dom.window.history.replaceState(null,'','/person100/status/100');env.refresh();
+    await until(()=>env.calls.includes('101'));
+    const d=env.dom.window.document;d.getElementById('a100').remove();
+    d.querySelector('h2').insertAdjacentHTML('beforebegin',base(102));
+    await until(()=>env.calls.includes('102'));
+    assert.equal(env.calls.includes('999'),false);
+  }finally{env.close();}
+});
+test('same article recycled through timestamp attributes and text nodes is reanalyzed',async()=>{
+  const env=mount(markup(1,'Initial reply.'),async()=>result(.1));
+  try{await until(()=>env.calls.includes('1'));const a=env.dom.window.document.getElementById('a1');
+    a.querySelector('a').setAttribute('href','/person2/status/2');a.querySelector('[data-testid="tweetText"]').firstChild.nodeValue='A changed second reply';
+    await until(()=>env.calls.includes('2'));
+  }finally{env.close();}
+});
+test('recommendations stay outside the reply classifier when their heading is recycled',async()=>{
+  const base=id=>markup(id,'Unique content '+id).replace('<div dir="auto">Replying to @parent</div>','');
+  const env=mount(base(100)+base(101)+'<h2>发现更多</h2>'+base(999),async()=>result(.1));
+  try{
+    env.dom.window.history.replaceState(null,'','/person100/status/100');env.refresh();await until(()=>env.calls.includes('101'));await pause(150);
+    const d=env.dom.window.document;for(const id of ['a100','a101'])d.getElementById(id).remove();d.querySelector('h2').remove();
+    d.querySelector('main').insertAdjacentHTML('beforeend',base(1000));await pause(200);
+    assert.equal(env.calls.includes('999'),false);assert.equal(env.calls.includes('1000'),false);
+  }finally{env.close();}
+});
+test('expanding a long reply keeps its start in place and identifies the opened reply',async()=>{
+  const env=mount(markup(1,'A long reply. '.repeat(100))+markup(2,'Next reply.'),async item=>result(item.id==='1'?.95:.1));
+  try{const a=env.dom.window.document.getElementById('a1');await until(()=>a.hasAttribute('data-qb-collapsed'));
+    let scroll=0;env.dom.window.scrollBy=({top})=>{scroll+=top;};
+    a.getBoundingClientRect=()=>({top:300-scroll,bottom:360-scroll});
+    const host=a.querySelector('.qb-host');host.getBoundingClientRect=()=>({top:(host.parentElement===a||host.parentElement.firstChild===host?300:1300)-scroll,bottom:360-scroll});
+    host.shadowRoot.querySelector('[data-action=expand]').focus();host.shadowRoot.querySelector('[data-action=expand]').click();await pause(60);
+    assert.equal(a.getBoundingClientRect().top,300);assert.equal(host.shadowRoot.activeElement?.dataset.action,'expand');assert.equal(a.parentElement.firstChild,a);assert.ok(host.shadowRoot.textContent.includes('已展开 · @person1'));assert.equal(host.parentElement.firstChild,host);
+    [...host.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='收起').click();await pause(60);assert.equal(a.getBoundingClientRect().top,300);
+  }finally{env.close();}
+});

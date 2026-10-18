@@ -81,6 +81,12 @@ export class Engine {
     const page=await this.annotations.page({label,before,limit:20});
     return {...page,counts:await this.annotations.stats()};
   }
+  async authorPage(options={}) {
+    await this.ready;
+    const label=options.label==='human'?'human':'ai';
+    const before=Number.isSafeInteger(options.before?.count)&&options.before.count>=1&&handleOf(options.before.handle) ? {count:options.before.count,handle:handleOf(options.before.handle)} : null;
+    return this.annotations.authorPage({label,before,limit:20});
+  }
   learn(input, label) {
     return this.mutate(async () => {
       const item = validateItem(input);
@@ -167,6 +173,8 @@ export class Engine {
     const key=await annotationKey(item), modelKey=await cacheKey(item,this.data.settings);
     let override = this.data.overrides[key] || this.data.overrides[modelKey];
     const sample=await this.annotations.get(key);
+    // Backfill names from an already visible post; never fetch profiles or alter labels.
+    if(sample&&item.displayName&&sample.displayName!==item.displayName)await this.mutate(()=>this.annotations.rememberName(key,item.displayName));
     if(sample && (!override || sample.at>override.at)) override={label:sample.label==='ai'?'hide':'keep',source:'learning'};
     return { ...(sample?.modelKey===modelKey ? sample.modelResult : {}),
       ...(override ? {override:override.label,...(override.source==='learning'?{learned:true}:{})} : {}),

@@ -16,6 +16,8 @@ export function extractArticle(article, href = location.href, conversation = {})
   const match = path?.match(/\/([a-zA-Z0-9_]{1,15})\/status\/(\d+)/);
   if (!match) return null;
   const id = match[2], handle = match[1].toLowerCase();
+  const nameLink=ownElements(article, '[data-testid="User-Name"] a').find(n=>n.getAttribute('href')?.toLowerCase()===`/${handle}` && !n.textContent.trim().startsWith('@'));
+  const displayName=nameLink?.textContent.trim().slice(0,100) || '';
   const texts = ownElements(article, '[data-testid="tweetText"]');
   const text = texts.map(el => [...el.childNodes].map(node => node.nodeType === 1 ? node.textContent : node.textContent).join('')).join('\n').trim().slice(0, 6000);
   // Only use an explicit reply marker. Other timeline posts stay untouched until manually analyzed.
@@ -37,11 +39,14 @@ export function extractArticle(article, href = location.href, conversation = {})
         kind = explicitReply || index > chainStart ? 'reply' : 'post';
         if (index > chainStart) parentArticle = all[index - 1];
       }
-      let afterRoot = !rootPresent && conversation.rootId === rootID && conversation.passedRoot && !conversation.ended;
+      let afterRoot = !rootPresent && conversation.rootId === rootID && conversation.passedRoot;
       for (const node of all) {
-        if (node === article) { if (afterRoot) { kind = 'reply'; parentArticle = all[rootIndex] || null; } break; }
+        if (node === article) { if (afterRoot && !conversation.otherIds?.has(id)) { kind = 'reply'; parentArticle = all[rootIndex] || null; } break; }
         if (node.matches('h2')) { afterRoot = false; continue; }
         const links = ownElements(node, 'time').map(t => t.closest('a')?.getAttribute('href') || '');
+        const nodeId=links.map(h=>h.match(/\/status\/(\d+)/)?.[1]).find(Boolean);
+        if (conversation.otherIds?.has(nodeId)) afterRoot=false;
+        if (conversation.replyIds?.has(nodeId)) afterRoot=true;
         if (links.some(h => new RegExp(`/status/${rootID}(?:$|[/?])`).test(h))) afterRoot = true;
       }
       if (conversation.rootId === rootID && conversation.replyIds?.has(id)) kind = 'reply';
@@ -73,5 +78,5 @@ export function extractArticle(article, href = location.href, conversation = {})
     }
     if (!parent && conversation.rootId === rootID) parent = conversation.parents?.get(id) || (id !== rootID ? conversation.parent || '' : '');
   }
-  return { id, handle, text, kind, parent, metrics, createdAt: Number.isFinite(createdAt) ? createdAt : null };
+  return { id, handle, displayName, text, kind, parent, metrics, createdAt: Number.isFinite(createdAt) ? createdAt : null };
 }
