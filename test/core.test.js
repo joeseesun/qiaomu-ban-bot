@@ -13,13 +13,24 @@ test('uncertain or invalid model output cannot collapse a reply', () => {
 });
 test('mode and allowlist decisions match user policy', () => {
   assert.equal(decide(reply, result({}), DEFAULTS).collapse, true);
-  assert.equal(decide(reply, result({}), { ...DEFAULTS, filterMode: 'low-value' }).collapse, false);
-  assert.equal(decide(reply, result({ low_value: .98 }), { ...DEFAULTS, filterMode: 'low-value' }).collapse, true);
   assert.equal(decide(reply, result({ spam: 1 }), { ...DEFAULTS, filterMode: 'label' }).collapse, false);
   assert.equal(decide(reply, result({}), { ...DEFAULTS, allowlist: ['alice'], blocklist: ['alice'] }).collapse, false);
   assert.equal(decide(reply, null, { ...DEFAULTS, blocklist: ['alice'] }).collapse, true);
   assert.equal(decide(reply, result({}), { ...DEFAULTS, enabled: false, blocklist: ['alice'] }).collapse, false);
   assert.equal(decide({ ...reply, kind: 'post' }, result({}), DEFAULTS).collapse, false);
+});
+test('retired information-volume scores cannot label or fold any reply', () => {
+  const settings=normalizeSettings({...DEFAULTS,filterMode:'low-value'});
+  assert.equal(settings.filterMode,'label');
+  for(const text of ['谢谢','为了流量不要脸','我现在都是扔给 Bot 让它抓数据','详细且具体的长回复。'.repeat(20)]) {
+    const item={...reply,text};
+    const oldResult=result({ai_written:.26,low_value:1,useful:.1,spam:0});
+    for(const s of [DEFAULTS,settings]) {
+      const decision=decide(item,oldResult,s);
+      assert.equal(decision.collapse,false);assert.equal(decision.label,'');
+    }
+    assert.deepEqual(Object.keys(buildRequest(item,DEFAULTS).questions),['ai_written','useful','spam']);
+  }
 });
 test('semantic rule is independent of AI authorship', () => {
   const s = { ...DEFAULTS, customRule: '引流' };
@@ -54,7 +65,7 @@ test('AI folds strictly above 50%, without relaxing promotion and custom rules',
   assert.equal(decide(reply,result({ai_written:.51}),{...DEFAULTS,filterMode:'label'}).collapse,false);
 });
 test('actual HTTP adapter uses decisions protocol, rejects redirects and handles status/errors', async () => {
-  const valid = { model: 'jev-test', answers: Object.fromEntries(['ai_written','low_value','useful','spam'].map(k=>[k,{type:'noul',noul:.3}])) };
+  const valid = { model: 'jev-test', answers: Object.fromEntries(['ai_written','useful','spam'].map(k=>[k,{type:'noul',noul:.3}])) };
   await analyze(reply, DEFAULTS, 'fixture-key', async (url, init) => {
     assert.equal(url,'https://magpie.qiaomu.ai/v1/systemone'); assert.equal(init.redirect,'error'); assert.equal(init.credentials,'omit'); assert.equal(init.headers.Authorization,'Bearer fixture-key');
     const body=JSON.parse(init.body); assert.equal(body.state.text,reply.text); assert.equal(body.messages,undefined); return new Response(JSON.stringify(valid));

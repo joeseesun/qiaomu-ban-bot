@@ -51,7 +51,7 @@ async function send(message){
       return{};
     }
     if(message.type==='clear')await demoLabels.clear();
-    if(message.type==='test')return{scores:{ai_written:.94,low_value:.89,useful:.08,spam:.02},model:'演示数据'};
+    if(message.type==='test')return{scores:{ai_written:.94,useful:.08,spam:.02},model:'演示数据'};
     return structuredClone({...demoState,learningCount:(await demoLabels.stats()).total});
   }
   const response=await chrome.runtime.sendMessage(message);
@@ -158,8 +158,8 @@ bind('authors-prev',async()=>{if(!authorIndex)return;authorIndex--;await loadAut
 function thresholdCopy(){
   const mode=document.querySelector('input[name="filterMode"]:checked')?.value||'ai',value=$('threshold').value;
   const only=mode==='label';$('threshold').disabled=only;$('threshold-number').disabled=only;
-  $('threshold-label').textContent=mode==='low-value'?'低信息量概率达到':'AI 概率高于';
-  $('threshold-value').textContent=only?'只显示结果，不会按分数自动折叠。':mode==='low-value'?`低信息量概率达到 ${value}% 时折叠。`:`高于 ${value}% 自动折叠，恰好 ${value}% 保留。`;
+  $('threshold-label').textContent='AI 概率高于';
+  $('threshold-value').textContent=only?'只显示结果，不会按分数自动折叠。':`高于 ${value}% 自动折叠，恰好 ${value}% 保留。`;
 }
 function render({connection=true}={}){
   const s=snapshot.settings;
@@ -168,7 +168,7 @@ function render({connection=true}={}){
   $('threshold').value=$('threshold-number').value=Math.round(s.threshold*100);
   document.querySelector(`input[name="filterMode"][value="${s.filterMode}"]`).checked=true;thresholdCopy();
   $('status-title').textContent=!s.enabled?'已暂停，原文全部保留':snapshot.configured?'正在整理你的回复区':'连接模型，开始使用';
-  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?'前往「连接」，保存你的 API Key。':s.filterMode==='label'?'显示判断结果，保留所有原文。':s.filterMode==='ai'?`AI 概率高于 ${Math.round(s.threshold*100)}% 时折叠。`:`低信息量概率达到 ${Math.round(s.threshold*100)}% 时折叠。`;
+  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?'前往「连接」，保存你的 API Key。':s.filterMode==='label'?'显示判断结果，保留所有原文。':`AI 概率高于 ${Math.round(s.threshold*100)}% 时折叠。`;
   $('stat-requests').textContent=snapshot.stats.requests.toLocaleString();$('stat-cache').textContent=snapshot.stats.cacheHits.toLocaleString();$('stat-labels').textContent=(snapshot.learningCount||0).toLocaleString();
   $('model-state').textContent=!snapshot.configured?'未连接模型':snapshot.connection?'已连接 Jev':'密钥已保存';
   if(connection)fillConnection(s);renderAccounts();
@@ -243,7 +243,7 @@ bind('labels-prev',async()=>{if(!pageIndex)return;pageIndex--;await loadLabels()
 bind('test-model',async()=>{
   const text=$('test-text').value.trim();if(!text)throw Error('先粘贴一条回复。');$('test-result').hidden=false;$('test-result').textContent='正在判断…';
   try{const result=await send({type:'test',item:{id:'0',handle:'sandbox',kind:'reply',text,parent:$('test-parent').value,metrics:{}}});if(!result.scores)throw Error('设置刚刚有变化，请再试一次。');$('test-result').replaceChildren();
-    for(const [key,title] of Object.entries({ai_written:'AI 概率',low_value:'低信息量',useful:'值得一读',spam:'引流推广',rule_match:'符合附加规则'}))if(key in result.scores){const row=document.createElement('div');row.className='score-row';const label=document.createElement('span');label.textContent=title;const value=document.createElement('b');value.textContent=`${Math.round(result.scores[key]*100)}%`;row.append(label,value);$('test-result').append(row);}
+    for(const [key,title] of Object.entries({ai_written:'AI 概率',useful:'值得一读',spam:'引流推广',rule_match:'符合附加规则'}))if(key in result.scores){const row=document.createElement('div');row.className='score-row';const label=document.createElement('span');label.textContent=title;const value=document.createElement('b');value.textContent=`${Math.round(result.scores[key]*100)}%`;row.append(label,value);$('test-result').append(row);}
     const p=document.createElement('p');p.className='hint';p.textContent=`${demo?'演示分数':result.cached?'复用已有结果':'已收到模型判断'} · ${result.model}`;$('test-result').append(p);snapshot=await send({type:'snapshot'});$('stat-requests').textContent=snapshot.stats.requests.toLocaleString();
   }catch(e){$('test-result').textContent='这次没有收到判断。原设置未改变。';throw e;}
 });

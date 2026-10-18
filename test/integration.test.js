@@ -16,7 +16,7 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     const payload=JSON.parse(options.body);calls.push(payload);endpoints.push(url);
     if(options.headers.Authorization==='Bearer invalid')return new Response('',{status:401});
     const ai=payload.state.text.includes('作为一个人工智能');
-    const scores={ai_written:ai?.96:.1,low_value:ai?.97:.1,useful:.2,spam:.01,hot:.5,discussion:.6};
+    const scores={ai_written:ai?.96:.1,useful:.2,spam:.01,hot:.5,discussion:.6};
     return Response.json({model:'integration-jev',answers:Object.fromEntries(Object.keys(payload.questions).map(key=>[key,{type:'noul',noul:scores[key]??.1}])),usage:{input_tokens:20}});
   }});
   const dispatch=(message,url,tab)=>new Promise(resolve=>listener(message,{id:runtime.id,url,...(tab?{tab:{id:1},frameId:0}:{})},resolve));

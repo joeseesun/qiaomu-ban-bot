@@ -2,9 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine.js';
 const item = id => ({ id:String(id),handle:'alice',kind:'reply',text:'这是一条用来验证调度和缓存的回复。',metrics:{} });
-const result = () => ({ model:'fixture',scores:{ai_written:.95,low_value:.5,useful:.2,spam:.1},inputTokens:100,analyzedAt:Date.now() });
+const result = () => ({ model:'fixture',scores:{ai_written:.95,useful:.2,spam:.1},inputTokens:100,analyzedAt:Date.now() });
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 function setup(request) { let saved={banbot:{apiKey:'fixture',settings:{dailyLimit:300}}};const storage={get:async()=>structuredClone(saved),set:async data=>{saved=structuredClone(data);}};return {engine:new Engine(storage,request),saved:()=>saved}; }
+test('retired filter migrates safely while credentials and human annotations survive',async()=>{
+  const {engine,saved}=setup(async()=>result());await engine.learn(item(1),'human');
+  const old=saved();old.banbot.settings.filterMode='low-value';old.banbot.cacheVersion=3;
+  old.banbot.cache={legacy:{result:{scores:{low_value:.99}}}};
+  const upgraded=new Engine({get:async()=>old,set:async()=>{}},async()=>{throw Error('Migration must not call the model');},engine.annotations);
+  const snapshot=await upgraded.snapshot(true);
+  assert.equal(snapshot.settings.filterMode,'label');assert.equal(snapshot.configured,true);
+  assert.equal(snapshot.cacheSize,0);assert.equal(snapshot.learningCount,1);
+  assert.equal((await upgraded.classify(item(1))).annotation,'human');
+  assert.equal((await upgraded.classify(item(1))).override,'keep');
+});
 test('concurrent identical requests call provider once and persist statistics',async()=>{
   let calls=0;const {engine,saved}=setup(async()=>{calls++;await sleep(10);return result();});
   const responses=await Promise.all(Array.from({length:10},()=>engine.classify(item(1))));

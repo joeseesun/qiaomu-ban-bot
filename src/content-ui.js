@@ -36,7 +36,7 @@ button svg { flex:none; }
 .disclosure[aria-expanded="true"] svg { transform:rotate(180deg); }
 .panel { margin-top:8px; padding:12px; background:var(--qb-bg,#fafafa); border:1px solid var(--qb-border,#eaeaea); border-radius:6px; }
 .folded .panel { padding:10px 0 0; border:0; border-top:1px solid var(--qb-border,#eaeaea); border-radius:0; }
-.scores { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0; padding:0 0 12px; border-bottom:1px solid var(--qb-border,#eaeaea); }
+.scores { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0; padding:0 0 12px; border-bottom:1px solid var(--qb-border,#eaeaea); }
 .scores dt { font-size:11px; }
 .scores dd { margin:2px 0 0; color:var(--qb-strong,#171717); font-size:18px; font-weight:600; line-height:1.3; font-variant-numeric:tabular-nums; }
 .section { margin-top:12px; }

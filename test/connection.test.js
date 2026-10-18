@@ -5,7 +5,7 @@ import {DEFAULTS,normalizeSettings,cacheKey} from '../src/core.js';
 import {analyze} from '../src/jev.js';
 import {Engine} from '../src/engine.js';
 const item={id:'321',handle:'reader',kind:'reply',text:'我测试过了，重启后恢复正常。',parent:'',metrics:{}};
-const answer={model:'fixture-jev',scores:{ai_written:.2,low_value:.1,useful:.8,spam:0}};
+const answer={model:'fixture-jev',scores:{ai_written:.2,useful:.8,spam:0}};
 test('documented Jev presets and custom bases use typed decisions, with the selected model',async()=>{
   const expected={magpie:'https://magpie.qiaomu.ai/v1/systemone',typesafe:'https://api.typesafe.ai/v1/systemone',openrouter:'https://openrouter.ai/api/alpha/decisions',vercel:'https://ai-gateway.vercel.sh/typesafe/v1/systemone',custom:'https://fixture.example/proxy/v1/systemone'};
   for(const provider of Object.keys(PROVIDERS)){
