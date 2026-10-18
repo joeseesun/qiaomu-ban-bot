@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
 <body><main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.8</span></header>
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.1.9</span></header>
   <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
   <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="bookmarks">书签</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -61,6 +61,7 @@
       <div class="pagination"><button id="contacts-prev" class="secondary">上一页</button><span id="contacts-page">第 1 页</span><button id="contacts-next" class="secondary">下一页</button></div>
       <label class="toggle-row"><span>自动记下回复对象<small>确认发送成功后记录；取消或失败不计入</small></span><span class="switch small"><input id="contact-auto" type="checkbox" role="switch"><span></span></span></label>
       <p class="hint">从启用后开始记录，不扫描历史回复。未记录的头像和昵称，会在你读到对方帖子时补上。联系人只存本机，不参与 AI 判断。</p>
+      <p class="hint">预置 @vista8，方便向作者反馈问题。可编辑或移除；移除后不会自动加回。</p>
       <details id="contact-owner-setup" class="fine-print"><summary>手动添加我的 X 账号</summary><form id="contact-owner-form"><label class="field"><span>你用于发帖的 @用户名</span><input id="contact-owner-input" maxlength="16" placeholder="@my_account" required></label><button class="secondary">添加账号</button></form></details>
     </div>
     <div id="account-statistics">

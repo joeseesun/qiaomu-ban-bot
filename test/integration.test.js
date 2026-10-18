@@ -97,15 +97,15 @@ test('contacts and forecast UI round-trip through background, isolated from cred
   assert.equal((await dispatch({type:'contacts-reply',owner:'me',contact:{handle:'alice'}},true)).ok,false);
   assert.equal((await dispatch({type:'contacts-state'},true)).ok,false);
   const dom=new JSDOM(await readFile('public/ui.html','utf8'),{url:runtime.getURL('ui.html')+'#contacts',runScripts:'outside-only',pretendToBeVisual:true});dom.window.chrome={runtime:{sendMessage:m=>dispatch(m)}};dom.window.confirm=()=>true;
-  try{dom.window.eval(ui);const d=dom.window.document;await until(()=>d.querySelector('#contact-owner').value==='me');
-    d.querySelector('#contact-add').click();d.querySelector('#contact-handle').value='@alice';d.querySelector('#contact-name').value='艾丽丝';d.querySelector('#contact-note').value='开源朋友';d.querySelector('#contact-save').click();await until(()=>d.querySelector('.contact-row'));
+  try{dom.window.eval(ui);const d=dom.window.document;await until(()=>d.querySelector('.contact-row[data-handle="vista8"]'));assert.ok(d.querySelector('.contact-row').textContent.includes('插件作者 · 问题反馈'));assert.equal(d.querySelector('#contact-owner').value,'me');
+    d.querySelector('#contact-add').click();d.querySelector('#contact-handle').value='@alice';d.querySelector('#contact-name').value='艾丽丝';d.querySelector('#contact-note').value='开源朋友';d.querySelector('#contact-save').click();await until(()=>d.querySelector('.contact-row[data-handle="alice"]'));
     assert.equal(d.querySelector('.contact-row').dataset.handle,'alice');assert.ok(d.querySelector('.contact-row').textContent.includes('开源朋友'));
     await dispatch({type:'contacts-reply',owner:'me',contact:{handle:'alice',displayName:'艾丽丝'},replyId:'100'},true);
     assert.equal((await dispatch({type:'contacts-page',owner:'me',query:'ailisi'},true)).data.items[0].replyCount,1);
     assert.equal((await dispatch({type:'contacts-page',owner:'different'},true)).data.items.length,0);
     const watched=await dispatch({type:'forecast-watch',owner:'me',item:{id:'123',handle:'author',text:'值得追踪',metrics:{views:300},createdAt:Date.now()-10000},result:{scores:{hot:.22},model:'fixture'},target:30000},true);assert.equal(watched.ok,true);
     d.querySelector('#open-forecasts').click();await until(()=>d.querySelector('.forecast-row'));assert.ok(d.querySelector('.forecast-row').textContent.includes('22%'));assert.ok(d.querySelector('.forecast-row').textContent.includes('值得追踪'));assert.equal(modelCalls,0);
-    await dispatch({type:'clear'});assert.equal((await dispatch({type:'contacts-page',owner:'me'})).data.items.length,1,'clearing AI history must not delete contacts');assert.equal((await dispatch({type:'forecast-page',owner:'me'})).data.items.length,1);
+    await dispatch({type:'clear'});assert.equal((await dispatch({type:'contacts-page',owner:'me'})).data.items.length,2,'clearing AI history must not delete contacts');assert.equal((await dispatch({type:'forecast-page',owner:'me'})).data.items.length,1);
     assert.equal((await dispatch({type:'forecast-page',owner:'me'},true)).ok,false);
   }finally{dom.window.close();}
 });
