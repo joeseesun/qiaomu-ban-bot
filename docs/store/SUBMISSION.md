@@ -1,26 +1,30 @@
 # Chrome 应用商店提交记录
 
-更新：2026-10-19 00:28（Asia/Shanghai）。
+更新：2026-10-19（Asia/Shanghai）。
 
 - 名称：乔木 X 助手 · Qiaomu X Helper
-- 版本：0.1.10
+- 版本：0.2.0，已成功重新提交，后台回读「待审核 / 该草稿尚待审核」。通过审核后自动发布（提交前 checkbox 已核对为 true）；尚未上架。
 - 仓库：https://github.com/joeseesun/qiaomu-x-helper
 - 商店条目：`npbekbjlplpiopckedfiggpdkgaaflll`
-- 状态：已成功提交，开发者后台回读「待审核」「该草稿尚待审核」。通过审核后自动发布；尚未上架。
-- 提交时间：2026-10-19 00:27（Asia/Shanghai）。免费、公开、所有可选分发地区。
-- 发布基线：PR #12 合并提交 `ad05f5823f3e6465b5eb72eeab3116b0fb3ae94e`。
-- GitHub：[v0.1.10 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.1.10)。主分支 CI [39145041511](https://github.com/joeseesun/qiaomu-x-helper/actions/runs/39145041511) 通过；CI 与已上传本机包的 22 个 ZIP 条目逐项相同。
-- 包：`artifacts/qiaomu-x-helper-0.1.10-chrome.zip`
-- SHA-256：`897d3f866637eb1adee13b0386170a6fcc3055129ecc832c8c7bea43d229d520`
+- 发布基线：PR #15 合并提交 `8fda30a55629a08d06e876ed4e421a6eacc1bab5`。
+- GitHub：[v0.2.0 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.2.0)。主分支 CI [39147307847](https://github.com/joeseesun/qiaomu-x-helper/actions/runs/39147307847) 通过，CI 与本机包的 20 个文件逐项相同；公开下载返回 200 且 SHA-256 一致。
+- 包：`artifacts/qiaomu-x-helper-0.2.0-chrome.zip`
+- SHA-256：`7a977cc638948f40fc6cc2d6766facb76898a715966d7d5d3e0cbfb3a84c7462`
+
+提交时间：2026-10-19 01:07（Asia/Shanghai，提交后截图时间 01:07:27）。
+
+## 本轮审核修正
+
+0.1.11 已成功重新送审，后收到“垃圾内容和商店中的排名 / Yellow Argon”拒绝。后台具体指出商品说明罗列多个模型平台属于“产品说明中有过多关键字”。本轮移除商品描述中的平台枚举，改用简短、直接的功能说明。实际平台支持保留在连接设置、README 与审核步骤；不申诉、不重复提交未修正的描述。
+
+0.2.0 加入 KOL 样本评估、兴趣反馈、待回复、搜索与复盘。同步隐私说明、单一用途与本机存储披露，上传最新的五张 1280 × 800 RGB 截图。没有新增权限、遥测、后台抓取或远程代码。
 
 ## 可复用资料
 
-- `listing-zh.txt`：中文商品介绍。
-- `reviewer-notes.txt`：完整审核步骤；`reviewer-summary.txt`：后台 500 字限制内的摘要，均不含开发者凭据。
-- `declarations.json`：单一用途、权限说明、披露类别与链接。
-- `visuals.html`：截图排版源文件；`assets/` 为 0.1.10 生产 UI / 生产内容脚本夹具的截图，使用示例数据。
-- `screenshot-1.png` 至 `screenshot-4.png`：1280 × 800 RGB；`promo-440x280.png`：440 × 280 RGB。
+- `listing-zh.txt`：当前中文商品介绍。
+- `reviewer-notes.txt` / `reviewer-summary.txt`：完整测试步骤与 500 字以内摘要，无开发者凭据。
+- `declarations.json`：单一用途、权限与数据类别。
+- `visuals.html` / `assets/`：生产 UI 与生产内容脚本夹具，全部标明示例数据。
+- `screenshot-1.png` 至 `screenshot-5.png`：1280 × 800 RGB；`promo-440x280.png`：440 × 280 RGB。
 
-模型只返回 JSON 数据，不执行远程代码。披露个人身份信息、身份验证信息、网络记录、用户活动、网站内容；即使仅在本机处理也披露，范围详见隐私说明。联系人的 @、帖子链接和操作记录不用于广告或其他目的。
-
-没有新增 KOL、兴趣推荐或后台抓取功能。公开安装链接在审核通过前不可作为已上架证据。
+本机数据也披露：个人身份信息、身份验证信息、网络记录、用户活动与网站内容。公开安装链接在审核通过前不是已上架证据。
