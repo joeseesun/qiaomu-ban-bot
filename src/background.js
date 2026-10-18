@@ -4,6 +4,8 @@ import { senderContext } from './context.js';
 import { IndexedAnnotations } from './annotations.js';
 import { Contacts } from './contacts.js';
 import { Forecasts } from './forecasts.js';
+import { Bookmarks, bookmarkPath } from './bookmarks.js';
+const bookmarks = new Bookmarks();
 const contacts = new Contacts();
 const forecasts = new Forecasts();
 const secure = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
@@ -25,7 +27,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'list') { const result = await engine.listAction(message.handle, message.action); await broadcast(); return result; }
     if (message.type === 'feedback') { const result = await engine.feedback(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
     if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
-    if (message.type === 'options') { if(['contacts','forecasts'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
+    if (message.type === 'options') { if(['contacts','forecasts','bookmarks'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
     if(message.type==='forecast-watch'&&who==='content'){await contacts.observe(message.owner);return forecasts.watch(message.owner,message.item,message.result,message.target);}
     if(message.type==='forecast-observe'&&who==='content')return forecasts.observe(message.owner,message.items);
     if(message.type==='contacts-page')return contacts.page(message);
@@ -33,7 +35,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='contacts-reply'&&who==='content'){if(!/^\d{1,25}$/.test(message.replyId||''))throw Error('缺少回复成功凭据');return contacts.put(message.owner,message.contact,{replyId:message.replyId});}
     if(message.type==='contacts-refresh'&&who==='content')return contacts.refresh(message.owner,message.items);
     if(message.type==='contacts-use')return contacts.use(message.owner,message.handle);
+    if(message.type==='bookmarks-capture'&&who==='content'){if(!bookmarkPath(new URL(sender.url).pathname))throw Error('请在 X 的书签页开始收集。');return bookmarks.capture(message.owner,message.items);}
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
+    if(message.type==='bookmarks-state')return bookmarks.state();
+    if(message.type==='bookmarks-page')return bookmarks.page(message);
+    if(message.type==='bookmarks-edit')return bookmarks.edit(message.owner,message.id,message);
+    if(message.type==='bookmarks-remove')return bookmarks.remove(message.owner,message.id);
     if(message.type==='forecast-page')return forecasts.page(message);
     if(message.type==='forecast-remove')return forecasts.remove(message.owner,message.id);
     if(message.type==='contacts-state')return contacts.state(message.owner);

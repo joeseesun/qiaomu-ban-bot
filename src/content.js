@@ -2,6 +2,7 @@ import { DEFAULTS, decide, duplicateKey } from './core.js';
 import { ARTICLE, extractArticle } from './dom.js';
 import { CSS, icons, icon } from './content-ui.js';
 import { currentOwner } from './composer.js';
+import { bookmarkPath } from './bookmarks.js';
 const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
 let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() };
@@ -244,6 +245,7 @@ function render(article, state) {
   panel.append(el('p', `${result?.model ? `${result.model} · ${result.cached ? '缓存' : '本次判断'} · ` : ''}模型估计不代表作者身份`, 'meta'));
 }
 async function processArticle(article, state, manual = false) {
+  if (bookmarkPath(location.pathname)) return;
   if (state.started && !manual) return;
   if (manual) {
     const latest = extractArticle(article, location.href, conversation);
@@ -272,7 +274,7 @@ function scan() {
   scheduled = false;
   if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } seenText.clear(); shown.clear(); conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() }; }
   for (const [article] of states) if (!article.isConnected) { intersection.unobserve(article); resetArticle(article); }
-  if (!settings.enabled) return;
+  if (!settings.enabled || bookmarkPath(location.pathname)) return;
   for (const article of document.querySelectorAll(ARTICLE)) {
     const item = extractArticle(article, location.href, conversation); if (!item) continue;
     const rootId = location.pathname.match(/^\/[^/]+\/status\/(\d+)/)?.[1];
