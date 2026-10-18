@@ -1,0 +1,10 @@
+import { mkdir, readFile, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..');
+const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+const out = path.join(root, `artifacts/qiaomu-ban-bot-${version}-chrome.zip`);
+await mkdir(path.dirname(out), { recursive: true });
+await rm(out, { force: true });
+execFileSync('zip', ['-qr', out, '.'], { cwd: path.join(root, 'dist/chrome') });
+console.log(out);
