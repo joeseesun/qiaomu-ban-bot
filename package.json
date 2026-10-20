@@ -1,6 +1,6 @@
 {
   "name": "qiaomu-x-helper",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "A Chrome assistant for X replies, mentions, post tracking, and bookmark export.",

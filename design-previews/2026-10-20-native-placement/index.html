@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>乔木 X 助手 · 控件融入 X</title>
+<style>
+:root{color-scheme:light;--x-ink:#0f1419;--x-grey:#536471;--x-line:#eff3f4;--x-soft:#f7f9f9;--x-blue:#1d9bf0;--amber:#8a5300;--amber-bg:#fff4e0;--shell:#f4f5f5;--shell-line:#dce0e1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--shell);color:var(--x-ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+h1,h2,h3,p{margin:0}button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--x-blue);outline-offset:2px}
+svg{width:18.75px;height:18.75px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+main{max-width:1320px;margin:auto;padding:26px 24px 80px}
+.intro{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:18px}
+.intro h1{font-size:24px;font-weight:600}.intro p{color:#5b6870;margin-top:6px;font-size:13px}
+.legend{display:flex;gap:14px;font-size:12px;color:#5b6870;flex-wrap:wrap}.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8f1fb;border:1px solid #9cc6ee;margin-right:5px;vertical-align:-1px}
+
+/* ---------- shell ---------- */
+.panel{background:#fff;border:1px solid var(--shell-line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;border-bottom:1px solid var(--x-line)}
+.panel-head h2{font-size:15px;font-weight:600}.panel-head small{font-size:11px;color:#5b6870;white-space:nowrap}
+.rec{font-size:11px;color:#126a59;background:#e8f2ee;border-radius:4px;padding:2px 7px;margin-left:8px;font-weight:500}
+.current{margin-bottom:22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,380px)}
+.current .panel-head{grid-column:1/-1}
+.problems{padding:18px 20px;border-left:1px solid var(--x-line);font-size:13px;color:#3d4a52}
+.problems h3{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--x-ink)}
+.problems ol{margin:0;padding-left:18px;display:grid;gap:7px}
+.directions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.meta{padding:12px 18px;border-top:1px solid var(--x-line);font-size:12.5px;color:#3d4a52;display:grid;gap:4px}
+.meta b{color:var(--x-ink);font-weight:600}
+.choice-wrap{padding:0 18px 16px;margin-top:auto}
+.choice-wrap .qmdp-pick-button{width:100%;min-height:38px;border:1px solid #29352f;border-radius:6px;background:#29352f;color:#fff;font-size:13px;font-weight:500}
+.compare{margin-top:22px;background:#fff;border:1px solid var(--shell-line);border-radius:12px;overflow:auto}
+.compare table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:720px}
+.compare th,.compare td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--x-line);vertical-align:top}
+.compare th{font-weight:600;background:#fafbfb}.compare td:first-child{color:#5b6870;white-space:nowrap}
+.dials{margin-top:22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;border-top:1px solid var(--shell-line);padding-top:16px}
+.dial{display:grid;gap:5px;font-size:12px}.dial b{font-weight:500;display:flex;justify-content:space-between}.dial small{color:#5b6870}.dial input{width:100%;accent-color:#29352f}
+.note{font-size:12px;color:#5b6870;margin-top:14px}
+
+/* ---------- X 原生复刻 ---------- */
+.x{background:#fff;container-type:inline-size;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC",sans-serif}
+.tw{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;padding:12px 16px 4px;border-bottom:1px solid var(--x-line);position:relative}
+.tw:last-child{border-bottom:0}
+.av{width:40px;height:40px;border-radius:50%;background:#6c8073;color:#fff;display:grid;place-items:center;font-size:17px}.av.b{background:#7b7f9b}
+.hd{display:flex;align-items:flex-start;gap:4px;min-height:20px}
+.id{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;column-gap:4px;font-size:15px;line-height:20px}
+.nm{font-weight:700;white-space:nowrap}.vf{width:16px;height:16px;color:var(--x-blue)}
+.g{color:var(--x-grey);white-space:nowrap}
+.hr{display:flex;align-items:center;margin:-6px -8px 0 0;flex:none}
+.ib{border:0;background:transparent;width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;color:var(--x-grey);padding:0;position:relative}
+.ib:hover{background:#1d9bf01a;color:var(--x-blue)}
+.ib svg{width:18.75px;height:18.75px}
+.reply-to{font-size:15px;color:var(--x-grey);line-height:20px}.reply-to span{color:var(--x-blue)}
+.tx{font-size:15px;line-height:20px;margin:2px 0 0;overflow-wrap:anywhere}
+.act{display:flex;align-items:center;justify-content:space-between;margin:4px -8px 0 -8px;max-width:100%}
+.a{display:inline-flex;align-items:center;color:var(--x-grey);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.a .ib{width:34px;height:34px}
+.right{display:flex;align-items:center}
+.ext{background:#e8f1fb66;outline:1px dashed #9cc6ee;outline-offset:-1px;border-radius:999px}
+.show-ext .ext{background:transparent;outline:0}
+/* X 原生「关注了你」徽章 */
+.badge{font-size:12px;line-height:16px;color:var(--x-grey);background:var(--x-line);border-radius:4px;padding:0 4px;white-space:nowrap}
+/* AI 估计：与 X 互动数字同规格 */
+.ai{border:0;background:transparent;display:inline-flex;align-items:center;gap:2px;height:34px;padding:0 8px 0 6px;border-radius:999px;color:var(--amber);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ai:hover{background:var(--amber-bg)}
+.ai svg{width:17px;height:17px}
+/* 浮层：X 下拉菜单样式 */
+.menu{position:absolute;z-index:5;background:#fff;border-radius:12px;box-shadow:rgb(101 119 134 / 20%) 0 0 15px,rgb(101 119 134 / 15%) 0 0 3px 1px;min-width:260px;padding:4px 0;font-size:15px}
+.menu[hidden]{display:none}
+.mi{display:flex;align-items:center;gap:12px;width:100%;border:0;background:#fff;padding:11px 16px;text-align:left;font-weight:700;font-size:15px;line-height:20px}
+.mi:hover{background:var(--x-soft)}.mi svg{width:18.75px;height:18.75px}
+.mi.native{font-weight:700;color:var(--x-ink)}
+.mhead{padding:10px 16px 10px;border-bottom:1px solid var(--x-line);margin-bottom:4px}
+.mhead strong{display:block;font-size:15px;color:var(--amber)}
+.mhead small{display:block;font-size:13px;color:var(--x-grey);line-height:18px}
+.msep{height:1px;background:var(--x-line);margin:4px 0}
+.mlabel{font-size:13px;color:var(--x-grey);padding:6px 16px 2px;font-weight:400}
+.seg{display:flex;gap:8px;padding:6px 16px 10px}
+.seg button{flex:1;border:1px solid #cfd9de;background:#fff;border-radius:999px;padding:5px 10px;font-size:14px;font-weight:700}
+.seg button[aria-pressed=true]{background:var(--x-ink);border-color:var(--x-ink);color:#fff}
+/* 悬停卡片 */
+.hover-card{width:300px;padding:14px 16px;font-size:15px}
+.hover-card .hc-top{display:flex;justify-content:space-between;align-items:start}
+.hover-card .hc-av{width:56px;height:56px;border-radius:50%;background:#6c8073;color:#fff;display:grid;place-items:center;font-size:22px}
+.follow{border:0;background:var(--x-ink);color:#fff;border-radius:999px;padding:6px 16px;font-weight:700;font-size:14px}
+.hc-counts{display:flex;gap:16px;font-size:14px;color:var(--x-grey);margin-top:10px}.hc-counts b{color:var(--x-ink)}
+.hc-ext{margin-top:12px;padding-top:10px;border-top:1px solid var(--x-line);font-size:13px;color:var(--x-grey);line-height:18px}
+.hc-ext b{color:var(--x-ink);font-weight:600}
+/* 现状复刻 */
+.now .chipline{display:flex;align-items:center;gap:6px;margin-left:6px}
+.now .tiny{font-size:11px;color:#666}.now .mini svg{width:14px;height:14px;color:#536471}
+.now .bar2{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:4px 0 8px}
+.now .bar2 svg{width:16px;height:16px;color:#666}
+.now .redchip{color:#b74339;background:#b7433910;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;line-height:1.3;text-align:center}
+.now .bad{outline:2px solid #e0533d;outline-offset:2px;border-radius:6px}
+/* D: 次行 */
+.fold{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--x-line);font-size:15px;line-height:20px;color:var(--x-grey)}
+.fold svg{width:18.75px;height:18.75px}.fold span{flex:1;min-width:0}.fold b{color:var(--x-ink);font-weight:400}
+.fold button{border:0;background:transparent;color:var(--x-blue);font-size:15px;padding:4px 8px;border-radius:999px;white-space:nowrap}.fold button:hover{background:#1d9bf01a}
+.subline{font-size:13px;line-height:18px;color:var(--x-grey);display:flex;flex-wrap:wrap;gap:0 4px;margin-top:1px}
+.subline .warn{color:var(--amber);font-weight:500}
+.subline button{border:0;background:transparent;padding:0;color:inherit;font-size:inherit}
+.subline button:hover{text-decoration:underline}
+/* C: 头部右簇 */
+.cl{display:flex;align-items:center;gap:0}
+.cl .ai{height:30px;font-size:13px}
+.cl .pct{font-size:13px;color:var(--x-grey);display:inline-flex;align-items:center;gap:2px;padding:0 6px 0 4px;height:30px;border:0;background:transparent;border-radius:999px}
+.cl .pct svg{width:16px;height:16px}.cl .pct:hover{background:#1d9bf01a;color:var(--x-blue)}
+.cl .ib{width:30px;height:30px}.cl .ib svg{width:17px;height:17px}
+.dim{opacity:0;transition:opacity 120ms ease-out}
+.tw:hover .dim,.tw:focus-within .dim{opacity:1}
+@media(hover:none){.dim{opacity:1}}
+.toggle-ext{border:1px solid var(--shell-line);background:#fff;border-radius:6px;padding:5px 10px;font-size:12px}
+@container(max-width:420px){
+  .tw{padding-inline:12px;grid-template-columns:36px minmax(0,1fr)}.av{width:36px;height:36px}
+  .act .a .n{display:none}
+  .act .a.keep .n{display:inline}
+}
+@media(max-width:980px){.current{grid-template-columns:1fr}.problems{border-left:0;border-top:1px solid var(--x-line)}}
+@media(max-width:760px){main{padding:18px 12px 70px}.intro{display:block}.legend{margin-top:10px}.directions{grid-template-columns:1fr}.dials{grid-template-columns:1fr;gap:14px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0" aria-hidden="true"><defs>
+<symbol id="reply" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></symbol>
+<symbol id="rt" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/></symbol>
+<symbol id="heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></symbol>
+<symbol id="views" viewBox="0 0 24 24"><path d="M4 20V10m5 10V4m6 16V13m5 7V7"/></symbol>
+<symbol id="bm" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="share" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+<symbol id="grok" viewBox="0 0 24 24"><path d="M4 20 20 4M9 4h11v11"/></symbol>
+<symbol id="vf" viewBox="0 0 24 24"><path d="m8 12.5 2.6 2.5L16 9.5" stroke-width="2.6"/><circle cx="12" cy="12" r="9.5" fill="currentColor" stroke="none" opacity=".18"/></symbol>
+<symbol id="later" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.8a2 2 0 0 0-1.4.6l-2.2 2.2a.7.7 0 0 1-1.2-.5V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2zM12 8v6M9 11h6"/></symbol>
+<symbol id="later-on" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.8a2 2 0 0 0-1.4.6l-2.2 2.2a.7.7 0 0 1-1.2-.5V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2zM8.5 11l2.5 2.5 4.5-4.5"/></symbol>
+<symbol id="spark" viewBox="0 0 24 24"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.4l-1.8-4.9L5 9.7l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9.5 17h5"/></symbol>
+<symbol id="eyeoff" viewBox="0 0 24 24"><path d="M10.7 5.1A10.7 10.7 0 0 1 21.9 11.7a1 1 0 0 1 0 .7 10.7 10.7 0 0 1-1.4 2.5M14.1 14.2a3 3 0 0 1-4.2-4.2M17.5 17.5A10.8 10.8 0 0 1 2.1 12.3a1 1 0 0 1 0-.7 10.8 10.8 0 0 1 4.4-5.1M2 2l20 20"/></symbol>
+<symbol id="userx" viewBox="0 0 24 24"><path d="m16.5 16.5 5 5M2 21a8 8 0 0 1 11.5-7.2M21.5 16.5l-5 5"/><circle cx="10" cy="8" r="5"/></symbol>
+<symbol id="userchk" viewBox="0 0 24 24"><path d="M2 21a8 8 0 0 1 13.3-6M16 19l2 2 4-4"/><circle cx="10" cy="8" r="5"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/></symbol>
+<symbol id="flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 1-1h12l-2 5 2 5H5"/></symbol>
+<symbol id="flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.3a2.5 2.5 0 0 0 2.5 2.8z"/></symbol>
+</defs></svg>
+
+<main>
+<div class="intro">
+  <div>
+    <h1>让插件长在 X 里，而不是贴在 X 上</h1>
+    <p>方向样机，不是最终插件。只比较「关注数 / 待回复 / AI 估计 / 兴趣 / 隐藏与拉黑」放在哪里；字号、颜色、图标尺寸都按 X 原生值复刻。</p>
+  </div>
+  <div class="legend"><span><i></i>虚线框 = 插件加的东西</span><button class="toggle-ext" type="button" id="toggle-ext">隐藏虚线框，看真实效果</button></div>
+</div>
+
+<!-- 现状 -->
+<section class="panel current">
+  <div class="panel-head"><h2>现状 · 0.3.0 实际渲染</h2><small>对照用，不可选</small></div>
+  <div class="x now" id="now-mock"></div>
+  <div class="problems">
+    <h3>为什么看起来「贴上去的」</h3>
+    <ol>
+      <li><b>作者行塞了 4 样东西</b>：关注数、关系、待回复、兴趣，全挤在时间后面，和名字抢视线；X 自己的作者行只有名字 · 账号 · 时间。</li>
+      <li><b>每条回复多出一整行</b>（隐藏 / 拉黑 / 展开），约 +36px，像第二条互动栏，打断 X 的节奏。</li>
+      <li><b>字号颜色不是 X 的</b>：插件用 11–12px、#666；X 用 13/15px、#536471。小一号就显得是外挂。</li>
+      <li><b>AI 标签红色胶囊、两行换行</b>（「AI 86 / 仅标记」），比点赞数还抢眼。</li>
+      <li><b>待回复图标离 X 的收藏很远</b>，语义相近却不在一起。</li>
+    </ol>
+  </div>
+</section>
+
+<div class="directions" id="directions"></div>
+
+<div class="compare">
+<table>
+<thead><tr><th></th><th>A · 收进互动栏</th><th>B · 收进 X 的菜单</th><th>C · 作者行右侧</th><th>D · 名字下一行</th></tr></thead>
+<tbody>
+<tr><td>每条增加高度</td><td>0</td><td>0</td><td>0</td><td>+18px</td></tr>
+<tr><td>作者行插件元素</td><td>1（关注数，同 X 灰字）</td><td>0–1（仅关系徽章）</td><td>右侧 2–3 个图标</td><td>0（移到次行）</td></tr>
+<tr><td>AI 估计</td><td>互动栏里，和数字同规格</td><td>时间后一个灰字</td><td>右上角，⋯ 旁</td><td>次行文字</td></tr>
+<tr><td>隐藏 / 拉黑 / 标注</td><td>点 AI 估计弹出 X 风格菜单</td><td>注入 X 原生 ⋯ 菜单</td><td>点 AI 估计弹出</td><td>X 原生 ⋯ 菜单</td></tr>
+<tr><td>关注数</td><td>作者行灰字</td><td>X 头像悬停卡片里</td><td>作者行灰字</td><td>次行</td></tr>
+<tr><td>主要风险</td><td>窄屏互动栏拥挤，需隐藏部分数字</td><td>依赖 X 菜单 DOM，改版易坏；可发现性低</td><td>和 X 的 Grok 按钮抢位置</td><td>每条变高，信息仍偏多</td></tr>
+</tbody></table>
+</div>
+
+<div class="dials">
+<label class="dial"><b>视觉冒险度 <output data-qmdp-output="variance">2</output></b><input data-qmdp-dial="variance" type="range" min="1" max="10" value="2"><small>完全像 X ↔ 明显是插件</small></label>
+<label class="dial"><b>动效强度 <output data-qmdp-output="motion">2</output></b><input data-qmdp-dial="motion" type="range" min="1" max="10" value="2"><small>静止 ↔ 悬停才出现、有过渡</small></label>
+<label class="dial"><b>信息密度 <output data-qmdp-output="density">4</output></b><input data-qmdp-dial="density" type="range" min="1" max="10" value="4"><small>只在需要时出现 ↔ 一眼全看到</small></label>
+</div>
+<p class="note">四个方向的差异在「位置」而不在配色：插件必须复用 X 的字体与颜色，所以这次不做换肤式对比。四个方向底部都加了同一种「自动隐藏」样子：被判断为 AI 的回复不再逐条占位，而是合并成 X 原生风格的一行「已隐藏 N 条…显示」，这是核心状态，各方向共用。也可以混搭，例如「A 的互动栏 + B 的悬停卡片放关注数」，在确认框里写下即可。</p>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const ic=(id,cls='')=>`<svg class="${cls}"><use href="#${id}"/></svg>`;
+const people=[
+  {av:'林',cls:'',name:'林间',handle:'linjian_demo',fol:'12.2k',folFull:'12,214',rel:'互相关注',text:'把内容放在一个地方维护，再分发到不同平台，确实能少做不少重复工作。',ai:82,interest:64,later:false},
+  {av:'周',cls:'b',name:'周末造物',handle:'weekend_demo',fol:'986',folFull:'986',rel:'关注了你',text:'我测试了 30 条短回复，有两条正常回复被折叠。建议给很短的文本留一个“不确定”状态。',ai:18,interest:null,later:true}
+];
+const counts=['12','3','28','2.4k'];
+const native=(p,{mid='',beforeShare=''}={})=>`<div class="act">
+  <span class="a keep">${btn('reply','回复')}<span class="n">${counts[0]}</span></span>
+  <span class="a">${btn('rt','转帖')}<span class="n">${counts[1]}</span></span>
+  <span class="a keep">${btn('heart','喜欢')}<span class="n">${counts[2]}</span></span>
+  <span class="a">${btn('views','浏览')}<span class="n">${counts[3]}</span></span>
+  <span class="right">${mid}${btn('bm','书签')}${beforeShare}${btn('share','分享')}</span></div>`;
+function btn(id,label,extra=''){return `<button class="ib ${extra}" type="button" aria-label="${label}" title="${label}">${ic(id)}</button>`}
+const head=(p,left='',right='')=>`<div class="hd"><div class="id"><span class="nm">${p.name}</span>${ic('vf','vf')}<span class="g">@${p.handle}</span><span class="g">·</span><span class="g">9 分钟</span>${left}</div><div class="hr">${right}${btn('grok','Grok 解释')}${btn('more','更多')}</div></div>`;
+const replyTo=`<div class="reply-to">回复 <span>@qiaomu_root</span></div>`;
+const tw=(p,inner)=>`<article class="tw"><div class="av ${p.cls}">${p.av}</div><div class="body" style="min-width:0;position:relative">${inner}</div></article>`;
+const later=p=>`<span class="ext">${btn(p.later?'later-on':'later',p.later?'已在待回复 · 打开列表':'稍后回复')}</span>`;
+const aiMenu=(p,id)=>`<div class="menu" id="${id}" hidden style="right:0;top:100%">
+  <div class="mhead"><strong>AI 写作估计 ${p.ai}%</strong><small>模型对这段文字的估计，不能证明作者身份${p.interest!=null?` · 合你口味 ${p.interest}%`:''}</small></div>
+  <div class="mlabel">你的判断（只记在本机）</div>
+  <div class="seg"><button type="button" aria-pressed="false">${''}像 AI 写的</button><button type="button" aria-pressed="false">像真人写的</button></div>
+  <div class="msep"></div>
+  <button class="mi" type="button">${ic('eyeoff')}隐藏这条回复</button>
+  <button class="mi" type="button">${ic('userchk')}始终显示 @${p.handle}</button>
+  <button class="mi" type="button">${ic('userx')}在 X 拉黑 @${p.handle}…</button>
+</div>`;
+
+/* 现状 */
+$('#now-mock').innerHTML=people.map((p,i)=>tw(p,`<div class="hd"><div class="id"><span class="nm">${p.name}</span>${ic('vf','vf')}<span class="g">@${p.handle}</span><span class="g">· 9 分钟</span><span class="chipline bad"><span class="tiny">${p.fol} 关注</span><span class="tiny">${p.rel}</span><span class="mini">${ic('later')}</span><span class="mini">${ic('spark')}</span></span></div><div class="hr">${btn('more','更多')}</div></div>${replyTo}<p class="tx">${p.text}</p>${native(p)}<div class="bar2 ${i===0?'bad':''}">${ic('eyeoff')}${ic('userx')}${i===0?'<span class="redchip">AI 86<br>仅标记</span>':''}${ic('down')}</div>`)).join('');
+
+/* 四个方向 */
+const D={
+A:{name:'收进互动栏',rec:true,
+  build:()=>people.map((p,i)=>tw(p,
+    head(p,`<span class="g">·</span><span class="g ext" style="padding:0 4px" title="${p.folFull} 位关注者，点击查看账号信息">${p.fol} 关注者</span>`)+replyTo+
+    `<p class="tx">${p.text}</p>`+
+    native(p,{mid:`<span class="ext" style="position:relative">${p.ai>=60?`<button class="ai" type="button" data-menu="a${i}" aria-expanded="false">${ic('bot')}${p.ai}%</button>`:`<button class="ib" type="button" data-menu="a${i}" aria-label="判断与操作">${ic('bot')}</button>`}${aiMenu(p,'a'+i)}</span>`,beforeShare:later(p)})
+  )).join(''),
+  meta:'<b>零新增行。</b>AI 估计像一个互动数字放进 X 的互动栏，只在高估计时显示百分比；隐藏、拉黑、人工标注都收进点它弹出的 X 风格菜单。「稍后回复」紧挨书签。关注数改成和账号同色同号的灰字。'},
+B:{name:'收进 X 的菜单',
+  build:()=>people.map((p,i)=>tw(p,
+    head(p,`${p.ai>=60?`<span class="g">·</span><span class="g ext" style="color:var(--amber);padding:0 4px">AI ${p.ai}%</span>`:''}${i===1?`<span class="badge ext">${p.rel}</span>`:''}`,'').replace(btn('more','更多'),`<span style="position:relative"><button class="ib" type="button" data-menu="b${i}" aria-label="更多">${ic('more')}</button>${xMenu(p,'b'+i)}</span>`)+replyTo+
+    `<p class="tx">${p.text}</p>`+native(p,{beforeShare:later(p)})
+  )).join('')+hoverCard(),
+  meta:'<b>最安静。</b>插件几乎不占位：操作注入 X 原生 ⋯ 菜单（插件项在分隔线下），关注数和标注统计放进 X 头像悬停卡片。代价是依赖 X 菜单结构，且新用户不容易发现。'},
+C:{name:'作者行右侧',
+  build:()=>people.map((p,i)=>tw(p,
+    head(p,`<span class="g">·</span><span class="g">${p.fol} 关注者</span>${i===1?`<span class="badge" style="margin-left:2px">${p.rel}</span>`:''}`,
+      `<span class="cl ext" style="position:relative;margin-right:2px">${p.ai>=60?`<button class="ai" type="button" data-menu="c${i}">${ic('bot')}${p.ai}%</button>`:''}${p.interest!=null?`<button class="pct dim" type="button">${ic('spark')}${p.interest}%</button>`:''}${btn(p.later?'later-on':'later','稍后回复',p.later?'':'dim')}${aiMenu(p,'c'+i)}</span>`)+replyTo+
+    `<p class="tx">${p.text}</p>`+native(p)
+  )).join(''),
+  meta:'<b>信号集中在右上角。</b>互动栏完全不动；AI、兴趣、稍后回复成一簇靠在 ⋯ 左边，低优先级的悬停才出现。缺点是和 X 的 Grok 按钮挤在一起，作者名长时会被截断。'},
+D:{name:'名字下一行',
+  build:()=>people.map((p,i)=>tw(p,
+    head(p,'','').replace(btn('more','更多'),`<span style="position:relative"><button class="ib" type="button" data-menu="d${i}" aria-label="更多">${ic('more')}</button>${xMenu(p,'d'+i)}</span>`)+
+    `<div class="subline ext" style="border-radius:4px"><button type="button">${p.fol} 关注者</button><span>·</span><span>${p.rel}</span>${p.ai>=60?`<span>·</span><span class="warn">AI 估计 ${p.ai}%</span>`:''}${p.interest!=null?`<span>·</span><span>合口味 ${p.interest}%</span>`:''}</div>`+
+    replyTo+`<p class="tx">${p.text}</p>`+native(p,{beforeShare:later(p)})
+  )).join(''),
+  meta:'<b>像 X 的「回复 @某人」那一行。</b>所有账号信息用一行 13px 灰字讲清楚，一眼全看到；操作走 X 原生 ⋯ 菜单。每条回复高约 18px，信息最完整但最「满」。'}
+};
+function xMenu(p,id){return `<div class="menu" id="${id}" hidden style="right:0;top:34px">
+  <button class="mi native" type="button">${ic('userx')}取消关注 @${p.handle}</button>
+  <button class="mi native" type="button">${ic('mute')}隐藏 @${p.handle}</button>
+  <button class="mi native" type="button">${ic('flag')}举报帖子</button>
+  <div class="msep"></div>
+  <div class="ext" style="border-radius:0">
+  <div class="mlabel">乔木 X 助手${p.ai>=60?` · AI 估计 ${p.ai}%`:''}</div>
+  <button class="mi" type="button">${ic('bot')}标记为 AI 写的</button>
+  <button class="mi" type="button">${ic('userchk')}标记为真人写的</button>
+  <button class="mi" type="button">${ic('eyeoff')}在本机隐藏这条回复</button>
+  </div></div>`}
+function hoverCard(){return `<div style="padding:10px 16px 16px;background:var(--x-soft);border-top:1px solid var(--x-line)"><div style="font-size:12px;color:#5b6870;margin-bottom:8px">悬停头像时（X 原生卡片 + 插件补一段）</div>
+<div class="menu hover-card" style="position:static;box-shadow:rgb(101 119 134 / 20%) 0 0 15px"><div class="hc-top"><div class="hc-av">林</div><button class="follow" type="button">关注</button></div>
+<div style="font-weight:700;margin-top:8px">林间</div><div class="g" style="font-size:15px">@linjian_demo <span class="badge">互相关注</span></div>
+<div class="hc-counts"><span><b>412</b> 正在关注</span><span><b>12.2k</b> 关注者</span></div>
+<div class="hc-ext ext" style="border-radius:6px">本机标注：AI <b>2</b> · 真人 <b>5</b> · 2023 年 4 月注册<br>我的备注：做内容分发工具</div></div></div>`}
+
+for(const k of ['A','B','C','D']){
+  const d=D[k],card=document.createElement('article');
+  card.className='panel';card.dataset.designOption=k;card.dataset.name=d.name;
+  const foldRow=`<div class="fold ext" style="border-radius:0">${ic('eyeoff')}<span>已隐藏 2 条 AI 估计较高的回复</span><button type="button">显示</button></div>`;
+  card.innerHTML=`<div class="panel-head"><h2>${k} · ${d.name}${d.rec?'<span class="rec">推荐</span>':''}</h2><small>方向样机</small></div><div class="x">${d.build()}${foldRow}</div><div class="meta">${d.meta}</div><div class="choice-wrap"><button class="qmdp-pick-button" type="button">选择 ${k} · ${d.name}</button></div>`;
+  $('#directions').append(card);
+}
+/* 菜单交互 */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-menu]');
+  document.querySelectorAll('.menu[id]').forEach(m=>{if(!t||m.id!==t.dataset.menu)m.hidden=true});
+  if(t){const m=document.getElementById(t.dataset.menu);m.hidden=!m.hidden;t.setAttribute('aria-expanded',String(!m.hidden));e.stopPropagation();}
+  const s=e.target.closest('.seg button');if(s){s.parentElement.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===s&&b.getAttribute('aria-pressed')!=='true')));}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.menu[id]').forEach(m=>m.hidden=true)});
+$('#toggle-ext').onclick=()=>{const on=document.body.classList.toggle('show-ext');$('#toggle-ext').textContent=on?'显示虚线框，看插件加了什么':'隐藏虚线框，看真实效果';};
+document.querySelectorAll('[data-qmdp-dial]').forEach(i=>i.oninput=()=>document.querySelector(`[data-qmdp-output="${i.dataset.qmdpDial}"]`).textContent=i.value);
+</script>
+</body>
+</html>

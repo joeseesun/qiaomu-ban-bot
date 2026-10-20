@@ -5,7 +5,7 @@ import { formatFollowers } from './evidence.js';
 export function initWorkspaceUI({send,notice,glyph}){
   const $=id=>document.getElementById(id),el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined&&text!==null)n.textContent=text;if(cls)n.className=cls;return n;};
   let owner='',view='search',index=0,cursors=[null],next=null,epoch=0,openEpoch=0,editing=null,timer,selectedInbox=null;
-  const drafts=new Map();
+  const drafts=new Map(),saveTimers=new Map(),saveChains=new Map();
   const fields=['all','from','any','phrase','exclude','to','mention','period','sort','since','until','lang','media','replies','likes','reposts','repliesMin'];
   const date=t=>new Date(t).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),count=n=>Number.isFinite(n)?n.toLocaleString():'—';
   const link=(name,url)=>{const a=el('a',name,'secondary');a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
@@ -32,21 +32,37 @@ export function initWorkspaceUI({send,notice,glyph}){
     for(const e of row.evidence){const a=link((e.kind==='reply'?'回复：':'主帖：')+e.text,`https://x.com/${row.handle}/status/${e.id}`);a.className='workspace-evidence';detail.append(a);}card.append(detail,el('p',`${date(row.at)} · ${row.model}`,'bookmark-meta'));
     const controls=el('div',null,'workspace-actions');controls.append(link('打开主页 / 关注',`https://x.com/${row.handle}`),action('备注',async()=>{const data=await send({type:'contacts-page',owner:row.owner,query:row.handle});if(!card.isConnected)return;const old=card.querySelector('.workspace-note-editor');if(old){old.remove();return;}const box=el('form',null,'workspace-note-editor'),input=el('input');input.maxLength=160;input.placeholder='仅自己可见的账号备注';input.setAttribute('aria-label','账号备注');input.value=data.items.find(c=>c.handle===row.handle)?.note||'';const save=el('button','保存备注','secondary');box.append(input,save);box.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await send({type:'contacts-save',owner:row.owner,contact:{handle:row.handle,displayName:row.displayName,note:input.value}});box.remove();notice('备注已保存到常用 @，支持拼音搜索。');}catch(error){notice(error.message,true);}finally{save.disabled=false;}};card.append(box);input.focus();},'Pencil'),action('本机屏蔽',async()=>{if(!confirm(`在此浏览器屏蔽 @${row.handle}？可在账号名单中恢复。`))return;await send({type:'list',handle:row.handle,action:'block'});notice('已加入本机屏蔽名单。');}),action('移除评估',()=>remove('ratings',row),'Trash2'));card.append(controls);return card;}
   function showInbox(row){
-    selectedInbox=row.id;const box=$('ws-inbox-detail');box.hidden=false;box.replaceChildren(headline(row),el('p',row.text,'annotation-text'));
+    selectedInbox=row.id;const box=$('ws-inbox-detail');box.hidden=false;
+    const top=el('div',null,'inbox-detail-top'),contextLink=link('查看原帖',`https://x.com/${row.handle}/status/${row.id}`);contextLink.className='quiet';
+    top.append(headline(row),contextLink);box.replaceChildren(top,el('p',row.text,'annotation-text inbox-original'));
     if(row.parent){const context=el('details',null,'fine-print');context.append(el('summary','对话上下文'),el('p',row.parent,'annotation-text'));box.append(context);}
-    const draftKey=row.owner+'/'+row.id;
-    const form=el('form'),label=el('label','回复思路 · 仅本机','field'),note=el('textarea');note.rows=5;note.maxLength=4000;note.value=drafts.get(draftKey)??row.note??'';note.placeholder='先记下想补充的观点、例子或问题';label.append(note);const save=el('button',drafts.has(draftKey)?'保存思路 · 未保存':'保存思路','secondary');note.oninput=()=>{drafts.set(draftKey,note.value);save.textContent='保存思路 · 未保存';};form.append(label,save);form.onsubmit=async e=>{e.preventDefault();save.disabled=true;const value=note.value;try{await send({type:'inbox-update',owner:row.owner,id:row.id,note:value});row.note=value;if(drafts.get(draftKey)===value)drafts.delete(draftKey);save.textContent='保存思路';notice('回复思路已保存。');}catch(error){notice(error.message,true);}finally{save.disabled=false;}};box.append(form);
-    const actions=el('div',null,'workspace-actions');
-    const update=async patch=>{await send({type:'inbox-update',owner:row.owner,id:row.id,...patch});await load();};
-    actions.append(link('打开原帖回复',`https://x.com/${row.handle}/status/${row.id}`),action('复制思路',async()=>{await navigator.clipboard.writeText(note.value);notice('回复思路已复制。');},'Copy'),action('评估值得回复',async()=>{await send({type:'inbox-rank',owner:row.owner,id:row.id});await load();}),action(row.status==='snoozed'?'恢复待回复':'稍后再看',()=>update({status:row.status==='snoozed'?'pending':'snoozed'})),action('移除记录',()=>remove('inbox',row),'Trash2'));
-    box.append(actions,el('p','打开原帖或复制不会改变处理状态。发送完成后，请手动标为已处理。','hint'));
-    for(const card of $('ws-list').querySelectorAll('[data-inbox-id]'))card.classList.toggle('selected',card.dataset.inboxId===row.id);
+    const key=row.owner+'/'+row.id,form=el('form',null,'inbox-compose'),label=el('label','你的回复','field'),note=el('textarea');
+    note.rows=7;note.maxLength=4000;note.value=drafts.get(key)??row.note??'';note.placeholder='补充一个观点、经验，或继续问一个问题…';note.setAttribute('aria-label','回复草稿');label.append(note);
+    const meta=el('div',null,'inbox-draft-meta'),saved=el('span',drafts.has(key)?'尚未保存':'草稿保存在本机'),length=el('span',`${note.value.length} / 4000`);saved.setAttribute('role','status');meta.append(saved,length);
+    const persist=async()=>{
+      clearTimeout(saveTimers.get(key));const value=note.value;
+      const pending=(saveChains.get(key)||Promise.resolve()).catch(()=>{}).then(()=>send({type:'inbox-update',owner:row.owner,id:row.id,note:value}));saveChains.set(key,pending);
+      saved.textContent='保存中…';
+      try{await pending;row.note=value;if(drafts.get(key)===value)drafts.delete(key);if(note.value===value)saved.textContent='已保存到本机';}
+      catch(error){saved.textContent='保存失败，请重试';throw error;}
+      finally{if(saveChains.get(key)===pending)saveChains.delete(key);}
+    };
+    note.oninput=()=>{drafts.set(key,note.value);saved.textContent='尚未保存';length.textContent=`${note.value.length} / 4000`;clearTimeout(saveTimers.get(key));saveTimers.set(key,setTimeout(()=>persist().catch(e=>notice(e.message,true)),600));};
+    const controls=el('div',null,'inbox-primary-actions'),fill=action('填入 X 回复框',async()=>{
+      await persist();await send({type:'inbox-compose',owner:row.owner,id:row.id,note:note.value});notice('已打开 X 回复框。检查账号和内容后，在 X 点击回复。');
+    });fill.className='primary';fill.prepend(glyph('ArrowUpRight'));
+    const update=async patch=>{await persist();await send({type:'inbox-update',owner:row.owner,id:row.id,...patch});await load();};
+    controls.append(fill,action(row.status==='done'?'恢复待回复':'标为已处理',()=>update({status:row.status==='done'?'pending':'done'})));
+    form.append(label,meta,controls,el('p','填入后在 X 确认发送；请核对当前登录账号。发送后再标为已处理。','hint'));form.onsubmit=e=>{e.preventDefault();void persist().catch(e=>notice(e.message,true));};box.append(form);
+    const actions=el('div',null,'workspace-actions inbox-secondary-actions');
+    actions.append(action('保存草稿',persist,'Download'),action('复制草稿',async()=>{await navigator.clipboard.writeText(note.value);notice('回复草稿已复制。');},'Copy'),action(row.pinned?'取消置顶':'置顶',()=>update({pinned:!row.pinned}),'Pin'),action(row.status==='snoozed'?'恢复待回复':'稍后再看',()=>update({status:row.status==='snoozed'?'pending':'snoozed'})),action('移除记录',()=>remove('inbox',row),'Trash2'));box.append(actions);
+    for(const card of $('ws-list').querySelectorAll('[data-inbox-id]')){const selected=card.dataset.inboxId===row.id;card.classList.toggle('selected',selected);card.querySelector('button').setAttribute('aria-pressed',String(selected));}
   }
-  function inboxRow(row){const card=el('article',null,'workspace-row inbox-row');card.dataset.inboxId=row.id;card.classList.toggle('selected',selectedInbox===row.id);
-    const select=el('button',null,'inbox-select');select.type='button';select.append(headline(row),el('p',row.text,'annotation-text'),el('p',`${row.pinned?'置顶 · ':''}${date(row.at)}${row.author?.followers!=null?' · '+formatFollowers(row.author.followers)+' 关注':''}${row.score!=null?' · 值得回复 '+Math.round(row.score*100)+'%':''}`,'hint'));select.onclick=()=>showInbox(row);
-    const actions=el('div',null,'workspace-actions'),update=async patch=>{await send({type:'inbox-update',owner:row.owner,id:row.id,...patch});await load();};
-    actions.append(action(row.pinned?'取消置顶':'置顶',()=>update({pinned:!row.pinned}),'Pin'),action(row.status==='done'?'恢复待回复':'已处理',async()=>{const status=row.status==='done'?'pending':'done';await update({status});notice(status==='done'?'已处理，可在“已处理”中恢复。':'已恢复待回复。');}));
-    card.append(select,actions);return card;
+  function inboxRow(row){
+    const card=el('article',null,'workspace-row inbox-row');card.dataset.inboxId=row.id;card.classList.toggle('selected',selectedInbox===row.id);
+    const select=el('button',null,'inbox-select');select.type='button';select.setAttribute('aria-pressed',String(selectedInbox===row.id));
+    const meta=[row.pinned?'置顶':'',row.source==='mention'?'提及我':'手动加入',date(row.at),row.note?'有草稿':''].filter(Boolean).join(' · ');
+    select.append(headline(row),el('p',row.text,'annotation-text'),el('p',meta,'hint'));select.onclick=()=>showInbox(row);card.append(select);return card;
   }
   function feedbackRow(row){const card=el('article',null,'workspace-row');card.append(headline(row),el('p',row.text,'annotation-text'),el('p',(row.label==='yes'?'感兴趣':'不感兴趣')+(row.reason?' · '+row.reason:'')+' · '+date(row.at),'hint'));const controls=el('div',null,'workspace-actions');controls.append(link('打开原帖',`https://x.com/${row.handle}/status/${row.id}`),action('改为'+(row.label==='yes'?'不感兴趣':'感兴趣'),async()=>{await send({type:'interest-label',owner:row.owner,item:row,label:row.label==='yes'?'no':'yes'});await load();}),action('移除反馈',()=>remove('feedback',row),'Trash2'));card.append(controls);return card;}
   function reviewRow(row){const card=el('article',null,'workspace-row'),r=postReview(row);card.append(headline(row),el('p',row.text,'annotation-text'));const metrics=el('div',null,'workspace-dimensions');for(const[name,value]of[['原始概率',Math.round(row.probability*100)+'%'],['浏览增长',count(r.growth)],['互动增长',count(r.interactionGrowth)]]){const d=el('div');d.append(el('span',name),el('b',value));metrics.append(d);}card.append(metrics);
@@ -62,7 +78,7 @@ export function initWorkspaceUI({send,notice,glyph}){
       const render={search:searchRow,ratings:ratingRow,inbox:inboxRow,interests:feedbackRow,review:reviewRow}[view];for(const row of page.items)list.append(render(row));
       if(view==='inbox'){
         const row=page.items.find(r=>r.id===selectedInbox)||page.items[0];if(row)showInbox(row);else{$('ws-inbox-detail').hidden=true;selectedInbox=null;}
-        if(owner){const counts=await send({type:'inbox-summary',owner:selectedOwner});if(generation!==epoch)return;$('ws-inbox-counts').textContent=`待回复 ${counts.pending} · 稍后 ${counts.snoozed} · 已处理 ${counts.done}`;}
+        if(owner){const counts=await send({type:'inbox-summary',owner:selectedOwner});if(generation!==epoch)return;$('ws-inbox-counts').textContent=`共 ${counts.pending+counts.snoozed+counts.done} 条`;for(const b of document.querySelectorAll('[data-inbox-status]'))b.querySelector('small').textContent=counts[b.dataset.inboxStatus];}
       }
       if(!page.items.length)list.append(el('p',!owner?'添加自己的账号后，就能保存并查看记录。':$('ws-list-query').value?'没有匹配的记录，试试其他词。':({search:'保存常用条件，下次直接搜索。',ratings:'去 X 主页分析一个账号，结果会出现在这里。',inbox:'暂时没有待回复。可以从帖子图标中加入。',interests:'点帖子的兴趣图标，告诉助手你想多看什么。',review:'还没有看好记录。点帖子时间旁的火焰图标开始。'}[view]),'empty-state'));
       $('ws-page').textContent=`第 ${index+1} 页 · 每页 20 条`;$('ws-prev').disabled=index===0;$('ws-next').disabled=!next;
@@ -74,6 +90,7 @@ export function initWorkspaceUI({send,notice,glyph}){
     const opening=++openEpoch;view=['search','ratings','inbox','interests','review'].includes(route)?route:'search';epoch++;const state=await send({type:'contacts-state',owner});if(opening!==openEpoch)return;owner=state.owner;$('ws-owner').replaceChildren();for(const o of state.owners){const n=el('option','@'+o.handle);n.value=o.handle;$('ws-owner').append(n);}$('ws-owner').value=owner;$('ws-empty-owner').hidden=!!owner;
     document.body.classList.toggle('inbox-workbench',view==='inbox');$('ws-list-layout').classList.toggle('inbox-layout',view==='inbox');$('ws-inbox-detail').hidden=true;selectedInbox=null;
     for(const n of document.querySelectorAll('.workspace-view'))n.hidden=n.id!==`ws-${view}-view`;for(const n of document.querySelectorAll('[data-ws-view]'))n.setAttribute('aria-pressed',String(n.dataset.wsView===view));$('ws-import').hidden=view!=='search';$('ws-export').textContent=view==='review'?'导出复盘 CSV':view==='search'?'导出搜索 JSON':'导出记录 JSON';$('ws-list-query').placeholder={search:'名称、关键词或分类',ratings:'账号或昵称',inbox:'正文、账号或昵称',interests:'正文、账号或反馈',review:'正文、账号或昵称'}[view];
+    $('ws-library-actions').hidden=view==='inbox';
     if(draft){try{setFilters(JSON.parse(draft));}catch{notice('链接中的搜索条件无效，请重新填写。',true);}}else if(view==='search')preview(false);
     if(owner)await configure();if(opening===openEpoch)await load(true);
   }
@@ -81,6 +98,7 @@ export function initWorkspaceUI({send,notice,glyph}){
   $('ws-owner').onchange=async()=>{owner=$('ws-owner').value;editing=null;epoch++;openEpoch++;const expected=owner;try{await configure();if(owner===expected)await load(true);}catch(e){notice(e.message,true);}};
   $('ws-interest-form').onsubmit=async e=>{e.preventDefault();try{await send({type:'workspace-configure',owner,profile:{topics:$('ws-topics').value,avoid:$('ws-avoid').value,enabled:$('ws-interest-enabled').checked}});notice('兴趣设置已保存。');}catch(error){notice(error.message,true);}};
   $('ws-collect-mentions').onchange=async()=>{try{await send({type:'workspace-configure',owner,profile:{collectMentions:$('ws-collect-mentions').checked}});}catch(e){notice(e.message,true);await configure();}};
+  for(const b of document.querySelectorAll('[data-inbox-status]'))b.onclick=()=>{$('ws-inbox-status').value=b.dataset.inboxStatus;for(const t of document.querySelectorAll('[data-inbox-status]'))t.setAttribute('aria-pressed',String(t===b));void load(true).catch(e=>notice(e.message,true));};
   $('ws-inbox-status').onchange=()=>load(true).catch(e=>notice(e.message,true));$('ws-list-query').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(true).catch(e=>notice(e.message,true)),180);};
   for(const id of ['ws-inbox-sort','ws-inbox-source'])$(id).onchange=()=>load(true).catch(e=>notice(e.message,true));
   $('ws-refresh').onclick=()=>load(true).catch(e=>notice(e.message,true));$('ws-prev').onclick=()=>{if(index){index--;void load().catch(e=>notice(e.message,true));}};$('ws-next').onclick=()=>{if(next){cursors[++index]=next;void load().catch(e=>notice(e.message,true));}};

@@ -28,7 +28,7 @@ test('legacy low-information results never appear in the toolbar or expanded sco
   const env=mount(markup(1,'我现在都是扔给 Bot 让它抓数据'),async()=>({...result(.26),scores:{ai_written:.26,low_value:.99,spam:.01,useful:.1}}));
   try{
     const a=env.dom.window.document.getElementById('a1');
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 26'));
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 写作估计 26%'));
     const root=a.querySelector('.qb-host').shadowRoot;
     assert.equal(a.hasAttribute('data-qb-collapsed'),false);
     assert.equal(root.querySelector('.status'),null);
@@ -101,11 +101,11 @@ test('probability and accessible icon controls stay compact; the action panel cl
   const env=mount(markup(1,'A concrete useful reply.'),async()=>({...result(.27),scores:{ai_written:.27,low_value:.1,spam:.1,useful:.96}}));
   try{
     const a=env.dom.window.document.getElementById('a1');
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 27'));
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 写作估计 27%'));
     const root=a.querySelector('.qb-host').shadowRoot;
     const mark=root.querySelector('button[aria-label="标记 AI"]'),toggle=root.querySelector('button[aria-label="判断与操作"]');
-    assert.ok(mark.querySelector('svg'));assert.equal(mark.textContent,'');
-    assert.ok(root.querySelector('[aria-label="值得一读"] svg'));
+    assert.ok(mark.querySelector('svg'));assert.equal(mark.textContent,'标记 AI');
+    assert.equal(root.querySelector('[aria-label="值得一读"]'),null,'the useful marker is withdrawn until it is reliable');
     assert.equal(toggle.textContent,'');assert.equal(toggle.getAttribute('aria-expanded'),'false');
     const panel=root.getElementById(toggle.getAttribute('aria-controls'));assert.equal(panel.hidden,true);
     toggle.click();assert.equal(panel.hidden,false);assert.equal(toggle.getAttribute('aria-expanded'),'true');
@@ -187,10 +187,10 @@ test('expanding a long reply keeps its start in place and identifies the opened 
   }finally{env.close();}
 });
 
-test('reply annotation controls align with the native body column, before the probability',async()=>{
-  const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avatar">avatar</div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条真人回复</div><div role="group"><button>原生回复</button></div></div></div></div></article>';
+test('reply controls join the native action row before the bookmark cluster, adding no row',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avatar">avatar</div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条真人回复</div><div role="group"><button>原生回复</button><div class="bookmark"><button data-testid="bookmark">书签</button></div></div></div></div></div></article>';
   const env=mount(html,async()=>result(.1));try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.annotation'));
-    const host=d.querySelector('.qb-host');assert.equal(host.parentElement,d.querySelector('.body-column'));assert.ok(host.shadowRoot.querySelector('.panel .annotation'));assert.equal(host.shadowRoot.querySelector('.toolbar .annotation'),null);assert.equal(host.shadowRoot.querySelector('.score').hidden,true);
+    const host=d.querySelector('.qb-host'),group=d.querySelector('.body-column>[role=group]');assert.equal(host.parentElement,group);assert.equal(host.nextElementSibling,group.querySelector('.bookmark'));assert.equal(host.dataset.qbPlace,'inline');assert.ok(host.shadowRoot.querySelector('.panel .annotation'));assert.equal(host.shadowRoot.querySelector('.toolbar .annotation'),null);assert.equal(host.shadowRoot.querySelector('.disclosure').textContent,'','a low estimate shows only the icon');
     assert.equal(d.querySelector('article').children.length,1);assert.equal(d.querySelector('.body-column>[role=group] button').textContent,'原生回复');
   }finally{env.close();}
 });
@@ -198,8 +198,46 @@ test('hot badge follows timestamp, opens details, and removes cleanly when radar
   const html='<article data-testid="tweet"><div class="original"><div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a></div><div data-testid="tweetText">A main post</div></div></article>';
   const env=mount(html,async()=>({model:'fixture',analyzedAt:Date.now(),scores:{hot:.02,discussion:.1},hot:{status:'forecast',velocity:138}}));
   try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-hot-host'));const badge=d.querySelector('.qb-hot-host'),b=badge.shadowRoot.querySelector('button'),bar=d.querySelector('.qb-host').shadowRoot.querySelector('.bar');
-    assert.equal(badge.previousElementSibling.tagName,'A');assert.equal(b.title,'爆款概率');assert.equal(b.textContent,'2%');assert.equal(bar.hidden,true);
-    b.click();assert.equal(bar.hidden,false);assert.equal(b.getAttribute('aria-expanded'),'true');assert.ok(bar.textContent.includes('我感觉能爆'));assert.ok(bar.textContent.includes('重新预测'));assert.ok(!bar.textContent.includes('更新判断'));
+    assert.equal(badge.previousElementSibling.tagName,'A');assert.equal(b.title,'传播表现');assert.equal(b.textContent,'');assert.match(b.getAttribute('aria-label'),/数据不足/);assert.equal(env.calls.length,0);assert.equal(bar.hidden,true);
+    b.click();assert.equal(bar.hidden,false);assert.equal(b.getAttribute('aria-expanded'),'true');assert.ok(!bar.textContent.includes('我感觉能爆'));assert.ok(bar.textContent.includes('更新当前数据'));assert.ok(bar.textContent.includes('不是爆款概率'));
     env.settings.radar=false;env.refresh();await until(()=>!d.querySelector('.qb-hot-host'));assert.equal(d.querySelector('[data-testid=User-Name] a').textContent,'Alice');
+  }finally{env.close();}
+});
+
+test('a high estimate shows its percentage in the action row trigger',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div dir="auto">Replying to @parent</div><a href="/alice/status/124"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条回复</div><div role="group"><button>原生回复</button></div></div></article>';
+  const env=mount(html,async()=>result(.82));try{const d=env.dom.window.document;env.settings.filterMode='label';env.refresh();
+    await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.disclosure.high'));
+    const t=d.querySelector('.qb-host').shadowRoot.querySelector('.disclosure');assert.equal(t.textContent,'82%');assert.equal(t.getAttribute('aria-label'),'判断与操作');
+    assert.equal(d.querySelector('article').hasAttribute('data-qb-collapsed'),false);
+  }finally{env.close();}
+});
+
+test('replies show the estimate under the avatar, keeping the action row native',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avcol"><div data-testid="Tweet-User-Avatar">A</div></div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/125"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条回复</div><div role="group"><button>原生回复</button></div></div></div></div></article>';
+  const env=mount(html,async()=>result(.18));try{const d=env.dom.window.document;
+    await until(()=>d.querySelector('.qb-host')?.dataset.qbPlace==='avatar');
+    const host=d.querySelector('.qb-host');assert.equal(host.parentElement,d.querySelector('.avcol'));assert.equal(d.querySelector('[role=group] .qb-host'),null);
+    const t=host.shadowRoot.querySelector('.disclosure');assert.equal(t.textContent,'18%','beside the avatar even a low estimate is shown');assert.equal(t.hasAttribute('title'),false);assert.match(t.dataset.tip,/AI 写作估计 18%/);
+  }finally{env.close();}
+});
+
+test('marking a reply human hides the estimate; undoing brings it back',async()=>{
+  const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avcol"><div data-testid="Tweet-User-Avatar">A</div></div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/126"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条回复</div><div role="group"><button>原生回复</button></div></div></div></div></article>';
+  const env=mount(html,async()=>({...result(.82),annotation:'human'}));try{const d=env.dom.window.document;env.settings.filterMode='label';env.refresh();
+    await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.pop-head'));
+    const root=d.querySelector('.qb-host').shadowRoot,t=root.querySelector('.disclosure');
+    assert.equal(t.textContent,'');assert.equal(t.classList.contains('high'),false);assert.equal(root.querySelector('.pop-head strong').textContent,'你标为真人');assert.equal(root.querySelector('.scores'),null);
+  }finally{env.close();}
+});
+
+test('a focal reply with an avatar/name/header row never mounts a full-width estimate inside that row',async()=>{
+  // X detail view: the entire header is a sibling of the body. It is not an avatar column.
+  const html='<article data-testid="tweet"><div class="original"><div class="detail-header" style="display:flex;flex-direction:row"><div data-testid="Tweet-User-Avatar">A</div><div data-testid="User-Name"><a href="/alice">Alice</a><span>@alice</span></div><button aria-label="更多">…</button></div><div dir="auto">Replying to @parent</div><div data-testid="tweetText">太强了，Lex 就是我名字的来源</div><a href="/alice/status/127"><time datetime="2026-10-18T10:00:00Z">下午7:59 · 2026年10月18日</time></a><div role="group"><button data-testid="reply">回复</button><button data-testid="bookmark">书签</button></div></div></article>';
+  const env=mount(html,async()=>result(.17));try{const d=env.dom.window.document;
+    await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.disclosure'));
+    assert.equal(d.querySelector('.detail-header .qb-host'),null,'the full-width host must not compete with the name');
+    assert.equal(d.querySelector('.qb-host').dataset.qbPlace,'inline');
+    assert.equal(d.querySelector('[data-testid="User-Name"]').textContent,'Alice@alice');
   }finally{env.close();}
 });

@@ -8,6 +8,7 @@ import { Bookmarks, bookmarkPath } from './bookmarks.js';
 import { Workspace } from './workspace.js';
 import { Features } from './features.js';
 import { importSearches } from './search.js';
+import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
@@ -38,6 +39,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return {...result,...shared}; }
     if (message.type === 'options') { if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/ratings','workspace/inbox','workspace/interests','workspace/review'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
     if(message.type==='workspace-state')return workspace.profile(message.owner);
+    if(message.type==='sidebar-searches')return workspace.page('searches',message.owner,{limit:20,sort:'rank'});
+    if(message.type==='sidebar-search-save'){
+      const row=await workspace.saveSearch(message.owner,{name:message.name,filters:{mode:'raw',raw:message.query},pinned:true});
+      await broadcast({type:'searches-changed',owner:message.owner});return row;
+    }
     if(message.type==='kol-analyze')return features.kol(message.owner,message.handle,message.items);
     if(message.type==='kol-get')return workspace.get('ratings',message.owner,message.handle);
     if(message.type==='interest-analyze')return features.interest(message.owner,message.item);
@@ -81,15 +87,22 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='community-withdraw')return community.withdraw();
     if(message.type==='workspace-configure'){const r=await workspace.profile(message.owner,message.profile||{});await broadcast({type:'interest-changed',owner:message.owner});return r;}
     if(message.type==='workspace-page')return workspace.page(message.store,message.owner,message);
-    if(message.type==='search-save')return workspace.saveSearch(message.owner,message.search);
-    if(message.type==='search-import')return workspace.importSearches(message.owner,importSearches(message.value));
+    if(message.type==='search-save'){const row=await workspace.saveSearch(message.owner,message.search);await broadcast({type:'searches-changed',owner:message.owner});return row;}
+    if(message.type==='search-import'){const result=await workspace.importSearches(message.owner,importSearches(message.value));await broadcast({type:'searches-changed',owner:message.owner});return result;}
     if(message.type==='workspace-remove'){
       if(!['searches','ratings','feedback','inbox'].includes(message.store))throw Error('未知记录类型。');
       const r=await workspace.remove(message.store,message.owner,message.id);
       if(message.store==='inbox')await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});
+      if(message.store==='searches')await broadcast({type:'searches-changed',owner:message.owner});
       if(message.store==='feedback'){await workspace.profile(message.owner,{});await broadcast({type:'interest-changed',owner:message.owner});}return r;
     }
     if(message.type==='inbox-update'){const row=await workspace.get('inbox',message.owner,message.id);if(!row)throw Error('这条记录已移除。');const updated=await workspace.queue(message.owner,row,{status:message.status,pinned:message.pinned,note:message.note});await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});return updated;}
+    if(message.type==='inbox-compose'){
+      const row=await workspace.get('inbox',message.owner,message.id);if(!row)throw Error('这条记录已移除。');
+      const url=replyIntent(row.id,message.note);
+      await workspace.queue(message.owner,row,{note:message.note});
+      await chrome.tabs.create({url});return{opened:true};
+    }
     if(message.type==='inbox-rank')return features.rankInbox(message.owner,message.id);
     if(message.type==='bookmarks-state')return bookmarks.state();
     if(message.type==='bookmarks-page')return bookmarks.page(message);

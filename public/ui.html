@@ -1,53 +1,113 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
-<body><main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>读得清楚，聊得顺手。</p></div></div><span class="version">0.3.0</span></header>
+<body><div class="shell">
+<aside class="sidebar" aria-label="设置导航">
+  <div class="side-brand"><img src="icons/icon-48.png" alt="" width="28" height="28"><b>乔木 X 助手</b></div>
+  <nav class="side-nav">
+    <p class="side-heading">回复区</p>
+    <a href="#overview" data-tab="overview"><span data-icon="EyeOff"></span>自动隐藏</a>
+    <a href="#accounts" data-tab="accounts"><span data-icon="ShieldCheck"></span>例外名单</a>
+    <a href="#rules" data-tab="rules"><span data-icon="SlidersHorizontal"></span>高级规则</a>
+    <p class="side-heading">在 X 上</p>
+    <a href="#workspace/inbox" data-tab="workspace/inbox"><span data-icon="MessageSquarePlus"></span>待回复</a>
+    <a href="#contacts" data-tab="contacts"><span data-icon="AtSign"></span>常用 @</a>
+    <a href="#bookmarks" data-tab="bookmarks"><span data-icon="Bookmark"></span>书签</a>
+    <a href="#forecasts" hidden data-tab="forecasts"><span data-icon="Flame"></span>热帖与看好</a>
+    <a href="#workspace/search" data-tab="workspace/search"><span data-icon="Search"></span>高级搜索</a>
+    <a href="#workspace/interests" hidden data-tab="workspace/interests"><span data-icon="Sparkles"></span>兴趣偏好</a>
+    <a href="#workspace/ratings" data-tab="workspace/ratings"><span data-icon="UsersRound"></span>账号评分</a>
+    <p class="side-heading">记录与设置</p>
+    <a href="#annotations" data-tab="annotations"><span data-icon="Tag"></span>我的标注</a>
+    <a href="#model" data-tab="model"><span data-icon="Cpu"></span>模型与用量</a>
+    <a href="#about" data-tab="about"><span data-icon="Info"></span>关于与反馈</a>
+  </nav>
+  <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">0.3.1</span></p>
+</aside>
+<main id="app">
+  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>回复区安静，X 更好用。</p></div></div></header>
   <div id="demo-note" hidden>界面预览 · 以下为示例数据</div>
-  <nav aria-label="设置页面"><button data-tab="overview" class="selected">概览</button><button data-tab="rules">过滤</button><button data-tab="annotations">标注</button><button data-tab="accounts">账号</button><button data-tab="bookmarks">书签</button><button data-tab="workspace">工作台</button><button data-tab="model">连接</button><button data-tab="about">关于</button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
   <section id="overview" class="panel">
-    <div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch"><input id="enabled" type="checkbox" role="switch" aria-label="自动整理回复"><span></span></label></div>
-    <div class="stats"><div><strong id="stat-requests">—</strong><span>今日判断</span></div><div><strong id="stat-cache">—</strong><span>复用结果</span></div><div><strong id="stat-labels">—</strong><span>我的标注</span></div></div>
-    <h2>折叠，不是删除。</h2><p class="hint">原文随时可展开。判断不对，点一下真人图标，就能保留这条回复。</p>
-    <div class="preview-reply"><span data-icon="Bot"></span><div><b>AI 概率：94%</b><p>已折叠 · 界面示例</p></div><button id="preview-expand" class="quiet">展开</button></div>
-    <p id="preview-text" class="sample" hidden>示例回复：这个观点极具启发性，为我们理解未来趋势提供了全新视角。<br><small>94% 为演示分数。</small></p>
-    <div class="section-top"><h2>看看主帖的热度潜力</h2><label class="switch small"><input id="radar" type="checkbox" role="switch" aria-label="显示热帖预测"><span></span></label></div>
-    <p class="hint">根据发布时间与互动量，估计主帖能否达到你的浏览量目标。数据不足时不预测。</p>
-    <button id="open-forecasts" class="secondary full">查看我的看好追踪</button>
-    <button id="open-options" class="secondary full">打开完整设置</button>
+    <div class="hero"><div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch large"><input id="enabled" type="checkbox" role="switch" aria-label="自动隐藏"><span></span></label></div>
+    <p class="status-stats"><span>今天判断 <b id="stat-requests">—</b> 次</span><span>我的标注 <b id="stat-labels">—</b> 条</span></p></div>
+    <nav class="settings-home" aria-label="设置">
+    <h3 class="group-title">隐藏什么</h3>
+    <div class="group">
+      <div class="row row-stack"><label class="row-main"><span class="row-text"><b>隐藏 AI 回复</b><small id="hide-ai-hint">AI 估计高于 50% 时折成一行</small></span><span class="switch small"><input id="hide-ai" type="checkbox" role="switch"><span></span></span></label>
+        <div class="sensitivity" role="group" aria-label="隐藏敏感度"><button type="button" data-threshold="70" aria-pressed="false">宽松</button><button type="button" data-threshold="50" aria-pressed="true">标准</button><button type="button" data-threshold="35" aria-pressed="false">严格</button><a id="sensitivity-custom" href="#rules" hidden></a></div></div>
+      <label class="row"><span class="row-text"><b>隐藏引流回复</b><small>「看我主页」「同城约」这类话术，在本机识别，不用模型</small></span><span class="switch small"><input id="spamGuard" type="checkbox" role="switch"><span></span></span></label>
+      <label class="row"><span class="row-text"><b>隐藏重复回复</b><small>同一句话只留第一条</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
+      <a class="row" href="#accounts" data-tab="accounts"><span class="row-text"><b>例外名单</b><small id="exceptions-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
+      <a class="row" href="#rules" data-tab="rules"><span class="row-text"><b>高级规则</b><small>自定义百分比、附加规则和屏蔽词</small></span><span class="chev" aria-hidden="true">›</span></a>
+    </div>
+    <h3 class="group-title">主帖表现</h3>
+    <div class="group">
+      <label class="row"><span class="row-text"><b>传播表现</b><small id="radar-hint">查看浏览速度、转发和评论表现</small></span><span class="switch small"><input id="radar" type="checkbox" role="switch"><span></span></span></label>
+    </div>
+    <div class="page-only">
+      <h3 class="group-title">在 X 上</h3>
+      <div class="group">
+        <a class="row" href="#workspace/inbox" data-tab="workspace/inbox"><span class="row-text"><b>稍后回复</b><small>看到值得认真回的帖子，先存下，有空集中回</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#contacts" data-tab="contacts"><span class="row-text"><b>常用 @</b><small>写帖子时，一键 @ 常聊的人</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#bookmarks" data-tab="bookmarks"><span class="row-text"><b>书签</b><small>打开 X 书签页就自动保存，可搜索、加备注、导出</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <label class="row" hidden><span class="row-text"><b>标出值得一读</b><small>具体经验、有用补充和不同观点</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
+        <button hidden id="open-forecasts" class="row" type="button"><span class="row-text"><b>看好追踪</b><small>你看好的帖子，3 天后看看实际表现</small></span><span class="chev" aria-hidden="true">›</span></button>
+        <a class="row" href="#workspace/search" data-tab="workspace/search"><span class="row-text"><b>高级搜索</b><small>用表单组合条件，常用的可以存下来</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#workspace/interests" hidden data-tab="workspace/interests"><span class="row-text"><b>兴趣偏好</b><small>告诉它你想多看什么、少看什么</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#workspace/ratings" data-tab="workspace/ratings"><span class="row-text"><b>账号评分</b><small>在账号主页，判断值不值得关注</small></span><span class="chev" aria-hidden="true">›</span></a>
+      </div>
+      <h3 class="group-title">记录与设置</h3>
+      <div class="group">
+        <a class="row" href="#annotations" data-tab="annotations"><span class="row-text"><b>我的标注</b><small id="annotations-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#model" data-tab="model"><span class="row-text"><b>模型与数据</b><small id="model-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#about" data-tab="about"><span class="row-text"><b>关于与反馈</b><small>反馈问题、源码、更新记录</small></span><span class="chev" aria-hidden="true">›</span></a>
+      </div>
+    </div>
+    </nav>
+    <button id="open-options" class="secondary full popup-only">打开全部设置</button>
   </section>
   <section id="forecasts" class="panel" hidden>
-    <div class="page-heading"><div><h2>你看好的，后来怎么样了？</h2><p class="hint">保留当时判断，3 天后对照实际表现。</p></div><button id="refresh-forecasts" class="icon-control" aria-label="刷新追踪记录" title="刷新追踪记录" data-icon="RefreshCw"></button></div>
+    <a class="back" href="#overview">‹ 设置</a>
+    <div class="page-heading"><div><h2>热帖与看好</h2><p class="hint">点帖子旁的火焰记下看好，3 天后对照实际表现。</p></div><button id="refresh-forecasts" class="icon-control" aria-label="刷新追踪记录" title="刷新追踪记录" data-icon="RefreshCw"></button></div>
+    <div class="card"><label class="field hot-target"><span>热帖目标</span><span class="number-unit"><input id="hotViews" type="number" min="1000" max="10000000" step="1000" aria-label="热帖目标浏览量"><span>浏览</span></span><small>主帖发布 24 小时内想达到的浏览量，改完自动保存。</small></label></div>
     <label class="field contact-owner-field"><span>我的看好记录</span><select id="forecast-owner" aria-label="看好记录所属账号"></select></label>
     <p class="hint">打开原帖时更新可见数据，不会后台自动抓取。到期但没有新数据时显示「待复盘」。</p>
     <div id="forecast-list" aria-live="polite"></div><div class="pagination"><button id="forecasts-prev" class="secondary">上一页</button><span id="forecasts-page">第 1 页</span><button id="forecasts-next" class="secondary">下一页</button></div>
   </section>
   <section id="rules" class="panel" hidden>
-    <h2>留下你想看的回复。</h2><p class="hint">选一种整理方式。你的手动标注始终优先。</p>
-    <div class="mode-options" role="radiogroup" aria-label="整理方式">
-      <label><input type="radio" name="filterMode" value="ai"><span><b>按 AI 概率</b><small>超过你设定的概率，就折叠</small></span></label>
-      <label><input type="radio" name="filterMode" value="label"><span><b>只显示结果</b><small>先看看分数，原文保持展开</small></span></label>
+    <a class="back" href="#overview">‹ 设置</a>
+    <h2>高级规则</h2><p class="hint">大多数人不需要改这里。你的手动标注和例外名单始终优先。</p>
+    <h3 class="group-title">AI 回复</h3>
+    <div class="card">
+      <div class="inline-row"><span class="row-text"><b><label id="threshold-label" for="threshold-number">AI 估计高于</label></b><output id="threshold-value">高于 50% 隐藏，恰好 50% 保留。</output></span><div class="number-unit"><input id="threshold-number" type="number" min="1" max="99" step="1" value="50" aria-label="自定义隐藏概率"><span>%</span></div></div>
+      <label class="field"><span>再加一条规则 <small>选填，交给模型一起判断</small></span><textarea id="customRule" rows="2" maxlength="500" placeholder="例如：隐藏与主帖无关的空投广告"></textarea></label>
     </div>
-    <div class="threshold-heading"><label id="threshold-label" for="threshold-number">AI 概率高于</label><div class="number-unit"><input id="threshold-number" type="number" min="1" max="99" step="1" value="50" aria-label="自动折叠概率"><span>%</span></div><span>时折叠</span></div>
-    <input id="threshold" type="range" min="1" max="99" step="1" aria-label="调整自动折叠概率"><output id="threshold-value" class="hint">高于 50% 自动折叠，恰好 50% 保留。</output>
-    <label class="field"><span>再加一条规则 <small>选填</small></span><textarea id="customRule" rows="2" maxlength="500" placeholder="例如：折叠与主帖无关的空投广告"></textarea></label>
-    <details class="fine-print"><summary>词汇过滤 · 无需模型</summary>
-      <p class="hint">按字面匹配，可随时移除。始终保留的作者优先；命中词汇不代表 AI。</p>
+    <h3 class="group-title">屏蔽词</h3>
+    <p class="hint group-hint">按字面匹配，在本机生效，不用模型。命中屏蔽词不代表对方是 AI。</p>
+    <div class="card">
       <div id="word-rule-list"></div>
       <div class="rule-editor"><input id="word-rule-term" maxlength="80" placeholder="例如：互关" aria-label="过滤词"><select id="word-rule-scope" aria-label="匹配位置"><option value="name">昵称和用户名</option><option value="bio">简介</option><option value="text">正文</option><option value="all">全部</option></select><select id="word-rule-action" aria-label="命中行为"><option value="hint">提示</option><option value="fold">折叠</option></select><button id="word-rule-add" class="secondary">添加</button></div>
-      <button id="word-rule-presets" class="quiet">加入示例规则（保存后生效）</button>
-      <label class="contact-pinned"><input id="symbol-hint" type="checkbox">提示昵称中的不可见方向符</label>
-      <p class="hint">emoji、外语和普通装饰符号不会被当作异常。</p>
-      <label class="field"><span>试试规则</span><input id="rule-preview-text" placeholder="输入一个昵称"><small id="rule-preview-result">预览不影响 X 页面。</small></label>
-    </details>
-    <label class="toggle-row"><span>折叠重复回复<small>同样的话，读一次就够了</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
-    <label class="toggle-row"><span>标出值得一读的回复<small>具体经验、有用补充和不同观点</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
-    <label class="field"><span>热帖目标</span><input id="hotViews" type="number" min="1000" max="10000000" step="1000"><small>发布 24 小时内，希望达到多少浏览。</small></label>
-    <button id="save-rules" class="primary full">保存设置</button>
+      <button id="word-rule-presets" class="quiet">加入常见示例</button>
+      <label class="toggle-row"><span>提示昵称里的隐形字符<small>有些账号用看不见的方向符伪装昵称。emoji、外文和装饰符号不算。</small></span><span class="switch small"><input id="symbol-hint" type="checkbox" role="switch"><span></span></span></label>
+      <label class="field"><span>试一试</span><input id="rule-preview-text" placeholder="输入一个昵称，看看会不会命中"><small id="rule-preview-result">只是预览，不影响 X 页面。</small></label>
+    </div>
+    <div class="save-bar"><button id="save-rules" class="primary">保存规则</button></div>
+    <details class="fine-print" id="spam-explain"><summary>引流回复怎么判断？</summary>
+      <p>在本机打分，不调用模型。每条线索各算一份分：</p>
+      <ul class="explain-list">
+        <li>昵称里有明确的色情服务词（选妃、约炮、外围、楼凤、福利姬等）：每个 3 分，最多 4 分</li>
+        <li>昵称里有服务词（同城、上门、线下、陪玩、看主页等）：每个 1.5 分，最多 2 分</li>
+        <li>正文里有引流模板（福不黑、不信你看、看我主页、私我、加 v 等）：每个 2 分，最多 4 分；简介里有：每个 1.5 分，最多 2 分</li>
+        <li>同一页有别的账号发了同一句话、只换了 emoji：2–3 分</li>
+        <li>只做加成：关注者很少、中文昵称配纯字母用户名、整条只有 emoji</li>
+      </ul>
+      <p>总分到 4 分，并且其中至少 2.5 分来自上面这些词，才会隐藏。只凭账号特征或普通服务词，不会隐藏任何回复。</p>
+      <p>隐藏那一行会写「疑似引流 · 分数 · 两条主要原因」，可以随时展开。只隐藏这一条回复，不判定账号是机器人，也不拉黑。</p></details>
     <details class="fine-print"><summary>这些分数代表什么？</summary><p>分数是模型估计，不能证明作者身份。简短、礼貌或文字流畅，都不等于 AI。引流与附加规则至少达到 90% 才触发折叠。</p></details>
   </section>
   <section id="annotations" class="panel" hidden>
-    <div class="page-heading"><div><h2>你的判断，留在这里。</h2><p class="hint">随时改标，或回到原帖再读一遍。</p></div><button id="refresh-annotations" class="icon-control" aria-label="刷新标注" title="刷新标注" data-icon="RefreshCw"></button></div>
+    <a class="back" href="#overview">‹ 设置</a>
+    <div class="page-heading"><div><h2>我的标注</h2><p class="hint">你标过的回复都在这里。可以改标、回原帖，或导出。</p></div><button id="refresh-annotations" class="icon-control" aria-label="刷新标注" title="刷新标注" data-icon="RefreshCw"></button></div>
     <div class="label-filters" role="group" aria-label="筛选标注"><button data-label-filter="all" aria-pressed="true">全部 <span id="count-all">0</span></button><button data-label-filter="ai" aria-pressed="false">AI <span id="count-ai">0</span></button><button data-label-filter="human" aria-pressed="false">真人 <span id="count-human">0</span></button></div>
     <div id="annotation-list" aria-live="polite"></div>
     <div class="button-row"><button id="annotations-markdown" class="secondary">导出 Markdown</button><button id="annotations-json" class="secondary">导出 JSON</button></div>
@@ -64,9 +124,9 @@
     </details>
   </section>
   <section id="accounts" class="panel" hidden>
-    <div class="account-tabs" role="group" aria-label="账号页面"><button data-account-view="contacts" aria-pressed="false">常用 @</button><button data-account-view="accounts" aria-pressed="true">标注统计</button></div>
+    <a class="back" href="#overview">‹ 设置</a>
     <div id="contacts-view" hidden>
-      <div class="page-heading"><div><h2>想找的人，随时 @。</h2><p class="hint">发帖或回复时，点编辑器工具栏的 @ 图标。</p></div><button id="contact-add" class="secondary"><span data-icon="Plus"></span>添加</button></div>
+      <div class="page-heading"><div><h2>常用 @</h2><p class="hint">写帖子或回复时，点编辑器里的 @ 图标就能找到他们。</p></div><button id="contact-add" class="secondary"><span data-icon="Plus"></span>添加</button></div>
       <label class="field contact-owner-field"><span>这份联系人属于</span><select id="contact-owner" aria-label="我的 X 账号"></select></label>
       <div class="contact-tools"><label class="field"><span class="sr-only">搜索联系人</span><input id="contact-search" type="search" placeholder="昵称、拼音、@账号或备注" maxlength="160"></label><label class="contact-pinned"><input id="contacts-pinned" type="checkbox">只看置顶</label></div>
       <div id="contact-editor" class="contact-editor" hidden><h3 id="contact-form-title">添加常用账号</h3><form id="contact-form">
@@ -84,20 +144,22 @@
       <details id="contact-owner-setup" class="fine-print"><summary>手动添加我的 X 账号</summary><form id="contact-owner-form"><label class="field"><span>你用于发帖的 @用户名</span><input id="contact-owner-input" maxlength="16" placeholder="@my_account" required></label><button class="secondary">添加账号</button></form></details>
     </div>
     <div id="account-statistics">
-    <div class="page-heading"><div><h2>哪些账号，最常出现在你的标注里？</h2><p class="hint">按你的标注条数排序。两种记录一起看，再决定保留谁。</p></div><button id="refresh-authors" class="icon-control" aria-label="刷新账号统计" title="刷新账号统计" data-icon="RefreshCw"></button></div>
+    <div class="page-heading"><div><h2>例外名单</h2><p class="hint">「始终显示」的人不会被隐藏，你关注的人也一样。「本机屏蔽」只在这台电脑上隐藏，不会在 X 拉黑。</p></div></div>
+    <div id="account-lists" class="account-lists card">
+    <form id="account-form"><label class="field"><span>添加账号</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终显示</button><button class="secondary" name="action" value="block">本机屏蔽</button></div></form>
+    <h3>始终显示</h3><div id="allowlist" class="account-list"></div><h3>本机屏蔽</h3><div id="blocklist" class="account-list"></div>
+    </div>
+    <div class="page-heading"><div><h3 class="group-title sub-heading">标注最多的账号</h3><p class="hint">按你的标注条数排序，方便决定把谁放进例外名单。</p></div><button id="refresh-authors" class="icon-control" aria-label="刷新账号统计" title="刷新账号统计" data-icon="RefreshCw"></button></div>
     <div class="label-filters" role="group" aria-label="账号排序"><button data-author-filter="ai" aria-pressed="true"><span data-icon="Bot"></span>AI 标注最多</button><button data-author-filter="human" aria-pressed="false"><span data-icon="UserRoundCheck"></span>真人标注最多</button></div>
     <div id="author-list" aria-live="polite"></div>
     <div class="pagination"><button id="authors-prev" class="secondary">上一页</button><span id="authors-page">第 1 页</span><button id="authors-next" class="secondary">下一页</button></div>
     <p class="hint">仅统计你的人工标注，不代表账号身份。关注或拉黑需在 X 完成；本机屏蔽立即生效。旧记录的昵称会在你再次读到对应帖子时补上。</p>
-    <details class="fine-print" id="account-lists"><summary>管理保留与屏蔽名单</summary>
-    <form id="account-form"><label class="field"><span>X 用户名</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终保留</button><button class="secondary" name="action" value="block">本机屏蔽</button></div></form>
-    <h3>始终保留</h3><div id="allowlist" class="account-list"></div><h3>本机屏蔽</h3><div id="blocklist" class="account-list"></div>
-    </details>
     <details class="fine-print"><summary>最近的保留与折叠操作</summary><div id="feedback"></div><p>“只保留此条”不会被当作真人标注。</p></details>
     </div>
   </section>
   <section id="bookmarks" class="panel" hidden>
-    <div class="page-heading"><div><h2>已保存的书签</h2><p class="hint">搜索、添加备注，或导出为 Markdown。</p></div><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
+    <a class="back" href="#overview">‹ 设置</a>
+    <div class="page-heading"><div><h2>书签</h2><p class="hint">打开 X 书签页就会自动保存。可以搜索、加备注，或导出为 Markdown。</p></div><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
     <div class="bookmark-toolbar"><a class="secondary" href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer"><span data-icon="ArrowUpRight"></span>打开 X 书签</a><button id="bookmarks-export" class="primary" disabled><span data-icon="Download"></span><span id="bookmarks-export-label">导出 Markdown</span></button></div>
     <p class="hint bookmark-help">打开 X 书签页即可自动保存。向下浏览以保存更多，也可在页面顶部暂停。内容仅保存在此浏览器。</p>
     <label class="field contact-owner-field"><span>我的 X 账号</span><select id="bookmark-owner" aria-label="书签所属账号"></select></label>
@@ -108,11 +170,12 @@
     <p class="hint bookmark-help">这里只显示已保存的书签，不代表全部收藏。长帖请在 X 展开后保存；记录时间为首次保存时间。导出保留原帖和图片链接，视频请在原帖查看。</p>
   </section>
   <section id="workspace" class="panel" hidden>
-    <div class="page-heading"><div><h2>找到内容，也找到值得聊的人。</h2><p class="hint">搜索、账号、待回复和阅读偏好，都在这里。</p></div></div>
-    <label class="field"><span>我的 X 账号</span><select id="ws-owner" aria-label="工作台所属账号"></select></label>
+    <a class="back" href="#overview">‹ 设置</a>
+        <label class="field contact-owner-field"><span>我的 X 账号</span><select id="ws-owner" aria-label="工作台所属账号"></select></label>
     <div class="workspace-tabs" role="group" aria-label="工作台"><button data-ws-view="search" aria-pressed="true">搜索</button><button data-ws-view="ratings">账号</button><button data-ws-view="inbox">待回复</button><button data-ws-view="interests">兴趣</button><button data-ws-view="review">复盘</button></div>
     <div id="ws-empty-owner" class="empty-state" hidden>先登录 X，或在「账号 → 常用 @」添加自己的账号。搜索仍可直接使用。</div>
     <div id="ws-search-view" class="workspace-view">
+      <h3>高级搜索</h3><p class="hint">用表单组合条件，在 X 自己的搜索页打开结果。常用的可以存下来。</p>
       <div id="ws-templates" class="workspace-templates" aria-label="搜索模板"></div>
       <form id="ws-search-form"><div class="workspace-grid">
         <label class="field"><span>关键词</span><input id="ws-all" maxlength="400" placeholder="都要包含，例如：开源 工具"></label>
@@ -133,50 +196,56 @@
       <p class="hint">搜索在 X 原生页面打开。相对日期每次执行时重新计算；结果和操作符支持由 X 决定。</p>
     </div>
     <div id="ws-interests-view" class="workspace-view" hidden>
-      <h3>让判断更合你的口味。</h3><p class="hint">主题和你的反馈用于后续 Jev 判断，只影响本插件，不会修改 X 的推荐算法。</p>
+      <h3>兴趣偏好</h3><p class="hint">告诉它你想多看什么、少看什么。只影响这个插件的判断，不会改动 X 的推荐。</p>
       <form id="ws-interest-form"><label class="field"><span>我想多看</span><textarea id="ws-topics" maxlength="1000" rows="3" placeholder="例如：独立开发、AI 工具的实际用法、开源项目"></textarea></label><label class="field"><span>我想少看</span><textarea id="ws-avoid" maxlength="1000" rows="2" placeholder="例如：空泛推广、重复新闻、引战"></textarea></label><label class="toggle-row"><span>浏览时显示兴趣估计<small>需要模型密钥；只判断视口中的文字，每次计入请求额度</small></span><span class="switch small"><input id="ws-interest-enabled" type="checkbox" role="switch"><span></span></span></label><button class="primary">保存兴趣设置</button></form>
       <h3>你给过的反馈</h3><p class="hint">每次最多参考 6 条正反例；删除反馈后，后续判断不再使用。</p>
     </div>
-    <div id="ws-ratings-view" class="workspace-view" hidden><h3>哪些账号值得继续读？</h3><p class="hint">打开账号主页，浏览至少 5 条主帖后点「分析值得关注」。记录内容、独立表达和可见互动的参考分，不用粉丝量代替质量。</p><a class="secondary" href="https://x.com/home" target="_blank" rel="noopener noreferrer">去 X 浏览账号 ↗</a><p class="hint">互动样本不足时只显示已有维度，结果会标出覆盖范围。不能证明事实正确或排除抄袭。</p></div>
+    <div id="ws-ratings-view" class="workspace-view" hidden><h3>账号评分</h3><p class="hint">打开一个账号的主页，往下看至少 5 条帖子，再点「分析值得关注」。评分看内容、独立表达和互动，不看粉丝多少。</p><a class="secondary" href="https://x.com/home" target="_blank" rel="noopener noreferrer">去 X 浏览账号 ↗</a><p class="hint">互动样本不足时只显示已有维度，结果会标出覆盖范围。不能证明事实正确或排除抄袭。</p></div>
     <div id="ws-inbox-view" class="workspace-view" hidden>
-      <h3>值得认真回的，先留下。</h3><p class="hint">点帖子旁的待回复图标，一键加入。打开原帖后集中回复，再手动标为已处理。</p>
+      <h3>待回复</h3><p class="hint">留住想继续的对话。在这里写草稿，一键填入 X 回复框。</p>
       <p id="ws-inbox-counts" class="hint"></p>
-      <div class="rule-editor">
-        <label class="field"><span>状态</span><select id="ws-inbox-status"><option value="pending">待回复</option><option value="snoozed">稍后再看</option><option value="done">已处理</option><option value="">全部</option></select></label>
-        <label class="field"><span>排序</span><select id="ws-inbox-sort"><option value="queueRecent">最近加入</option><option value="queueOld">最早加入</option><option value="followers">关注数最多</option><option value="rank">值得回复评分</option></select></label>
-        <label class="field"><span>来源</span><select id="ws-inbox-source"><option value="manual">我主动收藏的</option><option value="mention">提及我的</option><option value="">全部</option></select></label>
+      <div class="inbox-status-tabs" role="group" aria-label="回复状态"><button data-inbox-status="pending" aria-pressed="true">待回复 <small>0</small></button><button data-inbox-status="snoozed" aria-pressed="false">稍后 <small>0</small></button><button data-inbox-status="done" aria-pressed="false">已处理 <small>0</small></button></div>
+      <div class="rule-editor inbox-filters">
+        <label class="field" hidden><span>状态</span><select id="ws-inbox-status"><option value="pending">待回复</option><option value="snoozed">稍后再看</option><option value="done">已处理</option><option value="">全部</option></select></label>
+        <label class="field"><span>排序</span><select id="ws-inbox-sort"><option value="queueRecent">最近加入</option><option value="queueOld">最早加入</option><option value="followers">关注数最多</option></select></label>
+        <label class="field"><span>来源</span><select id="ws-inbox-source"><option value="">全部来源</option><option value="manual">手动加入</option><option value="mention">提及我的</option></select></label>
       </div>
       <details class="fine-print inbox-preferences"><summary>提及收集设置</summary><label class="toggle-row"><span>保存通知页已加载的提及<small>只读当前页面，不扫描历史，不自动回复</small></span><span class="switch small"><input id="ws-collect-mentions" type="checkbox" role="switch"><span></span></span></label>
       <a class="secondary" href="https://x.com/notifications/mentions" target="_blank" rel="noopener noreferrer">打开我的提及 ↗</a></details>
     </div>
-    <div id="ws-review-view" class="workspace-view" hidden><h3>当时看好，后来怎样？</h3><p class="hint">先点帖子的火焰图标记下看好。复盘使用再次浏览时的观测点，原始概率始终保留。</p><div id="ws-review-summary" class="stats"></div><div id="ws-review-list"></div></div>
+    <div id="ws-review-view" class="workspace-view" hidden><h3>看好复盘</h3><p class="hint">先点帖子的火焰图标记下看好。复盘使用再次浏览时的观测点，原始概率始终保留。</p><div id="ws-review-summary" class="stats"></div><div id="ws-review-list"></div></div>
     <div class="workspace-list-tools"><label class="field"><span class="sr-only">筛选工作台记录</span><input id="ws-list-query" type="search" maxlength="160" placeholder="搜索记录"></label><button id="ws-refresh" class="icon-control" aria-label="刷新工作台记录" data-icon="RefreshCw"></button></div>
     <div id="ws-library-actions" class="workspace-actions"><button id="ws-export" class="secondary"><span data-icon="Download"></span>导出</button><button id="ws-import" class="secondary">导入搜索</button><input id="ws-import-file" type="file" accept="application/json,.json" hidden></div>
     <div id="ws-list-layout"><div id="ws-list" aria-live="polite"></div><aside id="ws-inbox-detail" hidden aria-label="待回复详情"></aside></div><div id="ws-pagination" class="pagination"><button id="ws-prev" class="secondary">上一页</button><span id="ws-page">第 1 页</span><button id="ws-next" class="secondary">下一页</button></div>
   </section>
   <section id="model" class="panel" hidden>
-    <h2>连接一次，随时可用。</h2><p class="hint">用你的 Jev 密钥开始。验证成功后会自动保存。</p>
+    <a class="back" href="#overview">‹ 设置</a>
+    <h2>模型与用量</h2><p class="hint">判断 AI 回复需要连接一个模型服务。连接一次，之后自动使用。</p>
+    <h3 class="group-title">连接</h3>
+    <div class="card">
     <label class="field"><span>模型服务</span><select id="provider"><option value="typesafe">TypeSafe 官方</option><option value="magpie">乔木 Magpie</option><option value="openrouter">OpenRouter</option><option value="vercel">Vercel AI Gateway</option><option value="custom">自定义服务</option></select></label>
     <div class="provider-help"><p id="key-help" class="hint"></p><a id="get-key" target="_blank" rel="noopener noreferrer">注册 / 获取 API Key ↗</a></div>
-    <div class="field"><div class="key-heading"><label for="api-key">API Key</label><span id="key-badge" class="key-badge" hidden>已保存</span></div><div class="secret-field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴你的 API Key"><button id="toggle-key" class="icon-control" aria-label="显示密钥" title="显示密钥" data-icon="Eye"></button></div><small id="key-status">仅保存在此浏览器。</small></div>
-    <label class="field"><span>模型名</span><input id="model-name" type="text" autocomplete="off" spellcheck="false" maxlength="200" placeholder="服务商提供的 Jev 模型名"><small>已填入平台默认值，也可以换成你的模型版本。</small></label>
+    <div class="field"><div class="key-heading"><label for="api-key">密钥</label><span id="key-badge" class="key-badge" hidden>已保存</span></div><div class="secret-field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴服务商给你的密钥（API Key）"><button id="toggle-key" class="icon-control" aria-label="显示密钥" title="显示密钥" data-icon="Eye"></button></div><small id="key-status">只保存在这个浏览器里。</small></div>
+    <label class="field"><span>模型</span><input id="model-name" type="text" autocomplete="off" spellcheck="false" maxlength="200" placeholder="服务商提供的 Jev 模型名"><small>已经填好默认模型，一般不用改。</small></label>
     <details id="advanced-connection" class="fine-print"><summary>高级设置</summary><label class="field"><span>Base URL</span><input id="base-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-service.example/v1"><small>只在使用代理或自建服务时修改。</small></label><label class="field"><span>决策接口</span><select id="protocol"><option value="systemone">TypeSafe · System One</option><option value="decisions">OpenRouter · Decisions</option></select></label><p id="provider-details" class="technical"></p><p>自定义服务需要支持 state + questions 和 Noul 概率。普通聊天接口不能直接使用。</p></details>
     <div class="button-row"><button id="save-model" class="primary">连接并保存</button><button id="change-key" class="secondary" hidden>更换密钥</button><button id="forget-key" class="quiet" hidden>移除</button></div>
+    </div>
     <details class="fine-print"><summary>数据会发到哪里？</summary><p>判断时会把可见帖子文字、上下文及少量人工样本发给所选模型服务。不会发送 X 登录信息或私信。</p><p>已保存的密钥默认隐藏，只有你点显示时才会在此处展示。</p></details>
-    <div class="divider"></div><h2>今天，最多判断多少次？</h2>
-    <label class="field"><span>每日请求上限</span><input id="dailyLimit" type="number" min="1" max="9007199254740991" step="1"><small>默认 10,000 次。复用已有结果不计次，失败请求计次。费用与服务额度由服务商决定。</small></label>
-    <button id="save-usage" class="secondary full">保存每日上限</button>
+    <h3 class="group-title">每日上限</h3>
+    <div class="card">
+      <div class="inline-row"><span class="row-text"><b><label for="dailyLimit">每天最多判断</label></b><small>默认 10,000 次。看过的回复不重复计次，费用由模型服务商结算。</small></span><div class="number-unit wide"><input id="dailyLimit" type="number" min="1" max="9007199254740991" step="1"><span>次</span></div><button id="save-usage" class="secondary">保存</button></div>
+    </div>
     <details class="reply-test fine-print"><summary>试一条回复</summary><p class="hint">看看模型会怎样判断。测试计入今日请求。</p>
     <label class="field"><span>主帖内容 <small>选填</small></span><textarea id="test-parent" rows="2" maxlength="3000" placeholder="这条回复在讨论什么？"></textarea></label>
     <label class="field"><span>回复内容</span><textarea id="test-text" rows="3" maxlength="6000" placeholder="粘贴一条回复"></textarea></label>
     <button id="test-model" class="secondary full">查看判断</button><div id="test-result" role="status" hidden></div></details>
   </section>
   <section id="about" class="panel" hidden>
-    <h2>把注意力，留给值得读的内容。</h2><p class="hint">乔木 X 助手由向阳乔木开发，源码公开。你的反馈，让它更好用。</p>
+    <a class="back" href="#overview">‹ 设置</a>
+    <h2>关于与反馈</h2><p class="hint">把注意力留给值得读的内容。乔木 X 助手由向阳乔木开发，源码公开，你的反馈会让它更好用。</p>
     <div class="support-links"><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper/issues/new" target="_blank" rel="noopener noreferrer"><span data-icon="MessageSquare"></span>反馈问题<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper" target="_blank" rel="noopener noreferrer"><span data-icon="CodeXml"></span>查看源码<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper/releases" target="_blank" rel="noopener noreferrer"><span data-icon="History"></span>更新记录<span data-icon="ArrowUpRight"></span></a></div>
     <div class="about-qrs"><figure><img src="assets/about/wechat-public-account.jpg" width="148" height="148" loading="lazy" alt="向阳乔木推荐看公众号二维码"><figcaption><b>关注公众号</b><span>微信搜索「向阳乔木推荐看」</span></figcaption></figure><figure><img src="assets/about/reward.png" width="148" height="148" loading="lazy" alt="向阳乔木打赏二维码"><figcaption><b>请我喝杯咖啡</b><span>自愿支持，感谢你的心意</span></figcaption></figure></div>
     <div class="about-links"><a href="https://qiaomu.ai/" target="_blank" rel="noopener noreferrer">乔木主页</a><a href="https://blog.qiaomu.ai/" target="_blank" rel="noopener noreferrer">博客</a><a href="https://x.com/vista8" target="_blank" rel="noopener noreferrer">X @vista8</a></div>
     <details class="fine-print"><summary>管理本机数据</summary><p>清空后会移除判断缓存、人工标注与手动保留记录。账号名单、密钥和今日用量会保留。</p><button id="clear-history" class="secondary">清空记录与缓存…</button></details>
   </section>
-  <footer><span id="model-state">尚未连接</span><a href="https://github.com/joeseesun/qiaomu-x-helper/issues/new" target="_blank" rel="noopener noreferrer">反馈问题 ↗</a></footer>
-</main><script src="ui.js" defer></script></body></html>
+</main></div><script src="ui.js" defer></script></body></html>
