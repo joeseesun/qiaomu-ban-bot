@@ -23,7 +23,7 @@ export class MemoryAnnotations {
   constructor(){this.rows=new Map();this.revision=0;this.migrated=false;}
   async migrate(rows=[]){if(this.migrated)return;for(const row of rows)if(row.key)this.rows.set(row.key,clone(row));this.migrated=true;this.revision++;}
   async get(key){return clone(this.rows.get(key));}
-  async rememberName(key,displayName){const row=this.rows.get(key);if(row){row.displayName=displayName;row.nameAt=Date.now();}}
+  async rememberName(key,displayName,author){const row=this.rows.get(key);if(row){row.displayName=displayName;row.nameAt=Date.now();if(author?.userId&&!row.author?.userId)row.author=clone(author);}}
   async put(row){this.rows.set(row.key,clone(row));this.revision++;}
   async remove(key){this.rows.delete(key);this.revision++;}
   async clear(){this.rows.clear();this.revision++;}
@@ -38,6 +38,8 @@ export class MemoryAnnotations {
     const items=rows.slice(0,limit),last=items.at(-1);return clone({items,next:rows.length>limit?{count:last[label],handle:last.handle}:null});
   }
   async recent(limit=40){return(await this.page({limit})).items;}
+  async post(id){return clone([...this.rows.values()].filter(r=>r.id===id).sort(order)[0]);}
+  async byAuthor(item,limit=40){return clone([...this.rows.values()].filter(r=>r.id!==item.id&&(item.author?.userId?r.author?.userId===item.author.userId:r.handle===item.handle)).sort(order).slice(0,limit));}
 }
 
 // Full history is kept outside the frequently-written Chrome settings/cache.
@@ -46,16 +48,30 @@ export class IndexedAnnotations {
   constructor(factory=globalThis.indexedDB,ranges=globalThis.IDBKeyRange,name='qiaomu-banbot-labels'){
     this.ranges=ranges;
     this.ready=new Promise((resolve,reject)=>{
-      const req=factory.open(name,2);
+      const req=factory.open(name,3);
       req.onupgradeneeded=e=>{
         const db=req.result;
         if(e.oldVersion<1){
           const rows=db.createObjectStore('annotations',{keyPath:'key'});
           rows.createIndex('time',['at','key']);rows.createIndex('labelTime',['label','at','key']);rows.createIndex('label','label');db.createObjectStore('meta');
         }
-        const authors=db.createObjectStore('authors',{keyPath:'handle'});
-        authors.createIndex('ai',['ai','handle']);authors.createIndex('human',['human','handle']);
-        if(e.oldVersion>=1)rebuildAuthors(req.transaction.objectStore('annotations'),authors);
+        if(e.oldVersion<2){
+          const authors=db.createObjectStore('authors',{keyPath:'handle'});
+          authors.createIndex('ai',['ai','handle']);authors.createIndex('human',['human','handle']);
+          if(e.oldVersion>=1)rebuildAuthors(req.transaction.objectStore('annotations'),authors);
+        }
+        const rows=req.transaction.objectStore('annotations');
+        rows.createIndex('post','id');rows.createIndex('authorTime',['author.userId','at','key']);rows.createIndex('handleTime',['handle','at','key']);
+        const latest=new Map();let deduped=false;
+        rows.openCursor().onsuccess=event=>{
+          const cursor=event.target.result;
+          if(!cursor){if(deduped){rebuildAuthors(rows,req.transaction.objectStore('authors'));const meta=req.transaction.objectStore('meta');meta.get('revision').onsuccess=e=>meta.put((e.target.result||0)+1,'revision');}return;}
+          const row=cursor.value,previous=latest.get(row.id);
+          if(/^\d{1,25}$/.test(row.id||'')){
+            if(previous){deduped=true;if(order(row,previous)<0){rows.delete(previous.key);latest.set(row.id,row);}else rows.delete(row.key);}
+            else latest.set(row.id,row);
+          }cursor.continue();
+        };
       };
       req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result);};
       req.onerror=()=>reject(new Error('无法打开标注记录，请重新打开扩展'));
@@ -80,10 +96,11 @@ export class IndexedAnnotations {
     });
   }
   async get(key){return this.transaction('readonly',(store,meta,done)=>{store.get(key).onsuccess=e=>done(e.target.result);});}
-  rememberName(key,displayName){return this.transaction('readwrite',(store,meta,done,authors)=>{
-    store.get(key).onsuccess=e=>{const row=e.target.result;if(!row||row.displayName===displayName)return;
+  rememberName(key,displayName,author){return this.transaction('readwrite',(store,meta,done,authors)=>{
+    store.get(key).onsuccess=e=>{const row=e.target.result;if(!row||row.displayName===displayName&&(!author?.userId||row.author?.userId))return;
+      if(author?.userId&&!row.author?.userId)row.author=clone(author);
       row.displayName=displayName;row.nameAt=Date.now();store.put(row);
-      authors.get(handleOf(row.handle)).onsuccess=event=>{const author=event.target.result;if(author){author.displayName=displayName;author.nameAt=row.nameAt;authors.put(author);}};
+      authors.get(handleOf(row.handle)).onsuccess=event=>{const entry=event.target.result;if(entry){entry.displayName=displayName;entry.nameAt=row.nameAt;authors.put(entry);}};
     };
   });}
   async change(key,row){return this.transaction('readwrite',(store,meta,done,authors)=>{
@@ -135,4 +152,11 @@ export class IndexedAnnotations {
     });
   }
   async recent(limit=40){return(await this.page({limit})).items;}
+  post(id){return this.transaction('readonly',(store,meta,done)=>{const rows=[];store.index('post').openCursor(this.ranges.only(id)).onsuccess=e=>{const c=e.target.result;if(!c){done(rows.sort(order)[0]);return;}rows.push(c.value);c.continue();};});}
+  byAuthor(item,limit=40){return this.transaction('readonly',(store,meta,done)=>{
+    const rows=[];done(rows);const id=item.author?.userId||item.handle,index=item.author?.userId?'authorTime':'handleTime';
+    store.index(index).openCursor(this.ranges.bound([id,0,''],[id,Number.MAX_SAFE_INTEGER,'\uffff']),'prev').onsuccess=e=>{
+      const c=e.target.result;if(!c||rows.length>=limit)return;if(c.value.id!==item.id)rows.push(c.value);c.continue();
+    };
+  });}
 }

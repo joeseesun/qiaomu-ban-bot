@@ -1,5 +1,5 @@
 import { analyze } from '../src/jev.js';
-import { DEFAULTS, decide } from '../src/core.js';
+import { DEFAULTS, decide, validateItem, buildRequest } from '../src/core.js';
 import { Engine } from '../src/engine.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
@@ -7,6 +7,21 @@ const { apiKey } = JSON.parse(input); input = '';
 // This local smoke test deliberately uses the user's Magpie credential. Never
 // send it to the install default (TypeSafe) when that default changes.
 const liveSettings={...DEFAULTS,provider:'magpie'};
+if(process.argv.includes('--reading')){
+  const now=Date.now(),root={id:'700',text:'把想认真回复的帖子先收进待回复，晚上集中处理。',createdAt:now-3600000},directParent={id:'701',text:'切换账号以后待回复是否独立保存？',createdAt:now-600000};
+  const samples=[
+    {id:'702',text:'我在两套 Chrome 配置测试过，切换账号后不会串。IndexedDB 的主键需要包含 owner，不能只用帖子 ID。',createdAt:now-300000},
+    {id:'703',text:'这个思路真的很稳！把待回复当作沟通的中转站，既能提升效率，也能让表达更有温度。你觉得未来还会有哪些可能呢？🙂',createdAt:now-599000},
+  ],settings={...liveSettings,authorLabels:{ai:1,human:2,posts:3,source:'synthetic manual annotations on other replies'},communityLabels:{ai:3,human:2,posts:4,contributors:3,conflictingPosts:1,source:'synthetic community labels'}};
+  const output={at:new Date().toISOString(),note:'Synthetic protocol smoke test, not an accuracy benchmark.',samples:[]};
+  for(const s of samples){
+    const item=validateItem({...s,kind:'reply',handle:'fixture',root,directParent,parent:directParent.text,metrics:{},author:{userId:'800',followers:12200,following:286,posts:450,joinedAt:now-600*86400000,blueVerified:true,bio:'独立开发记录',observedAt:now}});
+    const payload=buildRequest(item,settings),result=await analyze(item,settings,apiKey);
+    output.samples.push({id:s.id,state:payload.state,model:result.model,scores:result.scores,inputTokens:result.inputTokens});
+  }
+  await mkdir('artifacts',{recursive:true});await writeFile('artifacts/live-reading-smoke.json',JSON.stringify(output,null,2)+'\n');
+  console.log(JSON.stringify(output.samples.map(({id,model,scores,inputTokens})=>({id,model,scores,inputTokens}))));process.exit(0);
+}
 if(process.argv.includes('--advanced')){
   const {Workspace}=await import('../src/workspace.js');
   const {Features}=await import('../src/features.js');

@@ -28,7 +28,7 @@ test('legacy low-information results never appear in the toolbar or expanded sco
   const env=mount(markup(1,'我现在都是扔给 Bot 让它抓数据'),async()=>({...result(.26),scores:{ai_written:.26,low_value:.99,spam:.01,useful:.1}}));
   try{
     const a=env.dom.window.document.getElementById('a1');
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 概率：26%'));
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 26'));
     const root=a.querySelector('.qb-host').shadowRoot;
     assert.equal(a.hasAttribute('data-qb-collapsed'),false);
     assert.equal(root.querySelector('.status'),null);
@@ -101,7 +101,7 @@ test('probability and accessible icon controls stay compact; the action panel cl
   const env=mount(markup(1,'A concrete useful reply.'),async()=>({...result(.27),scores:{ai_written:.27,low_value:.1,spam:.1,useful:.96}}));
   try{
     const a=env.dom.window.document.getElementById('a1');
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 概率：27%'));
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('AI 27'));
     const root=a.querySelector('.qb-host').shadowRoot;
     const mark=root.querySelector('button[aria-label="标记 AI"]'),toggle=root.querySelector('button[aria-label="判断与操作"]');
     assert.ok(mark.querySelector('svg'));assert.equal(mark.textContent,'');
@@ -190,7 +190,7 @@ test('expanding a long reply keeps its start in place and identifies the opened 
 test('reply annotation controls align with the native body column, before the probability',async()=>{
   const html='<article data-testid="tweet"><div class="original"><div class="row"><div class="avatar">avatar</div><div class="body-column"><div dir="auto">Replying to @parent</div><a href="/alice/status/123"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">一条真人回复</div><div role="group"><button>原生回复</button></div></div></div></div></article>';
   const env=mount(html,async()=>result(.1));try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-host')?.shadowRoot.querySelector('.annotation'));
-    const host=d.querySelector('.qb-host');assert.equal(host.parentElement,d.querySelector('.body-column'));assert.equal(host.shadowRoot.querySelector('.toolbar').firstElementChild.className,'annotation');
+    const host=d.querySelector('.qb-host');assert.equal(host.parentElement,d.querySelector('.body-column'));assert.ok(host.shadowRoot.querySelector('.panel .annotation'));assert.equal(host.shadowRoot.querySelector('.toolbar .annotation'),null);assert.equal(host.shadowRoot.querySelector('.score').hidden,true);
     assert.equal(d.querySelector('article').children.length,1);assert.equal(d.querySelector('.body-column>[role=group] button').textContent,'原生回复');
   }finally{env.close();}
 });
