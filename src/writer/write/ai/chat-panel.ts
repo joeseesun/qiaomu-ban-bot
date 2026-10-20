@@ -1,21 +1,24 @@
+import { streamChatAgent } from '../../utils/chat-agent';
+import { mountChatTools, keepChatPhoto, createSearchToggle } from '../../utils/chat-tool-view';
+import { toolHistory, normalizeToolResults } from '../../utils/chat-tools-types';
+import type { UnsplashPhoto } from '../../utils/image-library-sources';
 import type { Editor } from '@tiptap/core';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { ChevronDown, History, ImagePlus, Link as LinkIcon, MessageSquarePlus, Paperclip, Pencil, RefreshCw, Send, Sparkles, SquareStack, Square, FileText, TextCursorInput, TextQuote, Undo2, X, Copy } from 'lucide';
-import { enabledChatModels, streamChat } from '../../utils/chat-llm';
-import { effortOptions, validEffort } from '../../utils/chat-thinking';
-import { reasoningEffortLabel } from '../../utils/reasoning-label';
-import { getLocalStorage, setLocalStorage } from '../../utils/storage-utils';
+import { enabledChatModels } from '../../utils/chat-llm';
+import { createModelPicker, modelEffort } from '../../utils/model-picker';
+import { getLocalStorage, setLocalStorage, generalSettings } from '../../utils/storage-utils';
 import { t } from '../../utils/ui-text';
 import browser from '../../utils/browser-polyfill';
 import { askText, h, icon, toast } from '../editor/dom';
 import { insertMarkdownAt, replaceWithMarkdown, textBlocks } from '../editor/markdown-insert';
 import { listArticles } from '../articles';
 import { loadImageModels, readyModels } from '../image-models';
-import { imageUrlFor } from '../images';
+import { imageUrlFor, saveImage } from '../images';
+import { ChatImageGenerationView, parseChatImageReply, startChatImage } from '../../utils/chat-image-generation';
 import { MAX_ATTACHMENTS, articleAttachment, imageAttachment, imagesOf, referenceContext, webAttachment, type Attachment } from './attachments';
 import { loadChat, newSession, saveChat, titleOf, type ChatMessage, type ChatSession } from './chat-store';
-import { openImageDialog } from './image-dialog';
 import { promptCatalog, stripPrompts, type PromptItem, type PromptSettings } from './prompt-library';
 import { openPromptPicker } from './prompt-panel';
 import { loadPromptSettings, loadUserPrompts } from './prompt-store';
@@ -33,9 +36,6 @@ export interface ChatHost {
 
 const MODEL_KEY = 'qiaomuChatModel';
 const HISTORY_TURNS = 20;
-const effortKey = (modelId: string) => `qiaomuWriteEffort:${modelId}`;
-const readEffort = (modelId: string): string => { try { return localStorage.getItem(effortKey(modelId)) ?? ''; } catch { return ''; } };
-const writeEffort = (modelId: string, value: string) => { try { if (value) localStorage.setItem(effortKey(modelId), value); else localStorage.removeItem(effortKey(modelId)); } catch { /* private window */ } };
 
 function renderMarkdown(text: string): string {
 	const html = marked.parse(text, { async: false, breaks: true }) as string;
@@ -52,6 +52,8 @@ export function mountChatPanel(host: ChatHost) {
 	let current: ChatSession = newSession();
 	let controller: AbortController | undefined;
 	let imageReady = false;
+	let disposed = false;
+	const generatedImages = new ChatImageGenerationView();
 	let renderTimer = 0;
 	let includeArticle = true;
 	let pinned: PinnedSelection | null = null;
@@ -74,10 +76,11 @@ export function mountChatPanel(host: ChatHost) {
 	const stop = h('button', { type: 'button', class: 'qw-chat-send', title: t('停止'), 'aria-label': t('停止'), hidden: true }, icon(Square, 14));
 	const attach = h('button', { type: 'button', class: 'qw-chat-tool', title: t('添加图片、网页或其他文章'), 'aria-label': t('添加图片、网页或其他文章'), 'aria-haspopup': 'menu' }, icon(Paperclip, 15));
 	const promptsButton = h('button', { type: 'button', class: 'qw-chat-tool', title: t('提示词库'), 'aria-label': t('提示词库') }, icon(SquareStack, 15), h('span', { text: t('提示词') }));
-	const model = h('select', { class: 'qw-chat-model', 'aria-label': t('模型') });
-	const effort = h('select', { class: 'qw-chat-model qw-chat-effort', 'aria-label': t('思考强度'), title: t('思考强度：越高想得越久，答得越好，也越慢') });
-	const tools = h('div', { class: 'qw-chat-tools' }, attach, promptsButton, h('span', { class: 'qw-spacer' }), model, effort);
-	const foot = h('div', { class: 'qw-chat-foot' }, chips, strip, h('div', { class: 'qw-chat-compose' }, input, send, stop), tools);
+	const model = createModelPicker({ getModels: enabledChatModels, getProviders: () => generalSettings.providers,
+		onSelect: id => { void setLocalStorage(MODEL_KEY, id); }, onManage: () => { void browser.tabs.create({ url: browser.runtime.getURL('settings.html?section=interpreter') }); } });
+	const searchToggle = createSearchToggle();
+	const tools = h('div', { class: 'qw-chat-tools' }, attach, promptsButton, searchToggle, h('span', { class: 'qw-spacer' }), model.trigger, model.popover, send, stop);
+	const foot = h('div', { class: 'qw-chat-foot' }, strip, h('div', { class: 'qw-chat-compose' }, chips, input, tools));
 	const grip = h('div', { class: 'qw-chat-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': t('调整宽度'), title: t('拖动调整宽度，双击恢复'), tabindex: 0 });
 	const panel = h('aside', { class: 'qw-chat', 'aria-label': t('AI 助手'), hidden: true }, grip, head, list, foot);
 	document.body.append(panel);
@@ -109,7 +112,8 @@ export function mountChatPanel(host: ChatHost) {
 	});
 	window.addEventListener('resize', () => setWidth(panel.getBoundingClientRect().width || savedWidth, false));
 
-	const persist = () => { current.title = titleOf(current.messages); current.updatedAt = Date.now(); sessions = [current, ...sessions.filter(s => s.id !== current.id)]; void saveChat(host.articleId, sessions); };
+	const persistSession = (session: ChatSession) => { session.title = titleOf(session.messages); session.updatedAt = Date.now(); sessions = [session, ...sessions.filter(s => s.id !== session.id)]; return saveChat(host.articleId, sessions); };
+	const persist = () => { void persistSession(current); };
 	const articleChars = () => host.getMarkdown().replace(/\s+/g, '').length;
 	const selectionText = (): string => (selectionOff ? '' : pinned?.text ?? '');
 
@@ -143,10 +147,7 @@ export function mountChatPanel(host: ChatHost) {
 				replaceWithMarkdown(editor, range.from, range.to, proposal.with);
 				return done();
 			}
-			case 'image': {
-				void openImageDialog({ prompt: proposal.prompt, aspect: proposal.aspect, autoRun: true, applies: [{ label: t('插入文章'), run: id => { editor.commands.focus(); const node = { type: 'image', attrs: { src: imageUrlFor(id), alt: proposal.prompt.slice(0, 80) } }; if (proposal.where === 'end') editor.chain().insertContentAt(editor.state.doc.content.size, node).run(); else editor.chain().insertContent(node).run(); } }] });
-				return { ok: false };
-			}
+			case 'image': return { ok: false }; // Generated in chat; inserting the finished image is separate.
 			case 'ask': return { ok: false };
 		}
 	};
@@ -186,6 +187,13 @@ export function mountChatPanel(host: ChatHost) {
 		document.addEventListener('mousedown', away, true);
 	};
 
+	const insertPhoto = async (photo: UnsplashPhoto, blob: Blob, active = () => !disposed) => {
+		if (!active()) return;
+		const saved = await saveImage(blob, photo.description.slice(0, 80));
+		if (!active()) return;
+		host.editor.chain().focus().insertContent([{ type: 'image', attrs: { src: imageUrlFor(saved.id), alt: photo.description.slice(0, 80) } },
+			{ type: 'paragraph', content: [{ type: 'text', text: `${photo.author} · Unsplash`, marks: [{ type: 'link', attrs: { href: photo.link, target: '_blank' } }] }] }]).run();
+	};
 	const drawMessage = (message: ChatMessage, index: number, streaming: boolean): HTMLElement => {
 		const isLast = index === current.messages.length - 1;
 		if (message.role === 'user') {
@@ -214,7 +222,24 @@ export function mountChatPanel(host: ChatHost) {
 		}
 		out.append(body);
 		const pendingIdx: number[] = [];
+		const owner = current;
+		if (message.tools?.length) mountChatTools(out, message.tools, { persist: () => persistSession(owner), followup: text => void ask(text), insert: insertPhoto });
+		let imageIndex = 0;
+		if (!streaming) message.generatedImages ??= parseChatImageReply(message.content).images;
 		parsed.proposals.forEach((proposal, i) => {
+			if (proposal.type === 'image') {
+				const image = message.generatedImages?.[imageIndex++];
+				if (streaming || !image) return;
+				generatedImages.mount(out, image, () => persistSession(owner), async blob => {
+					const saved = await saveImage(blob, image.prompt.slice(0, 80));
+					if (disposed) return;
+					const { editor } = host;
+					const node = { type: 'image', attrs: { src: imageUrlFor(saved.id), alt: image.prompt.slice(0, 80) } };
+					if (image.where === 'end') editor.chain().focus().insertContentAt(editor.state.doc.content.size, node).run();
+					else editor.chain().focus().insertContent(node).run();
+				});
+				return;
+			}
 			const info = describe(proposal);
 			if (proposal.type === 'ask') {
 				const done = message.applied?.includes(i) ?? false;
@@ -238,7 +263,7 @@ export function mountChatPanel(host: ChatHost) {
 			const undo = h('button', { type: 'button', class: 'qw-btn qw-prop-undo', title: t('撤销这次修改') }, icon(Undo2, 12), t('撤销'));
 			undo.hidden = true;
 			const showUndo = () => { undo.hidden = !undoers.has(key); button.hidden = !undo.hidden; };
-			if (!done && proposal.type !== 'image') pendingIdx.push(i);
+			if (!done) pendingIdx.push(i);
 			button.addEventListener('click', async () => {
 				const result = await apply(proposal);
 				if (!result.ok) return;
@@ -283,6 +308,7 @@ export function mountChatPanel(host: ChatHost) {
 	};
 
 	function draw(streaming = false) {
+		generatedImages.clear();
 		const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
 		list.textContent = '';
 		if (!enabledChatModels().length) {
@@ -309,7 +335,9 @@ export function mountChatPanel(host: ChatHost) {
 		chips.append(article);
 		if (selectionText()) {
 			const count = selectionText().replace(/\s+/g, '').length;
-			const chip = h('span', { class: 'qw-chat-chip on', title: selectionText().slice(0, 300) }, icon(TextQuote, 12), h('span', { text: t('选区 · {0} 字', [count]) }), h('button', { type: 'button', class: 'qw-chip-x', 'aria-label': t('不用选区'), text: '×', onclick: () => { selectionOff = true; drawChips(); drawStrip(); } }));
+			const chip = h('span', { class: 'qw-chat-quote', title: selectionText().slice(0, 1000) }, icon(TextQuote, 12),
+				h('span', { class: 'qw-chat-quote-copy' }, h('small', { text: t('选区 · {0} 字', [count]) }), h('span', { text: selectionText().slice(0, 240) })),
+				h('button', { type: 'button', class: 'qw-chip-x', 'aria-label': t('不用选区'), text: '×', onclick: () => { selectionOff = true; drawChips(); drawStrip(); } }));
 			chips.append(chip);
 		} else if (pinned) {
 			const back = h('button', { type: 'button', class: 'qw-chat-chip', title: t('把刚才选中的文字重新作为上下文') }, icon(TextQuote, 12), t('用上次选区'));
@@ -365,49 +393,67 @@ export function mountChatPanel(host: ChatHost) {
 	panel.addEventListener('drop', event => { const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/')); if (files.length) { event.preventDefault(); addImages(files); } });
 
 	// ---- talking ------------------------------------------------------------------------------------------------------------------
-	const setBusy = (busy: boolean) => { send.hidden = busy; stop.hidden = !busy; input.disabled = busy; };
+	const setBusy = (busy: boolean) => { send.hidden = busy; stop.hidden = !busy; input.disabled = busy; model.trigger.disabled = busy; searchToggle.disabled = busy; if (busy) model.close(); };
 	async function ask(text: string) {
 		const question = text.trim();
 		const models = enabledChatModels();
-		if (!question || !models.length || controller) return;
+		if (!question || !models.length || controller || disposed) return;
+		const owner = current;
+		const request = new AbortController();
+		controller = request;
 		const chosen = models.find(m => m.id === model.value) ?? models[0];
 		void setLocalStorage(MODEL_KEY, chosen.id);
-		const level = validEffort(effort.value);
+		const level = modelEffort(chosen);
 		const { editor } = host;
 		const headings: string[] = [];
 		editor.state.doc.descendants(node => { if (node.type.name === 'heading') headings.push(node.textContent.trim()); return false; });
 		const sent = attachments;
 		attachments = [];
-		const system = buildSystemPrompt({ title: host.getTitle(), digest: host.getDigest(), markdown: host.getMarkdown(), selection: selectionText(), headings, imageReady, includeArticle, references: referenceContext(sent) });
+		const systemContext = { title: host.getTitle(), digest: host.getDigest(), markdown: host.getMarkdown(), selection: selectionText(), headings, imageReady, includeArticle, references: referenceContext(sent) };
 		current.messages.push({ role: 'user', content: question, ...(sent.length ? { refs: sent.map(a => a.label) } : {}) }, { role: 'assistant', content: '' });
 		const reply = current.messages[current.messages.length - 1];
-		const history = current.messages.slice(0, -2).slice(-HISTORY_TURNS).map(m => ({ role: m.role, content: m.content }));
+		const history = current.messages.slice(0, -2).slice(-HISTORY_TURNS).map(m => ({ role: m.role, content: m.content + toolHistory(m.tools) + (m.generatedImages?.length ? `\n[图片任务：${m.generatedImages.map(i => `${i.prompt}；${i.imageId ? '已生成，图片数据未附上' : i.jobId ? '已提交后台' : '未生成'}`).join('；')}]` : '') }));
 		const images = imagesOf(sent);
 		const turns = [...history, { role: 'user' as const, content: question, ...(images.length ? { images } : {}) }];
 		input.value = ''; resize();
-		controller = new AbortController(); setBusy(true); draw(true);
+		setBusy(true); draw(true);
 		const started = Date.now();
 		let firstText = 0;
 		let stalled = false;
 		let idle = 0;
-		const watch = () => { window.clearTimeout(idle); idle = window.setTimeout(() => { stalled = true; controller?.abort(); }, IDLE_MS); };
+		let completed = false;
+		const active = () => !disposed && current === owner && controller === request && !request.signal.aborted;
+		const watch = () => { window.clearTimeout(idle); idle = window.setTimeout(() => { stalled = true; request.abort(); }, IDLE_MS); };
 		watch();
 		try {
-			await streamChat({
-				model: chosen, system, messages: turns, signal: controller.signal, reasoningEffort: level,
-				onThought: delta => { watch(); reply.thought = (reply.thought ?? '') + delta; reply.thinkMs = Date.now() - started; schedule(); },
-				onDelta: delta => { watch(); if (!firstText) { firstText = Date.now(); reply.thinkMs = firstText - started; } reply.content += delta; schedule(); },
+			imageReady = readyModels(await loadImageModels()).length > 0;
+			if (!active()) return;
+			const system = buildSystemPrompt({ ...systemContext, imageReady });
+			await streamChatAgent({
+				model: chosen, system, messages: turns, signal: request.signal, reasoningEffort: level,
+				onThought: delta => { if (!active()) return; watch(); reply.thought = (reply.thought ?? '') + delta; reply.thinkMs = Date.now() - started; schedule(); },
+				previousTools: owner.messages.flatMap(m => m.tools || []), canInsert: true,
+				onUseImage: async (photo, action) => { const blob = await keepChatPhoto(photo, request.signal); if (active() && action === 'insert') await insertPhoto(photo, blob, active); },
+				onTools: results => { if (!active()) return; watch(); reply.tools = results; schedule(); },
+				onText: value => { if (!active()) return; watch(); if (!firstText) { firstText = Date.now(); reply.thinkMs = firstText - started; } reply.content = value; schedule(); },
 			});
+			completed = active();
 		} catch (error) {
 			if (stalled) reply.content = reply.content ? `${reply.content}\n\n${t('（中断：{0}）', [t('模型太久没有回应')])}` : t('出错了：{0}', [t('模型太久没有回应，请重试或换一个模型')]);
 			else if ((error as Error)?.name !== 'AbortError') reply.content = reply.content ? `${reply.content}\n\n${t('（中断：{0}）', [String((error as Error)?.message ?? error).slice(0, 160)])}` : t('出错了：{0}', [String((error as Error)?.message ?? error).slice(0, 200)]);
 		} finally {
-			window.clearTimeout(idle); controller = undefined; setBusy(false);
+			window.clearTimeout(idle);
+			if (controller === request) { controller = undefined; if (!disposed) setBusy(false); }
+			if (reply.tools?.length) { reply.tools = normalizeToolResults(reply.tools); await persistSession(owner); }
+			if (disposed || current !== owner) return;
 			// A streaming redraw still queued would repaint the unfinished state over the final one.
 			if (renderTimer) { cancelAnimationFrame(renderTimer); renderTimer = 0; }
-			if (!reply.content.trim() && !reply.thought) current.messages.splice(-2, 2); // nothing came back; do not keep an empty exchange
+			if (!reply.content.trim() && !reply.thought && !reply.tools?.length) current.messages.splice(-2, 2); // nothing came back; do not keep an empty exchange
 			if (reply.thinkMs !== undefined && !reply.thought && reply.thinkMs < 1500) delete reply.thinkMs;
+			const parsedImages = parseChatImageReply(reply.content);
+			if (completed) reply.generatedImages = parsedImages.images;
 			persist(); draw(); input.focus();
+			if (completed && !parsedImages.pending) for (const image of reply.generatedImages ?? []) void startChatImage(image, () => persistSession(owner));
 		}
 	}
 	function schedule() { if (!renderTimer) renderTimer = requestAnimationFrame(() => { renderTimer = 0; draw(true); }); }
@@ -445,38 +491,22 @@ export function mountChatPanel(host: ChatHost) {
 	});
 
 	// ---- models and thinking strength ----------------------------------------------------------------------------------------------
-	function refreshEffort() {
-		const chosen = enabledChatModels().find(m => m.id === model.value);
-		const levels = chosen ? effortOptions(chosen) : [];
-		effort.textContent = '';
-		effort.hidden = !levels.length;
-		if (!levels.length || !chosen) return;
-		effort.append(h('option', { value: '', text: t('思考：自动') }));
-		for (const level of levels) effort.append(h('option', { value: level, text: t('思考：{0}', [reasoningEffortLabel(level)]) }));
-		const saved = readEffort(chosen.id);
-		effort.value = levels.includes(saved) ? saved : '';
-	}
-	model.addEventListener('change', refreshEffort);
-	effort.addEventListener('change', () => { const chosen = enabledChatModels().find(m => m.id === model.value); if (chosen) writeEffort(chosen.id, effort.value); });
 	async function refreshModels() {
-		model.textContent = '';
-		const models = enabledChatModels();
-		for (const m of models) model.append(h('option', { value: m.id, text: m.name }));
-		const saved = await getLocalStorage(MODEL_KEY);
-		if (models.some(m => m.id === saved)) model.value = String(saved);
-		model.hidden = models.length < 2;
-		refreshEffort();
+		if (controller) return;
+		const models = enabledChatModels(), saved = await getLocalStorage(MODEL_KEY);
+		if (disposed || controller) return;
+		model.setModels(models.some(m => m.id === saved) ? String(saved) : models[0]?.id || '');
 		imageReady = readyModels(await loadImageModels()).length > 0;
 	}
 
 	async function toggle(open = panel.hidden) {
 		panel.hidden = !open;
 		document.body.classList.toggle('qw-chat-open', open);
-		if (!open) { picker?.close(); return; }
+		if (!open) { model.close(); picker?.close(); return; }
 		await Promise.all([refreshModels(), loadPromptState()]);
 		if (!sessions.length) { sessions = await loadChat(host.articleId); if (!current.messages.length && sessions[0]) current = sessions[0]; }
 		readSelection();
 		draw(); input.focus();
 	}
-	return { toggle, isOpen: () => !panel.hidden, destroy: () => { controller?.abort(); picker?.close(); host.editor.off('selectionUpdate', readSelection); panel.remove(); } };
+	return { toggle, isOpen: () => !panel.hidden, destroy: () => { disposed = true; model.destroy(); controller?.abort(); if (renderTimer) cancelAnimationFrame(renderTimer); generatedImages.clear(); picker?.close(); host.editor.off('selectionUpdate', readSelection); panel.remove(); } };
 }

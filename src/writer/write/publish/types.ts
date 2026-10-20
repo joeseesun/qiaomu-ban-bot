@@ -7,8 +7,7 @@ export interface PublishRequest {
 	onRecorded: (record: PublishRecord) => void;
 }
 
-// A place an article can be sent to. X is first; WeChat Official Accounts follow the same shape
-// (render Markdown to themed HTML, upload the pictures, create a draft).
+// X Helper writes a draft; the user confirms publication on X.
 export interface Publisher {
 	id: PublishTarget;
 	label: () => string;

@@ -3,13 +3,15 @@ import { resolveConnection, mergeSettings } from './connection.js';
 import { senderContext } from './context.js';
 import { IndexedAnnotations } from './annotations.js';
 import { Contacts } from './contacts.js';
-import { backupFile,parseBackup,backupSummary,restoreBackup,WRITING_KEY,IMAGE_KEY } from './backup.js';
+import { backupFile,parseBackup,backupSummary,restoreBackup,BACKUP_KEYS } from './backup.js';
 import { Bookmarks, bookmarkPath } from './bookmarks.js';
 import { Workspace } from './workspace.js';
 import { importSearches, normalizeSearch } from './search.js';
 import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
 import { handleOf, validateItem } from './core.js';
+import { registerWriterBackground, writerMessage } from './writer/background';
+registerWriterBackground();
 const owners = new Map();
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
@@ -29,6 +31,7 @@ async function broadcast(message = {type:'refresh'}) {
   await Promise.allSettled(tabs.map(tab => chrome.tabs.sendMessage(tab.id, message)));
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (writerMessage(message)) return;
   (async () => {
     const who = senderContext(sender, chrome.runtime);
     if (who === 'admin' && message?.action === 'qiaomuWriteFocus') {
@@ -104,7 +107,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='workspace-configure'){const r=await workspace.profile(message.owner,{collectMentions:message.profile?.collectMentions});await broadcast({type:'workspace-preferences-changed',owner:message.owner});return r;}
     if(message.type==='backup-export')return engine.mutate(async()=>{
       const rows=[];let before=null;do{const page=await engine.annotations.page({before,limit:200});rows.push(...page.items);if(JSON.stringify(rows).length>20e6)throw Error('标记数据超过 20 MB，请分批导出');before=page.next;}while(before);
-      return backupFile(engine.data,await engine.storage.get([WRITING_KEY,IMAGE_KEY]),rows,message.includeKeys===true);
+      return backupFile(engine.data,await engine.storage.get(BACKUP_KEYS),rows,message.includeKeys===true);
     });
     if(message.type==='backup-preview')return backupSummary(parseBackup(message.value));
     if(message.type==='backup-restore'){const result=await restoreBackup(engine,message.value,message.restorePreferences===true);await broadcast();return result;}

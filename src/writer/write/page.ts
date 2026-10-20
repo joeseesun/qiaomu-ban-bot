@@ -1,11 +1,12 @@
 import { Editor } from '@tiptap/core';
-import { Archive, ArrowLeft, Code, Download, Ellipsis, FileText, ImagePlus, ListTree, Send, Sparkles, Trash2 } from 'lucide';
+import { Archive, ArrowLeft, Code, Download, Ellipsis, FileText, ImagePlus, Images, ListTree, Send, Settings, Sparkles, Trash2 } from 'lucide';
 import browser from '../utils/browser-polyfill';
 import { loadSettings } from '../utils/storage-utils';
 import { t } from '../utils/ui-text';
 import { aiReady, runAi } from './editor/ai';
 import { mountChatPanel } from './ai/chat-panel';
 import { openImageDialog } from './ai/image-dialog';
+import { openImageLibraryDialog } from '../utils/image-library';
 import { suggestCoverPrompt, suggestDigest, suggestTitles } from './ai/meta';
 import { enabledChatModels } from '../utils/chat-llm';
 import { imageUrlFor } from './images';
@@ -17,8 +18,10 @@ import { imageIdFromUrl, saveImage } from './images';
 import { imageUrls, insertImageFiles, localizeRemoteImages, pickImageFiles } from './images-ui';
 import { mountOutline } from './outline';
 import { editorMarkdown, exportArticle, exportArticleZip, parseFrontMatter, safeFileName } from './markdown-io';
-import { publishers } from './publish';
+import { publishToX } from './publish/x';
 import type { Article } from './types';
+import type { ClipPreview } from '../utils/clip-preview';
+import { completeSourceImport, openSourcePage } from './source-import';
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 
@@ -71,6 +74,14 @@ export async function startWritePage(root: HTMLElement): Promise<void> {
 		notice(root, t('这篇文章在回收站里'), t('恢复后才能继续编辑。'), h('button', { class: 'qw-btn qw-btn-primary', type: 'button', onclick: async () => { await restoreArticle(id); location.reload(); } }, t('恢复文章')), h('a', { class: 'qw-btn', href: listUrl() }, t('回到文章列表')));
 		return;
 	}
+	if (article.clipSource?.waitingForCaptions) {
+		const key = `qiaomuPreview:${article.clipSource.previewId}`;
+		try {
+			const stored = (await browser.storage.local.get(key))[key] as ClipPreview | undefined;
+			const completed = stored && completeSourceImport(article, stored);
+			if (completed) article = await saveArticle(completed, article.revision);
+		} catch { /* The original draft remains usable; the editor offers a return to the source. */ }
+	}
 	mountEditor(root, article);
 }
 
@@ -86,15 +97,21 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	// ---- chrome -----------------------------------------------------------------------------------------------------------
 	const status = h('span', { class: 'qw-status', role: 'status', 'aria-live': 'polite' });
 	const aiButton = h('button', { type: 'button', class: 'qw-btn', title: t('AI 助手'), 'aria-pressed': 'false' }, icon(Sparkles, 15), 'AI');
+	const galleryButton = h('button', { type: 'button', class: 'qw-btn icon', title: t('图库'), 'aria-label': t('图库') }, icon(Images));
 	const outlineButton = h('button', { type: 'button', class: 'qw-btn icon is-on', title: t('大纲'), 'aria-label': t('大纲'), 'aria-pressed': 'true' }, icon(ListTree));
 	const sourceButton = h('button', { type: 'button', class: 'qw-btn icon', title: t('Markdown 源码'), 'aria-label': t('Markdown 源码'), 'aria-pressed': 'false' }, icon(Code));
 	const exportButton = h('button', { type: 'button', class: 'qw-btn', 'aria-haspopup': 'menu' }, icon(Download, 15), t('导出'));
 	const moreButton = h('button', { type: 'button', class: 'qw-btn icon', title: t('更多'), 'aria-label': t('更多'), 'aria-haspopup': 'menu' }, icon(Ellipsis));
-	const publishButton = h('button', { type: 'button', class: 'qw-btn qw-btn-primary', 'aria-haspopup': 'menu' }, icon(Send, 15), t('X 草稿'));
+	const publishButton = h('button', { type: 'button', class: 'qw-btn qw-btn-primary', title: t('写入 X 草稿，由你检查并发布') }, icon(Send, 15), t('发布到 X'));
 	const back = h('a', { class: 'qw-btn', href: listUrl() }, icon(ArrowLeft, 15), t('文章列表'));
-	const top = h('header', { class: 'qw-top' }, back, status, h('span', { class: 'qw-spacer' }), aiButton, outlineButton, sourceButton, exportButton, publishButton, moreButton);
+	const top = h('header', { class: 'qw-top' }, back, status, h('span', { class: 'qw-spacer' }), galleryButton, aiButton, outlineButton, sourceButton, exportButton, publishButton, moreButton);
 
 	const banner = h('div', { class: 'qw-banner', role: 'alert', hidden: true });
+	const sourceNotice = h('div', { class: 'qw-source-notice', role: 'status', hidden: !article.clipSource?.waitingForCaptions });
+	sourceNotice.append(h('span', { text: t('字幕尚未就绪，获取完成后会自动补入文章。') }),
+		h('button', { type: 'button', class: 'qw-btn', onclick: () => {
+			if (article.clipSource) void openSourcePage(article.clipSource.readUrl).catch(() => toast(t('无法打开来源，请重试'), 'error'));
+		} }, t('回到来源获取字幕')));
 	const cover = h('figure', { class: 'qw-cover', hidden: true });
 	const title = h('textarea', { class: 'qw-title', rows: 1, placeholder: t('标题'), 'aria-label': t('标题'), spellcheck: false });
 	title.value = article.title;
@@ -117,7 +134,7 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	const foot = h('footer', { class: 'qw-foot' });
 	const doc = h('article', { class: 'qw-doc' }, cover, titleWrap, meta, mount, sourceArea);
 	root.textContent = '';
-	root.append(h('div', { class: 'qw-app' }, top, banner, h('div', { class: 'qw-layout' }, h('main', { class: 'qw-scroll' }, doc), outline), foot));
+	root.append(h('div', { class: 'qw-app' }, top, banner, sourceNotice, h('div', { class: 'qw-layout' }, h('main', { class: 'qw-scroll' }, doc), outline), foot));
 
 	// ---- editor -----------------------------------------------------------------------------------------------------------
 	const host: EditorHost = {
@@ -137,6 +154,10 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 		onUpdate: () => { changed(); outlineRail.refresh(); },
 		onCreate: () => outlineRail.refresh(),
 	});
+	galleryButton.addEventListener('click', () => openImageLibraryDialog(async (blob, name) => {
+		const image = await saveImage(blob, name);
+		editor.chain().focus().insertContent({ type: 'image', attrs: { src: imageUrlFor(image.id), alt: name } }).run();
+	}));
 
 	const currentMarkdown = () => (sourceMode ? sourceArea.value : editorMarkdown(editor));
 	const snapshot = () => ({ title: title.value.replace(/\n/g, ' ').trim(), markdown: currentMarkdown(), author: authorInput.value.trim(), digest: digestInput.value.trim(), sourceUrl: sourceInput.value.trim(), coverImageId: article.coverImageId });
@@ -187,6 +208,23 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	window.addEventListener('beforeunload', event => { if (state === 'dirty' || state === 'error') { flush(); event.preventDefault(); } });
 	document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 	window.addEventListener('pagehide', flush);
+	const sourceChanged = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+		if (area !== 'local' || conflict || !article.clipSource?.waitingForCaptions) return;
+		const next = changes[`qiaomuPreview:${article.clipSource.previewId}`]?.newValue as ClipPreview | undefined;
+		if (!next) return;
+		// Use the same queue as autosave; a finishing save must not restore an old pending flag.
+		saving = saving.catch(() => {}).then(() => {
+			if (conflict) return;
+			const completed = completeSourceImport(article, next, currentMarkdown());
+			if (!completed) return;
+			article = completed;
+			if (sourceMode) sourceArea.value = completed.markdown;
+			else editor.commands.setContent(completed.markdown, { emitUpdate: false });
+			sourceNotice.hidden = true; outlineRail.refresh(); changed();
+		});
+	};
+	browser.storage.onChanged.addListener(sourceChanged);
+	window.addEventListener('pagehide', () => browser.storage.onChanged.removeListener(sourceChanged), { once: true });
 
 	// ---- title ------------------------------------------------------------------------------------------------------------
 	const sizeTitle = () => { title.style.height = 'auto'; title.style.height = `${title.scrollHeight}px`; };
@@ -278,6 +316,7 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	]));
 
 	moreButton.addEventListener('click', () => showMenu(moreButton, [
+		{ label: t('设置'), ic: icon(Settings, 14), run: () => { void browser.tabs.create({ url: browser.runtime.getURL('settings.html') }); } },
 		{ label: t('保存网络图片到本地'), hint: t('文章里来自网页的图片会存进本地文章库'), run: () => localizeRemoteImages(editor) },
 		{ label: t('复制为新文章'), run: async () => { const copy = await duplicateArticle((await exportCurrent()).id); if (copy) window.open(`write.html?id=${copy.id}`, '_blank'); } },
 		{ label: t('移到回收站'), danger: true, ic: icon(Trash2, 14), run: async () => {
@@ -286,10 +325,18 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 		} },
 	]));
 
-	publishButton.addEventListener('click', () => showMenu(publishButton, publishers.map(publisher => ({
-		label: publisher.label(), hint: article.publishes[publisher.id] ? t('已于 {0} 发布过', [new Date(article.publishes[publisher.id]!.at).toLocaleDateString()]) : publisher.hint(),
-		run: async () => { const current = await exportCurrent(); await publisher.run({ article: current, markdown: current.markdown, onRecorded: record => { article = { ...article, publishes: { ...article.publishes, [publisher.id]: record } }; } }); },
-	}))));
+	publishButton.addEventListener('click', () => {
+		if (publishButton.disabled) return;
+		void busy(publishButton, async () => {
+			await saveNow();
+			if (conflict || state === 'error') throw new Error(t('请先解决保存问题，再发布到 X'));
+			const current = { ...article, ...snapshot() };
+			await publishToX({
+				article: current, markdown: current.markdown,
+				onRecorded: record => { article = { ...article, publishes: { ...article.publishes, x: record } }; },
+			});
+		});
+	});
 
 	// ---- AI: chat drawer, title and summary suggestions, cover ------------------------------------------------------------------
 	const fire = (name: string, node: HTMLElement) => node.dispatchEvent(new Event('input', { bubbles: true }));
@@ -329,6 +376,8 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	});
 
 	sizeTitle(); refreshTitle(); showState('saved'); updateFooter(); void renderCover();
-	if (!article.title && !article.markdown) title.focus(); else editor.commands.focus('end');
+	if (!article.title && !article.markdown) title.focus();
+	else if (article.clipSource) title.focus({ preventScroll: true });
+	else editor.commands.focus('end');
 	window.addEventListener('resize', sizeTitle);
 }

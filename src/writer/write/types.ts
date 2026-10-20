@@ -27,6 +27,7 @@ export interface Article {
 	publishes: Partial<Record<PublishTarget, PublishRecord>>;
 	// Bumped on every save; a second tab with an older revision must reload instead of overwriting.
 	revision: number;
+	clipSource?: { previewId: string; readUrl: string; waitingForCaptions: boolean; initialMarkdown?: string };
 }
 
 export type ArticleSummary = Omit<Article, 'markdown'> & { excerpt: string };

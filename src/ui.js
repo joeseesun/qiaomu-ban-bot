@@ -149,7 +149,7 @@ async function tab(name){
 }
 function writerFrame(slot,section){
   const container=$(slot);let frame=container.querySelector(`[data-section="${section}"]`);
-  if(!frame){frame=document.createElement('iframe');frame.dataset.section=section;frame.title=section==='write'?'文章草稿':section==='interpreter'?'写作模型':'配图模型';frame.src=`settings.html?embed=1&section=${section}`;container.append(frame);}
+  if(!frame){frame=document.createElement('iframe');frame.dataset.section=section;frame.title=section==='write'?'文章草稿':section==='interpreter'?'写作模型':section==='web-search'?'联网搜索':section==='image-sources'?'图库来源':'配图模型';frame.src=`settings.html?embed=1&section=${section}`;container.append(frame);}
   for(const other of container.children)other.hidden=other!==frame;
   if(section==='write')frame.contentDocument?.dispatchEvent(new Event('qiaomu-write-shown'));
 }
@@ -157,7 +157,7 @@ window.addEventListener('focus',()=>{if(!$('write').hidden)$('writing-drafts-fra
 function showModel(section){
   const writing=section!=='judgment';$('writing-model-frame').hidden=!writing;$('judgment-settings').hidden=writing;
   for(const b of document.querySelectorAll('[data-model-view]'))b.setAttribute('aria-pressed',String(b.dataset.modelView===section));
-  if(writing)writerFrame('writing-model-frame',section==='image-models'?'image-models':'interpreter');
+  if(writing)writerFrame('writing-model-frame',['image-models','web-search','image-sources'].includes(section)?section:'interpreter');
 }
 for(const b of document.querySelectorAll('[data-model-view]'))b.onclick=()=>{hideKey();showModel(b.dataset.modelView);history.replaceState(null,'',location.pathname+location.search+'#model/'+b.dataset.modelView);};
 async function openAnnotations(){await loadLabels(true);if(!$('annotation-dialog').open){$('annotation-dialog').append($('notice'));$('annotation-dialog').showModal();}}

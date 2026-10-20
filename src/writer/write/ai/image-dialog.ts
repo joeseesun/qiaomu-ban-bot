@@ -2,22 +2,17 @@ import browser from '../../utils/browser-polyfill';
 import { t } from '../../utils/ui-text';
 import { h, toast } from '../editor/dom';
 import { saveImage } from '../images';
-import { ASPECTS, generateImage, loadImageModels, modelsOf, readyModels, serviceName, type ImageModelConfig } from '../image-models';
+import { ASPECTS, imageModelName, loadImageModels, modelsOf, readyModels, serviceName, type ImageModelConfig } from '../image-models';
 import { getLocalStorage, setLocalStorage } from '../../utils/storage-utils';
 
-export function describeImageError(error: unknown): string {
-	const text = String((error as Error)?.message ?? error);
-	if (/HTTP (401|403)/.test(text)) return t('密钥无效，或这个密钥没有生图权限');
-	if (/HTTP 429/.test(text)) return t('请求太频繁，或额度用完了，稍后再试');
-	if (/HTTP 400/.test(text)) return t('服务拒绝了这次请求：{0}', [text.replace(/^HTTP 400:?\s*/, '').slice(0, 160) || t('描述可能不被接受')]);
-	if (/empty-image/.test(text)) return t('服务没有返回图片，换个描述再试');
-	if (/abort|timeout|timed out/i.test(text)) return t('等得太久了，已经取消');
-	if (/not-ready/.test(text)) return t('这个生图模型还没填完整');
-	return text.slice(0, 200);
-}
+import { submitImageJob, cancelImageJob, watchImageJobs, imageJobLabel, openImageLibrary } from '../../utils/image-jobs';
+import { readImageJob, readLibraryBlob } from '../../utils/image-library-store';
+import { openImageLibraryDialog } from '../../utils/image-library';
+import { describeImageError } from '../../utils/image-generation-error';
+export { describeImageError } from '../../utils/image-generation-error';
 
 export interface ImageApply { label: string; run: (imageId: string, prompt: string) => void | Promise<void> }
-export interface ImageDialogOptions { title?: string; prompt?: string; aspect?: string; autoRun?: boolean; applies: ImageApply[] }
+export interface ImageDialogOptions { title?: string; prompt?: string; aspect?: string; autoRun?: boolean; applies: ImageApply[]; configId?: string; modelId?: string; onComplete?: () => void | Promise<void> }
 
 export const openImageSettings = () => { void browser.tabs.create({ url: browser.runtime.getURL('settings.html?section=image-models') }); };
 
@@ -26,8 +21,9 @@ export async function openImageDialog(options: ImageDialogOptions): Promise<void
 	const store = await loadImageModels();
 	const models = readyModels(store);
 	const dialog = h('dialog', { class: 'qw-dialog qw-image-dialog', 'aria-label': options.title ?? t('AI 配图') });
-	const close = () => { controller?.abort(); if (url) URL.revokeObjectURL(url); dialog.close(); dialog.remove(); };
-	let controller: AbortController | undefined;
+	let unwatch: (() => void) | undefined, closed = false;
+	const close = () => { closed = true; unwatch?.(); if (url) URL.revokeObjectURL(url); dialog.close(); dialog.remove(); };
+	let jobId = '', pending = false;
 	let url = '';
 	const title = h('h2', { class: 'qw-dialog-title', text: options.title ?? t('AI 配图') });
 	dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
@@ -52,12 +48,13 @@ export async function openImageDialog(options: ImageDialogOptions): Promise<void
 	const choices: { key: string; config: ImageModelConfig; modelId: string }[] = [];
 	for (const config of models) {
 		const group = h('optgroup', { label: serviceName(config) });
-		for (const modelId of modelsOf(config)) { const key = `${config.id}\u0000${modelId}`; choices.push({ key, config, modelId }); group.append(h('option', { value: key, text: modelId })); }
+		for (const modelId of modelsOf(config)) { const key = `${config.id}\u0000${modelId}`; choices.push({ key, config, modelId }); group.append(h('option', { value: key, text: imageModelName(config, modelId) })); }
 		model.append(group);
 	}
 	const fallback = models.find(m => m.id === store.defaultId) ?? models[0];
 	const remembered = String(await getLocalStorage('qiaomuWriteImageChoice') ?? '');
-	model.value = choices.some(c => c.key === remembered) ? remembered : `${fallback.id}\u0000${fallback.model}`;
+	const preferred = `${options.configId}\u0000${options.modelId}`;
+	model.value = choices.some(c => c.key === preferred) ? preferred : choices.some(c => c.key === remembered) ? remembered : `${fallback.id}\u0000${fallback.model}`;
 	const status = h('p', { class: 'qw-dialog-note', role: 'status', 'aria-live': 'polite' });
 	const preview = h('div', { class: 'qw-image-preview', hidden: true });
 	const generate = h('button', { type: 'button', class: 'qw-btn qw-btn-primary', text: t('生成') });
@@ -65,26 +62,48 @@ export async function openImageDialog(options: ImageDialogOptions): Promise<void
 	const applies = options.applies.map(apply => { const b = h('button', { type: 'button', class: 'qw-btn qw-btn-primary', text: apply.label, hidden: true }); return { apply, b }; });
 	let blob: Blob | undefined;
 
+	const stop = h('button', { type: 'button', class: 'qw-btn', text: t('停止生成'), hidden: true });
+	stop.onclick = () => { if (jobId) void cancelImageJob(jobId).catch(error => { status.textContent = describeImageError(error); }); };
+	const library = h('button', { type: 'button', class: 'qw-btn', text: t('图库'), onclick: () => {
+		if (options.applies.length) openImageLibraryDialog(async (selected, name) => {
+			const image = await saveImage(selected, name); await options.applies[0].run(image.id, name);
+		}); else openImageLibrary();
+	} });
+	let shownImage = '';
+	const refresh = async () => {
+		if (!jobId) return;
+		const id = jobId, job = await readImageJob(id);
+		if (closed || id !== jobId || !job) return;
+		const running = ['queued', 'running'].includes(job.state);
+		generate.disabled = pending || running; stop.hidden = !running;
+		prompt.disabled = model.disabled = aspect.disabled = pending || running;
+		cancel.textContent = running ? t('移到后台') : t('关闭');
+		generate.textContent = running ? t('生成中…') : blob ? t('重新生成') : t('生成');
+		status.textContent = job.error ? describeImageError(new Error(job.error)) : imageJobLabel(job.state);
+		if (job.state !== 'ready' || !job.imageId || shownImage === job.imageId) return;
+		const result = await readLibraryBlob(job.imageId);
+		if (closed || id !== jobId || !result) return;
+		blob = result; shownImage = job.imageId;
+		if (url) URL.revokeObjectURL(url);
+		url = URL.createObjectURL(blob); preview.replaceChildren(h('img', { src: url, alt: job.prompt })); preview.hidden = false;
+		applies.forEach(({ b }) => { b.hidden = false; }); generate.textContent = t('重新生成');
+		void options.onComplete?.();
+	};
+	const safeRefresh = () => { void refresh().catch(error => { if (!closed) status.textContent = describeImageError(error); }); };
+	unwatch = watchImageJobs(safeRefresh);
 	const run = async () => {
+		if (pending || generate.disabled) return;
 		const text = prompt.value.trim();
 		if (!text) { status.textContent = t('先写下想要的画面'); prompt.focus(); return; }
 		const choice = choices.find(c => c.key === model.value) ?? choices[0];
 		void setLocalStorage('qiaomuWriteImageChoice', choice.key);
-		controller?.abort(); controller = new AbortController();
-		blob = undefined; applies.forEach(({ b }) => { b.hidden = true; });
-		generate.disabled = true; generate.textContent = t('生成中…'); status.textContent = t('通常需要十几秒到一分钟，可以先做别的事，这个窗口别关。');
+		pending = true; generate.disabled = true; prompt.disabled = model.disabled = aspect.disabled = true;
+		status.textContent = t('关闭窗口后继续生成，结果保存在图库。');
 		try {
-			blob = await generateImage(choice.config, text, aspect.value, controller.signal, choice.modelId);
-			if (url) URL.revokeObjectURL(url);
-			url = URL.createObjectURL(blob);
-			preview.textContent = ''; preview.hidden = false;
-			preview.append(h('img', { src: url, alt: text }));
-			status.textContent = ''; applies.forEach(({ b }) => { b.hidden = false; });
-			generate.textContent = t('重新生成');
-		} catch (error) {
-			if ((error as Error)?.name === 'AbortError' && !dialog.isConnected) return;
-			status.textContent = describeImageError(error); generate.textContent = blob ? t('重新生成') : t('生成');
-		} finally { generate.disabled = false; }
+			jobId = crypto.randomUUID();
+			await submitImageJob({ id: jobId, prompt: text, aspect: aspect.value, configId: choice.config.id, modelId: choice.modelId });
+		} catch (error) { if (!closed) status.textContent = describeImageError(error); }
+		finally { pending = false; if (!closed) { generate.disabled = false; prompt.disabled = model.disabled = aspect.disabled = false; safeRefresh(); } }
 	};
 	generate.addEventListener('click', () => void run());
 	for (const { apply, b } of applies) {
@@ -96,7 +115,7 @@ export async function openImageDialog(options: ImageDialogOptions): Promise<void
 		});
 	}
 	const row = h('div', { class: 'qw-image-row' }, aspect, choices.length > 1 ? model : null);
-	dialog.append(title, prompt, row, status, preview, h('div', { class: 'qw-dialog-actions' }, cancel, generate, ...applies.map(({ b }) => b)));
+	dialog.append(title, prompt, row, status, preview, h('div', { class: 'qw-dialog-actions' }, library, cancel, stop, generate, ...applies.map(({ b }) => b)));
 	dialog.showModal();
 	prompt.focus();
 	if (options.autoRun && prompt.value.trim()) void run();

@@ -10,3 +10,5 @@ export function getMessage(key: string, values?: string | string[]): string {
 export function translatePage(root: ParentNode = document): void {
   root.querySelectorAll<HTMLElement>('[data-i18n]').forEach(node => node.textContent = getMessage(node.dataset.i18n!));
 }
+
+export async function initializeI18n(): Promise<void> { translatePage(); }

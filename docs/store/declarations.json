@@ -1,11 +1,11 @@
 {
   "name": "乔木 X 助手 · Qiaomu X Helper",
-  "version": "0.2.0",
-  "singlePurpose": "帮助用户在 X/Twitter 阅读与互动：可撤销地整理回复、搜索帖子、评估当前账号样本、记录阅读偏好与待回复、常用提及、看好复盘和书签导出。只服务当前 X 阅读流程，不操作其他平台。",
-  "storage": "保存本机设置、用户主动提供的模型 API Key、结果缓存与调用计数、人工标注、账号名单、常用联系人、看好追踪、书签及备注。使用 chrome.storage.local 和扩展 IndexedDB，不使用 Chrome Sync。用户可移除各类记录或密钥，卸载扩展会删除扩展本机数据。 另保存按账号隔离的搜索库、KOL 样本评估、阅读偏好、兴趣反馈、待回复处理与复盘观测点；列表分页，均可移除或导出。",
-  "hosts": "必需的 x.com / twitter.com 域名用于读取用户当前已加载的帖子、书签和编辑器，插入可撤销的过滤及提及控件。可选 HTTPS 与 localhost / 127.0.0.1 域名用于用户主动选择的 Jev 模型服务或自建兼容服务：仅在点击连接时请求所填服务 origin 的访问权限，不在安装时获得所有网站权限。模型请求仅发送判断所需内容和用户自己提供的 API Key；不带 X Cookie，拒绝 HTTP 重定向。",
+  "version": "0.5.0",
+  "singlePurpose": "帮助用户在 X 阅读、整理与表达：可撤销地整理回复、保存与检索书签、准备回复，以及通过本机写作工作台查资料、配图并写入 X 文章草稿。最终社交操作由用户确认。",
+  "storage": "保存本机设置、独立服务凭据、人工标注、账号名单、联系人、待回复、书签、文章、图片、聊天、图库与任务记录；使用 storage.local 和 IndexedDB，不使用 Chrome Sync。目录访问仅由用户主动选择。删除聊天不自动删除图库图片；可在各自页面删除或导出。",
+  "hosts": "必需的 X/Twitter 站点用于当前已加载帖子和原生编辑器。可选 HTTPS / localhost 仅在用户连接服务时申请。文字与图片服务按所填域名授权；DeepSeek 搜索申请 API 域名，Brave 因读取公开网页会申请 HTTPS 站点权限；图库申请 API / 自定义代理与图片 CDN。公共网页访问验证 URL、拒绝本地网络和重定向，且不附带登录 Cookie。",
   "remoteCode": false,
-  "remoteCodeExplanation": "所有 JavaScript、CSS 与图标均随安装包分发。远程模型只返回严格解析的 JSON 概率数据，不作为代码执行；不使用 eval、远程脚本、WASM 或动态执行下载内容。",
+  "remoteCodeExplanation": "所有可执行 JavaScript / CSS 与解析器随包分发，不加载远程代码。模型只返回文本、图片或受限结构化编辑/检索指令；字段经校验，文本清洗后显示，不 eval 模型内容。数学与图表渲染代码本地打包。",
   "privacyURL": "https://github.com/joeseesun/qiaomu-x-helper/blob/main/PRIVACY.md",
   "homepageURL": "https://github.com/joeseesun/qiaomu-x-helper",
   "supportURL": "https://github.com/joeseesun/qiaomu-x-helper/issues",
@@ -13,10 +13,10 @@
   "pricing": "free; optional model provider fees are separate",
   "dataNotes": {
     "personallyIdentifiableInformation": "可见的 X 用户名、昵称、头像 URL 与账号相关的本机记录；正文中可能包含个人信息。",
-    "authenticationInformation": "用户主动提供的模型 API Key，仅发送到用户选择的模型服务，不读取 X 登录令牌或 Cookie。",
-    "userActivity": "人工标签、联系人插入 / 回复成功后的互动计数、用户看好与书签整理操作；不采集通用点击轨迹或完整键盘日志。 包括用户保存的搜索、兴趣正反反馈与原因、待回复状态和主动发起的账号样本评分。",
-    "websiteContent": "用户浏览到的帖子文字、上下文、互动数、书签及其链接，按隐私说明用于本机整理或可选模型判断。",
-    "webHistoryScope": "商店定义涵盖已保存的 X 帖子链接与采样时间，因此披露网络记录；不读取 Chrome 浏览历史或其他网站访问记录。"
+    "authenticationInformation": "用户主动提供的独立服务 API Key、支持的账号 OAuth 令牌与可选社区令牌，仅发给对应服务；不读取 X 登录 Cookie。",
+    "userActivity": "人工标签、账号名单、联系人插入与回复成功后的互动计数、书签备注和标签、保存的搜索、待回复状态，以及用户发起的写作/图片任务；不采集通用点击轨迹或完整键盘日志。",
+    "websiteContent": "已加载 X 帖子及上下文、用户文章/选区/指令、上传图片、主动读取的公开网页与搜索结果；按功能需要保存在本机或发送给所选服务。",
+    "webHistoryScope": "保存的 X 链接与采样时间、主动搜索词及公开网页地址；不读取 Chrome 浏览历史或通用跨站浏览记录。"
   },
   "selectedDataCategories": [
     "个人身份信息",
@@ -24,5 +24,7 @@
     "网络记录",
     "用户活动",
     "网站内容"
-  ]
+  ],
+  "offscreen": "在扩展后台页面处理和保存生成的图片 Blob，持有长请求，避免用户关闭侧栏后图片任务中断；不用于隐藏采集。",
+  "nativeMessaging": "可选。仅当用户配置本机 Codex 生图时申请，连接已安装的乔木助手 ai.qiaomu.clipper；仅允许图片状态、启动、轮询、读取和取消，不接受任意命令或路径。普通写作和云端配图无需此权限。"
 }

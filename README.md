@@ -1,199 +1,109 @@
 # 乔木 X 助手 · Qiaomu X Helper
 
-整理回复，记住常聊的人，把回复草稿填入 X，把书签带走。用 TypeSafe Jev 辅助判断，操作与记录都留在你的掌控中。
+**中文** | [English](#english)
 
-**[下载 Chrome 预览版](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.4.2)** · [隐私说明](PRIVACY.md) · [测试记录](docs/QA.md) · [项目研究](docs/RESEARCH.md)
+**少刷一点噪音，多写一点自己的想法。**
 
-**0.4.2 Preview**：设置收敛为六个日常入口，模型按写作、配图和回复判断统一管理；新增配置备份与合并恢复，保留账号改标和恢复自动检测。
+给经常在 X 阅读、收藏和创作的人：整理回复、找回书签，在一处查资料、写文章、配图，再直接送进 X 草稿。
 
-保留已有模型连接、联系人、书签、人工标注及可选社区共建。商店审核状态见[提交记录](docs/store/SUBMISSION.md)，提交不代表审核通过。
+Read with focus. Keep what matters. Turn your ideas into an X article.
 
-## 界面
+**[下载 Chrome 安装包](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0)** · [三步安装](#三步开始) · [使用前必读](#按需连接不用一次配完) · [商店状态](docs/store/SUBMISSION.md)
 
-日常入口为回复过滤、账号名单、待回复、搜索、书签、写作；底部为模型设置与关于帮助。浅色与深色随系统切换。以下均为**示例数据**。
+![乔木 X 助手：从收藏走向表达](docs/images/hero-050.png)
 
-<img src="docs/images/settings-042.png" alt="0.4.2 回复过滤，全部为示例数据" width="800">
+MIT 开源 · 数据默认保存在本机 · 发帖由你确认 · **0.5.0 Preview**
 
-阅读控件优先放在独立头像列下方；详情页没有独立头像列时收进互动栏，避免挤压作者名字。点击机器人图标查看依据、人工标注和账号操作；已关注作者默认保留。
+## 别让好内容，只剩一个收藏按钮
 
-模型设置按写作、配图、回复判断分组。回复判断点「连接并保存」即可测试，不必输入测试文本：
+刷到一条好帖，想以后再看，却再也找不到；打开回复区，被重复内容打断；终于准备写文章，又得在编辑器、搜索和图库之间来回切换。
 
-<img src="docs/images/models-042.png" alt="统一模型设置，服务和模型均为示例" width="800">
+X Helper 把这些常用步骤放到顺手的位置。你可以只用无需密钥的书签、搜索和编辑器，也可以接入自己的 AI 服务，逐步搭起写作工作台。
 
-## 能做什么
+| 你遇到的问题 | X Helper 怎么帮你 |
+|---|---|
+| 回复太杂，读不下去 | 按自己的规则折叠回复，随时展开、纠正或始终保留某位作者 |
+| 收藏了，但忘了为什么 | 给书签加备注和标签，搜索正文与作者，导出 Markdown 带走 |
+| 好回复不能现在写 | 加入待回复，在本机慢慢写草稿，再填入对应 X 回复框 |
+| 文章卡在开头或结构 | AI 看当前文章和选区，提出修改卡片；点接受后才改正文 |
+| 写着写着要查事实、找图 | 在写作对话中联网查资料、打开来源、找图片或生成配图 |
+| 图片散落在聊天里 | 独立图库统一收纳，查看后台生图任务，挑选后插入文章 |
+| 模型配置到处找 | 写作、配图、联网搜索、图库来源和回复判断分别管理 |
+| 排好版后又要复制一遍 | 直接点「发布到 X」，把文章与配图送入 X 原生草稿 |
 
-| 功能 | 行为 |
-| --- | --- |
-| 疑似 AI 回复过滤 | 默认高于 50%，折叠原文并保留展开入口 |
-| 仅标记模式 | 先观察判断结果，不自动折叠；手动屏蔽仍生效 |
-| 自然语言规则 | 例如“折叠与主帖无关的空投广告” |
-| 重复回复 | 折叠同一页面后出现的同文回复；短回复不去重 |
-| 轻量阅读 | 头像列下方显示估计；详情页收进互动栏，点击图标查看详情与人工标注 |
-| 作者信息 | 作者行显示 `12.2k 关注`，右侧显示关注关系；点关注数查看注册时间、发帖数与人工标注参考，缺测保持未知 |
-| 本地词汇规则 | 按昵称、简介或正文匹配，逐条选择提示或折叠；支持预览与可编辑预设，无需模型 |
-| 误判纠正 | 保留这一条、始终保留作者、手动折叠；保留只覆盖本条，不推断作者身份 |
-| 可选屏蔽 | 本地屏蔽作者；或打开 X 的屏蔽确认，由你完成最后一步 |
-| 传播表现 | 点击火焰看发布时间、浏览速度、转发 / 评论 / 点赞率；足够同龄样本时给出本次浏览的相对表现，不预测固定目标 |
-| 引流与线程线索 | 本机组合识别引流话术；Jev 参考同一线程中不同作者的复述与模板线索，结果仍可能误判 |
-| 使用控制 | 本地缓存、默认每天 10,000 次请求（可改）、最多 3 个并发、限流冷却 |
-| 原位展开 | 从正文开头展开，顶部显示“已展开”和收起按钮，保持时间线顺序 |
-| 账号选择与标记历史 | 标真人后始终显示，标 AI 后默认折叠，后续均跳过 Jev；中性账号菜单可改标或恢复自动检测。历史保留，仍可导出 |
-| 一键连接 | 内置样例自动测试，通过后保存，不必准备测试文字 |
-| 常用 @ | 记录确认发送成功的回复对象，按登录账号隔离；头像、昵称、@账号、备注、置顶和最近互动；支持拼音 / 首字母搜索、手动添加 |
-| 原生编辑器插入 | 工具栏 @ 打开联系人，搜索后按 Enter 将「昵称 @账号」插到光标处，可撤销；不会替你发帖 |
-| 书签导出 | 打开 X 书签页即自动保存已加载书签，进度吸顶，暂停按账号记住；搜索正文 / 作者 / 标签 / 备注，导出全部或搜索结果为 Markdown |
-| 高级搜索 | X 右侧搜索框下提供常用文案与自定义搜索；完整条件编辑、模板和导入导出留在设置 |
-| 待回复 | 列表与草稿分栏、自动保存；一键打开对应 X 回复框并填入草稿，最终由你发送；支持置顶、已处理 / 稍后 / 恢复 |
-| 标注分享 | 导出人工标记和原帖依据的 Markdown / JSON；可选邀请制社区，订阅与贡献分别开启 |
-| 配置备份 | 导出模型、过滤偏好、账号规则和标记；导入前预览，本机已有选择优先 |
-| 回复测试台 | 粘贴回复和主帖上下文，查看 Jev 的实际判断 |
+## 三步开始
 
-只处理当前已加载、进入视口的帖子，不自动翻页。支持中英文回复标记；详情页会区分原帖、回复链与推荐区域；从某条回复的链接进入，也会把它识别为回复。无法确定类型时保留原文，不插入类型选择按钮。
+1. **下载安装包**：打开 [v0.5.0 Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0)，下载 `qiaomu-x-helper-0.5.0-chrome.zip` 并解压。
+2. **加载扩展**：在 Chrome 地址栏输入 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择包含 `manifest.json` 的解压目录。
+3. **先做一件有用的事**：打开 X 书签页保存已加载内容，或点扩展里的「写作」，开始写第一篇文章。
 
-## 设置与标注
+**不需要先装 PKG，也不需要先填 API Key。** AI 与外部图库是按需连接的可选功能。升级时保留原目录、替换文件后重新加载；先导出重要文章与配置。
 
-回复过滤首屏只保留疑似 AI、引流、重复三项及敏感度。精确阈值、附加规则、屏蔽词与社区开关收进高级选项。账号名单提供标记记录抽屉和常用 @；模型配置、长文草稿及原有人工记录继续保留。
+当前 GitHub 提供预览安装包。Chrome 商店的上传、审核和公开上架是独立状态，见[提交记录](docs/store/SUBMISSION.md)，不要把发布说明当作已经上架的证明。
 
-<img src="docs/images/records-042.png" alt="标记记录抽屉，全部为示例数据" width="360"> <img src="docs/images/models-042-dark.png" alt="390px 深色模型设置，全部为示例数据" width="360">
+## 从想法，到文章
 
-Chrome 图标采用黑白对话气泡和过滤线，提供 16 / 32 / 48 / 128 px：
+![实际写作界面，使用合成文章与示例 AI 回复](docs/images/writer-050.png)
 
-<img src="docs/images/icon.png" alt="乔木 X 助手图标的浅深色与四种尺寸" width="520">
+**正文始终由你掌控。** 所见即所得与 Markdown 可切换，大纲跟着文章走；代码、表格、公式和 Mermaid 可以一起写。文章自动保存在本机，支持回收站、Markdown 和含图片 ZIP 导入导出。
 
-## 标注分享与社区
+AI 可以理解当前文章、选区和引用的资料，帮你起标题、写摘要、润色、扩写或检查结构。建议以可接受的修改卡片呈现；聊天记录可以重开，文章和输入区各自滚动。
 
-「账号名单 → 标记记录」可以导出全部人工记录为 Markdown / JSON，包含文本片段和原帖链接。同一帖改标只保留一条记录；模型自动评分不计入人工次数。
+**X Helper 的主按钮就是「发布到 X」。** 不需要再选平台。点击后准备文章与图片、打开 X 文章编辑器并写入草稿；最后的检查与发布留给你。需要账号本身拥有 X Articles 权限。
 
-在「回复过滤 → 高级选项」展开「社区标注」，使用管理员单独发放的一次性邀请码连接 `https://x-community.qiaomu.ai`。**订阅与贡献默认都关闭**：订阅只取汇总；开启贡献后只共享后续人工标签，不回传历史、正文、私人备注或待回复。可随时暂停，或撤回自己的全部共享记录。社区显示独立人数、帖子数及分歧，不自动在 X 拉黑。自托管及邀请管理见 [服务说明](server/README.md)。
+## 查资料，找图，继续写
 
-Jev 结合可取得的主帖、直接父回复、回复时间差、公开作者资料、已加载回复样本和人工参考。句号、规整标点、emoji、账号年龄均为弱线索，不能单独证明 AI 或真人；目前没有经过独立标注集校准的准确率。研究与设计依据见 [判断与共建](design-previews/2026-10-20-reading-and-replies/判断与共建.md)。
+![实际图库界面，使用上传的概念插画示例](docs/images/gallery-050.png)
 
-## 常用 @
+- **联网搜索**：在对话里搜索与读取公开网页，查看工具进度和可点击来源；也能随时关闭联网。
+- **图片搜索**：连接 Unsplash 或兼容代理，搜索、查看来源、下载并插入图片。
+- **独立图库**：上传图片、访问主动选定的本地文件夹，管理生成结果；重命名、删除或批量处理。
+- **后台配图**：图片请求由后台页面承接。关闭侧栏后任务可继续，重开可找回进度；浏览器关闭或系统中断后的任务不会自动重新计费，需自行检查和重试。
 
-- 在 X 编辑器点 **@**，搜索昵称、拼音（如 `qiaomu`）、首字母（如 `qm`）、@账号或备注。↑↓ 选择、Enter 插入，Escape 返回编辑器。按置顶与最近互动排序，插入「昵称 @账号」（无昵称时只插入 @账号），保留草稿和原生撤销。按钮与原生工具栏同色、同尺寸，跟随主题；私人备注只用于搜索，不进入正文。
-- 在 **账号 → 常用 @** 手动添加、备注、置顶、复制或移除。首次打开 X 后自动识别登录账号；也可手动填自己的账号，各账号联系人相互独立。
-- **自动记录从启用后开始**。只有已知回复对象、观察到成功帖子 / 回执且草稿已清空时才计入，失败、取消、自我回复不计入。无法确认时宁可漏记，不会仅凭“点了回复”收录。没有扫描历史回复；头像或昵称缺失时，读到对应帖子后补齐。
-- 移除联系人后不再自动收录该账号，手动添加可恢复。联系人不用 API Key、不发送给 Jev，不改变 AI / 真人判断。头像来自页面已有的 X 图片地址，不抓取资料页。
+联网、素材和图片生成使用你配置的第三方服务，可能产生费用；图片的许可和用途仍需你核对。
 
-<img src="docs/images/contacts.png" alt="常用联系人页面，支持头像、备注、拼音搜索与手动添加，全部为模拟账号" width="360">
+## 模型一次配好，写作时随手切换
 
-常用 @ 默认提供 **向阳乔木 @vista8**，备注为「插件作者 · 问题反馈」。可搜索账号、昵称、拼音或“反馈”，选择后沿用「昵称 @账号」插入。已有自定义资料保持不变，可编辑或移除；移除后不会自动恢复。登录 @vista8 本人时不重复添加自己。
+![实际模型设置，服务与模型为示例](docs/images/models-050.png)
 
-## 书签导出
+先连接服务，再选模型；支持获取模型列表、搜索、手动添加、编辑、删除、启用和默认模型。写作时可直接切换模型与支持的思考档位。服务端点改变时会清除原密钥，防止把旧服务的凭据发往新地址。
 
-1. 打开 X 的书签页（新版在 **历史 → 书签**），插件会自动保存已加载的书签，无需先点开始。
-2. 继续向下浏览，即可保存更多。顶部固定显示 **已保存 N 条**，随时可点 **暂停**；该账号的暂停选择会保留，刷新或下次打开也不会自动恢复。点 **继续保存** 可重新开启。
-3. 点 **查看 / 导出**，或打开插件的 **书签** 页。可按账号查看、搜索、添加备注与标签。
-4. 点 **导出 Markdown**，下载当前账号的全部本机书签；输入搜索词后，按钮变为 **导出搜索结果**，包含全部匹配条目，不限当前页。
+配图单独选择服务与多个模型；联网搜索和图库来源也有自己的设置。配置备份默认不包含 API Key，账号登录会话始终不导出；恢复前预览并合并，本机已有配置优先。
 
-导出包含已收集正文、作者、原帖链接、发布时间、首次收集时间、备注、标签与图片链接，适合直接放进 Obsidian。视频与引用帖通过原帖查看；媒体文件不随 Markdown 下载。未展开的长帖、收集时显示的译文都会标明。X 没有提供实际收藏时间，因此不会把首次收集时间当成收藏时间。
+## 读过的好内容，留得住
 
-**采集范围以本机条数为准，不代表全部历史书签。** 不自动滚到底、不调用私有 X API。离开书签页即停止；再次进入会按该账号的选择自动保存或保持暂停。若原地切换账号但旧帖子仍在，先停止并提示刷新，避免混存。重复帖子会去重，更完整的正文可补齐，备注与标签保留。移除的是本机副本，X 的书签不变；以后再次收集可重新加入。在 X 取消收藏也不会自动删除已保存副本。
+![实际书签管理界面，所有内容为示例数据](docs/images/bookmarks-050.png)
 
-书签页跳过自动模型判断，收集和导出不需要 API Key、不调用 Jev。数据留在此浏览器的 IndexedDB，按 @账号隔离；列表按每页 20 条读取。单次 Markdown 超过 40 MB 时提示搜索后分批导出，不会悄悄截断。
+打开 X 书签页，会保存当前已加载的书签，支持暂停。备注、标签、原帖链接和正文一起导出 Markdown，适合带到自己的笔记库。书签按登录账号隔离，移除本机副本不会取消 X 收藏。
 
-<img src="docs/images/bookmark-autosave.png" alt="书签页滚动时的吸顶保存状态；全部为模拟数据" width="480">
+高级搜索把关键词、作者、日期和互动条件组成可复用查询，直接在 X 打开。待回复保留原文与本机草稿；常用 @ 支持昵称、账号、备注、拼音和首字母搜索。它们不会替你发送回复。
 
-<img src="docs/images/bookmarks.png" alt="书签页：按账号搜索、添加备注和标签，导出 Markdown；全部为模拟数据" width="480">
+## 按需连接，不用一次配完
 
-## 写长文与模型管理
+| 功能 | 需要什么 |
+|---|---|
+| 文章编辑、书签、搜索条件、待回复、常用 @、本地词汇规则 | 扩展即可，无 API Key |
+| AI 写作 | 自备文字服务密钥，或使用支持的账号登录入口 |
+| AI 回复判断 | 独立的 Jev typed decision 服务配置；不是普通聊天接口 |
+| 联网查资料 | DeepSeek Search / Fetch 或 Brave Search 凭据 |
+| 云端配图 | 图片服务凭据与可用模型；支持兼容接口及自部署即梦服务 |
+| Unsplash 图片搜索 | Unsplash Access Key 或兼容代理 |
+| 本机 Codex 生图 | **可选**：已登录的 Codex、包含生图协议的乔木助手、当前扩展来源注册；见[兼容说明](docs/LOCAL-HELPER.md) |
+| 写入 X 文章草稿 | 已登录 X，且账号拥有文章功能 |
 
-<img src="docs/images/writer-040.png" alt="0.4.0 长文编辑器，内容为合成示例" width="800">
+DeepSeek 写作默认使用 `deepseek-flash`，不自动回退到 Pro。文字、搜索、配图、Jev 的凭据分别配置，不自动从 Clipper 或其他服务复制。
 
-打开扩展，选择「写作」或「模型设置」。写作模型与 Jev 回复判断分别配置，已有 Jev 密钥不会被自动复制给其他服务。
+## 数据与判断的边界
 
-- **文字模型**：迁入 Clipper 的服务商目录、账号登录入口、自定义地址、模型获取与手动添加、单模型编辑/删除、启用与思考档位。DeepSeek 写作使用 `deepseek-flash`，不回退到 Pro。
-- **图片模型**：云服务商、自定义服务、多个可选模型和默认模型，用于文章配图与封面。
-- **长文编辑器**：所见即所得 / Markdown 切换、大纲、代码、表格、公式、Mermaid、本机自动保存、回收站、Markdown 与含图片 ZIP 导入导出、AI 对话及选区润色/扩写、可管理的快捷指令。
-- **X 文章草稿**：在编辑器点「X 草稿」，将文章及图片写入 X 原生文章编辑器，最后由你检查并发布。需要 X 账号具备文章功能；不会自动完成最终发布。
+文章、书签和配置默认留在本浏览器，不使用 Chrome Sync。你发起 AI 操作时，所需的正文、选区、指令或图片会发往所选服务；搜索词与网页地址会发给搜索服务。第三方的收费和留存政策由各服务决定。
 
-迁移的是功能代码，两个扩展的存储互相隔离。原 Clipper 文章可通过 Markdown/ZIP 导出后导入；服务密钥需在本扩展配置，账号需重新登录。没有迁入 Clipper 的网页剪藏、转写、视频学习或其他平台发布功能。
+回复判断是有可能出错的参考，**不能证明一个人是 AI 或机器人**。未知或无效结果保留原文，不自动拉黑账号。仅处理已加载内容，不扫描全部历史、不自动无限滚动。可选社区订阅与贡献默认关闭。
 
-## 工作台：搜索、账号与互动
+更多信息：[隐私说明](PRIVACY.md) · [本地助手](docs/LOCAL-HELPER.md) · [安全反馈](SECURITY.md) · [详细行为与研究](docs/RESEARCH.md)
 
-- **高级搜索**：在 X 右侧原生搜索框下点击常用搜索文案，或点「＋」保存自定义搜索；设置 → 高级搜索保留完整条件编辑。填关键词、账号、时间和点赞条件，即时查看中文条件摘要；语法默认折叠，熟悉的用户仍可手动编辑。7 个模板可改、保存、分类、置顶和导入导出。近七天等相对日期在每次搜索时重新计算；日期结束日包含当天。搜索在 X 原生页打开，结果由 X 决定。
-- **待回复**：点帖子旁的「加入待回复」图标保存，再从 X 左栏「待回复」进入。左边选帖子，右边读原文、写草稿；草稿自动保存到本机。点「填入 X 回复框」会打开目标帖的原生回复框并带入草稿，最后由你检查和发送，不会自动标为已处理。支持待回复 / 稍后 / 已处理、来源筛选、排序、置顶和恢复；通知收集可暂停。
+## 开发与验证
 
-看好追踪、兴趣评分、复盘和账号标记排行榜已移除，不再执行相关后台计算。
-
-<img src="docs/images/inbox-031.png" alt="0.3.1 待回复收件箱，全部为合成示例数据" width="800">
-
-记录保存在 IndexedDB，按自己的 @账号分开，每页读取 20 条。搜索库支持 JSON 往返，其他工作台记录可按搜索结果导出 JSON；超过 20 MB 时提示缩小范围。账号改名不会自动合并记录。
-
-<img src="docs/images/advanced-search.png" alt="高级搜索工作台，使用示例数据" width="480">
-
-## 备份与恢复
-
-在「关于与帮助 → 备份与恢复」导出 JSON 配置文件，包含写作/配图/回复判断模型、过滤偏好、账号名单和人工标记。默认不含密钥，可选择包含明文 API Key；OAuth 登录凭据始终不导出，需重新登录。草稿和书签使用各自页面的导出入口。
-
-<img src="docs/images/backup-042.png" alt="配置备份与导入预览，全部为示例数据" width="800">
-
-导入后先显示数量和服务地址，由你点击「合并恢复」。本机已有模型、标记和账号选择优先；只有勾选「同时恢复过滤偏好」才替换当前开关和敏感度。无效格式不写入，恢复不调用模型；密钥未验证时仍需检查连接。正常覆盖升级保持原安装目录，无需卸载。
-
-## 安装
-
-需要 Chrome 120 或更新版本。
-
-1. 在 [Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.4.2) 下载 `qiaomu-x-helper-0.4.2-chrome.zip` 并解压到固定目录。
-2. 打开 `chrome://extensions`，开启右上角「开发者模式」。
-3. 点击「加载已解压的扩展程序」，选择**包含 `manifest.json` 的文件夹**。
-4. 在 Chrome 扩展菜单固定「乔木 X 助手」，打开「模型设置 → 回复判断」。
-5. 选择服务平台，输入该平台的 API Key，点击「连接并保存」，允许 Chrome 访问对应模型服务。
-6. 插件自动发送内置样例，显示“已连接，密钥已保存”后即生效，无需额外测试。首次安装或升级后刷新已打开的 X 页面。
-
-升级时在原安装目录覆盖新版本，回到 `chrome://extensions` 点击扩展的刷新按钮，再刷新 X。保持安装路径不变，避免产生新的扩展身份。
-
-### 模型接入
-
-| 服务 | 默认模型名 | Base URL | 获取 API Key |
-| --- | --- | --- | --- |
-| TypeSafe 官方 | `jev-latest` | `https://api.typesafe.ai/v1` | [注册与控制台](https://console.typesafe.ai/) |
-| 乔木 Magpie | `typesafe/jev-latest` | `https://magpie.qiaomu.ai/v1` | [乔木控制台](https://magpie.qiaomu.ai/) |
-| OpenRouter | `typesafe/jev-1.14` | `https://openrouter.ai/api` | [登录 / 创建密钥](https://openrouter.ai/settings/keys) |
-| Vercel AI Gateway | `typesafe-ai/jev` | `https://ai-gateway.vercel.sh/typesafe` | [Gateway 密钥入口](https://vercel.com/d?title=Get+API+key&to=%2F%5Bteam%5D%2F~%2Fai-gateway%2Fquick-start%3FshowCreateKeyModal%3Dauto%26utm_source%3Dgateway-model-page%26utm_campaign%3Dai-gateway-models) |
-| 自定义服务 | 手动填写 | 在高级设置填写 | 向服务商获取 |
-
-模型名可以编辑；Base URL 与接口选择放在「高级设置」。OpenRouter 使用 `/alpha/decisions`，其余预设使用 `/v1/systemone`，都发送 `state + questions` 并读取 Noul 概率。自定义服务须兼容其中一种决策接口，普通 `chat/completions` 服务不能直接接入。支持 HTTPS，以及本机 `localhost` / `127.0.0.1` 的 HTTP 服务；实际请求地址会显示在高级设置中。
-
-选平台后有对应的注册/密钥入口。服务额度与费用由平台决定，不承诺免费。密钥保存后显示「已保存」和遮罩，点眼睛可临时查看，点「更换密钥」编辑。换服务商或地址必须提供对应密钥，连接失败保留原配置。不会自动读取其他工具的密钥，也不会自动把旧密钥发给新地址。每日请求上限单独保存，不触发模型测试。
-
-预设依据 [TypeSafe 官方说明](https://docs.typesafe.ai/introduction/quickstart)、[OpenRouter 接入说明](https://openrouter.ai/blog/insights/what-is-jev/) 和 [Vercel TypeSafe 接口](https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe)，核对日期 2026-10-18。当前只有乔木 Magpie 完成真实密钥请求，其他预设完成协议适配与自动测试，用户连接时会做实际验证。
-
-## 建议这样测试
-
-1. **查看默认行为**：首页「隐藏 AI 回复」默认开启，标准敏感度高于 50% 自动折叠，恰好 50% 保留。关闭该开关后只显示 AI 估计；本机词汇规则和手动屏蔽仍生效。
-2. **验证折叠**：开启「隐藏 AI 回复」，选择标准敏感度。符合条件的回复应折叠，点击「展开」应从正文开头原位展开，出现“已展开”提示；列表顺序不变。继续往下滚，新出现的回复也应进入判断。
-3. **验证人工选择**：手动标 AI 后该作者默认折叠，标真人后保留，后续均跳过 Jev。真人账号的菜单仍可改标 AI，或选择「恢复自动检测」。滚动到页面中部操作，阅读位置应保持，其他帖子不重建。在「账号名单 → 标记记录」筛选、翻页、改标或删除记录。
-4. **验证误判处理**：在下拉面板点击「只保留此条」，刷新后同条回复应保留；「始终保留作者」应让该作者绕过模型过滤。
-5. **验证屏蔽**：先测试可撤销的「本地屏蔽作者」。只有确实想拉黑时才点「在 X 拉黑…」，核对 X 自己的账号确认弹窗。
-6. **验证传播表现**：点主帖火焰图标，核对发布时间、浏览数与互动率；不足 10 分钟、时间未知或浏览缺失时不计算速度。同帖隔至少 5 分钟再次观察后可显示最近增长；样本不足时不显示百分位。
-7. **验证常用 @**：先手动添加一个账号，再在 X 草稿中插入并撤销，不必为了测试发帖。自动记录需由你正常回复一次后确认，取消或发送失败应不计入。
-8. **验证待回复**：保存合成草稿，刷新后核对正文；点「填入 X 回复框」确认目标与文本，关闭回复框即可，不必发帖。填入操作不应改变待回复状态。
-9. **验证恢复**：关闭总开关，所有原文应恢复；拔掉网络时应保留原文并显示重试入口。
-
-也可在「账号名单」查看已保留与已折叠的账号，恢复显示或恢复自动检测；本机选择立即生效，不改变 X 的关注和拉黑关系。
-
-简短、致谢、调侃都是正常交流。本版已移除「低信息量」判断，不再请求、显示这类分数，也不据此折叠；旧版的「按信息量」模式升级后转为「只显示结果」。
-
-不需要为了测试而真的拉黑任何人。X 更新可能改变菜单和 DOM，若屏蔽入口无法匹配，会提示你使用原帖菜单。
-
-## 判断的边界
-
-**疑似 AI 分数不是作者身份证明，也不是识别准确率。** 短回复、引用 AI 文本、非母语表达都可能误判。默认不会根据单条回复自动拉黑账号；只对文字做判断，不识别图片或视频内容。
-
-**传播表现不是爆款预测。** 单次浏览只能计算发布以来的平均速度，重复观察才有近期增量；同龄帖的速度与平滑互动率仅在样本充分时组合成相对百分位。这些都是本次浏览的局部样本，不能代表全站。浏览量也不等于独立人数。
-
-短回复、致谢和日常交流本身都不是 AI 或低质量的理由。人工标签用于 few-shot 个性化参考，不是重新训练 Jev，也不保证识别准确率提升。标注历史存于 IndexedDB，不再按条数淘汰（仍受浏览器存储空间限制）；每次从最近 40 条候选中按回复与主帖上下文相关性选取最多 3 条 AI、3 条真人样本；相同文本去重，标签冲突的重复文本和待判断文本本身不参与。样本随请求发送给你选择的服务。标记或删除样本会使旧判断缓存失效。
-
-标注是你对这条文字的判断；详情保留标注前的模型估计，普通回复不再常驻低分标签，不会由人工标签伪造 0% / 100%。旧版“非 AI”标签直接兼容；“只保留此条”是显示偏好，不会自动变成真人训练样本。标记只刷新对应回复，折叠条上下各留 8px。
-
-要验证个性化效果，应按重复文本分组留出独立样本，对比无样本 / 有样本的真人误折叠率、AI 漏检率及样本数；评估样本不能出现在请求示例中。当前尚未验证准确率改善。默认 AI 阈值改为 50%（严格大于），旧版 90% 默认值随升级迁移，其他自定义值保留；引流和自定义规则仍要求至少 90%。默认限额升至每日 10,000 次，旧版 300 默认值随升级迁移，其他自定义值保留；3,000 的旧硬上限已移除，服务商限额仍由服务商决定。
-
-白名单优先于模型和本地屏蔽。服务错误、限流、响应缺字段时保留原文，不把错误当成“确定是 AI”。未加载的回复、无法识别结构的帖子和纯媒体内容不会被完整覆盖。
-
-## 开发
-
-Node.js 22.13+（CI 使用 Node.js 24），打包需要 `zip`。
+Node.js 22.13+（CI 使用 24），打包需要 `zip`。
 
 ```bash
 npm ci
@@ -202,26 +112,46 @@ npm run build
 npm run package
 ```
 
-加载 `dist/chrome` 即可。ZIP 输出到 `artifacts/`，源码、测试夹具、开发脚本和任何密钥均不进入安装包。
+产物在 `dist/chrome` 与 `artifacts/`。`npm run preview` 提供使用示例数据的页面，开发与预览脚本不进入安装包。
 
-```bash
-npm run preview
-```
+本轮验证包括 **159 项 Node + 269 项 Vitest**、生产构建、真实浏览器中的生产 UI 夹具，以及一次真实 `deepseek/deepseek-flash` 流式写作调用。截图来自实际生产界面，文章、账号和服务响应使用明确标注的示例数据；概念主视觉由内置生图生成。
 
-访问 `http://127.0.0.1:4178/dist/chrome/ui.html?demo=1&popup=1` 预览设置；访问 `http://127.0.0.1:4178/test/fixtures/conversation.html` 测试模拟会话。两者均使用明确标识的模拟数据，不调用模型，不连接 X。
+浏览器安全策略阻止访问已安装扩展内部页，本轮未重验真实 X 草稿写入；搜索、Unsplash、云端/本机生图与各供应商账号登录未逐一实测。自动测试与页面夹具不能替代这些外部验收。详见[验证记录](docs/QA.md)与[Clipper 功能对照](docs/WRITER-PARITY.md)。
 
-可选的 `npm run test:live` 适用于已配置 `qiaomu-llm` 的本机开发环境：从既有注册表读取 Magpie 密钥，仅在进程内调用真实模型，执行 6 条构造样例。`python3 scripts/live.py --connection` 实测一键连接及带人工样本的后续判断。`python3 scripts/live.py --reading` 实测主帖、直接父回复、公开账号资料及人工统计的完整输入。`python3 scripts/live.py --writer` 用迁入的写作流式客户端调用一次 `deepseek/deepseek-flash`。它们会产生少量 API 用量，不是准确率基准，也不在 CI 中执行。
+## 开源、反馈与来源
 
-代码分为 DOM 提取、策略/协议、后台队列与存储、页面渲染、设置 UI；只有后台向模型服务发请求。没有远程脚本、后台爬虫或私有 X API。
+由 [向阳乔木](https://x.com/vista8) 维护，欢迎通过 [Issues](https://github.com/joeseesun/qiaomu-x-helper/issues) 提交问题或功能建议；截图前请遮盖密钥和私人内容。
 
-## 后续验证
+[MIT License](LICENSE)。写作、模型与图库模块改编自 [Qiaomu Clipper](https://github.com/joeseesun/qiaomu-clipper)，X 草稿引擎包含 xPoster 的 MIT 代码，完整说明见 [Third-party notices](THIRD_PARTY_NOTICES.md)。本项目与 X 及模型服务商没有隶属或官方背书关系。
 
-模型概率尚未做独立留出集评估。后续需要积累期限内快照和人工标签，测量误判与校准；不能用构造样例代替准确率基准。
+---
 
-来源、许可核对与具体交互见 [项目研究](docs/RESEARCH.md)。
+<a id="english"></a>
 
-## 参考与许可证
+## English
 
-本项目独立实现，MIT 开源。Lucide 图标遵循其 ISC / MIT 许可，拼音搜索使用 MIT 许可的 pinyin-pro；完整许可随安装包附带。研究了 [x-focus](https://github.com/fxzer/x-focus)、[hide-the-annoying](https://github.com/turkerdev/hide-the-annoying)、[go-jev](https://github.com/mattn/go-jev) 等项目的交互与接入思路，未复制其实现。完整来源及取舍见 [项目研究](docs/RESEARCH.md)。
+**Spend less time in the noise. Publish more of your own thinking.**
 
-Jev 是 TypeSafe 的模型服务；本仓库开源的是扩展，不代表模型权重开源。我们与 X、Vercel、TypeSafe 没有隶属或背书关系。
+Qiaomu X Helper is a Chrome extension for people who read, save, reply and write on X. Keep useful bookmarks, draft thoughtful replies, write long articles with AI assistance, search for sources, manage images, and send an article directly to an X draft.
+
+### Try it
+
+1. Download and unzip the Chrome ZIP from [v0.5.0 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0).
+2. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**. Select the folder containing `manifest.json`.
+3. Open X bookmarks or the extension’s writing workspace. These features work without an API key or native helper.
+
+AI writing, search, image generation and reply classification require your own respective services and may incur provider fees. The native helper is optional and only required for local Codex image generation; not every released helper PKG supports this protocol. X article export requires access to X Articles. The extension fills a draft; **you review and publish it yourself**.
+
+### What you get
+
+- Local Markdown/rich-text editor, outline, autosave, trash and Markdown/image ZIP import/export.
+- Contextual AI chat, selected-text editing and explicit acceptance of suggested changes.
+- Web search with source links, image search, a persistent gallery and background image jobs.
+- Provider/model management, reasoning options and configuration backup with keys excluded by default.
+- Reversible reply filtering, account overrides, reusable searches, bookmark Markdown export, reply drafts and searchable contacts.
+
+Data is stored locally by default. Requested AI/search operations send relevant content to your configured service. There is no browser-history collection, automatic final publication or automatic account blocking. AI authorship estimates can be wrong and are not identity evidence.
+
+This release passed 159 Node and 269 Vitest tests, production build and browser fixtures. A real DeepSeek Flash request returned streamed text. Installed extension pages were blocked by browser tooling; live X article insertion and all search/image/OAuth providers were not revalidated. Product screenshots use real UI with synthetic demonstration data; campaign artwork is AI-generated. See [QA](docs/QA.md), [Privacy](PRIVACY.md) and the independent [store submission status](docs/store/SUBMISSION.md).
+
+MIT licensed. Maintained by [Qiaomu](https://github.com/joeseesun). [Report a bug](https://github.com/joeseesun/qiaomu-x-helper/issues).

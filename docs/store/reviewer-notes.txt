@@ -1,26 +1,25 @@
-Qiaomu X Helper 0.2.0 is an independent, Simplified Chinese UI extension for reading and organizing content on X. It is not affiliated with X.
+Qiaomu X Helper 0.5.0 — reviewer notes
 
-No separate extension login is required. Use a reviewer-owned X account for X pages; do not use the publisher's personal account. The extension is free. Optional AI features use the user's own Jev API key and may incur charges from that selected provider. No developer credential is bundled, and no model call is made until a key is configured.
+Purpose: assist the user's X reading and expression workflow: reversible reply filtering, bookmarks/search, reply drafts, and a local article editor with optional AI research and images. All final X publication/replies are user-confirmed.
 
-Testing without an API key:
-1. Open X, refresh after installation, open the extension and choose 账号 → 常用 @. The extension can observe the signed-in handle from X; if necessary choose 手动添加我的 X 账号, then add your own @handle.
-2. @vista8 appears as an editable/removable feedback contact. Add another contact, name, note or pin, then search by name, handle or pinyin.
-3. In the X post/reply editor, click the added @ control and select a contact. It inserts display name + @handle at the caret. Undo should restore the draft. It does not post automatically.
-4. Open X bookmarks (either /i/bookmarks or the newer /i/history bookmark view). Loaded bookmarks are copied locally, and a sticky progress bar offers pause/resume and 查看 / 导出. Open that library, search, edit a note/tag and export Markdown. No X bookmark is removed by deleting a local copy.
-5. In an X conversation, use the robot/human annotation buttons to manually mark a reply and inspect 标注 in the extension. Account blocking always requires the user's own X confirmation.
+No developer credentials are embedded or required for basic features. Do not use a production developer API key for review.
 
-Additional local features: 工作台 → 搜索 builds native X search queries, with templates, a local saved library and JSON round-trip. 待回复 stores only loaded notification mentions or manually added posts; the toggle pauses capture. Processing statuses are manual and do not claim a sent reply. 工作台 → 复盘 shows saved initial predictions and visible metric snapshots and exports CSV.
+1. Load the package and open extension settings. Turn reply filtering off. Open Writing, create an article, enter text, switch Markdown mode, reload and verify persistence. Export Markdown. This requires neither login nor key.
+2. Open model settings. Writing, Images, Web search, Image sources and Reply classification are separate sections. Add a service with your own supported credentials; the extension requests the relevant origin on save. A successful model list is not a generation claim. Changing a URL clears the old key. Jev uses typed decision endpoints, not chat completions.
+3. In a writing draft, open AI. Enter a request using your configured writing service. Proposed changes are applied only after you accept the corresponding card. DeepSeek defaults to Flash.
+4. Configure DeepSeek Search/Fetch or Brave Search using your own service credentials. Enabling search allows bounded tool calls with visible source links. Brave additionally reads public HTTPS pages and therefore requests optional HTTPS site access. Cookies, local-network URLs and redirects are not used for public page reading.
+5. Open the gallery, upload a non-private image and insert it into an article. The file remains local unless you explicitly send it to a model or X. Optional Unsplash search requires its own Access Key or configured HTTPS proxy. Image rights remain the user's responsibility.
+6. With a configured image provider, request a small image. Close the AI sidebar and reopen the gallery task tab; the offscreen document holds the running request. It processes Blob data, not hidden web browsing. Browser restart/interruption does not silently resubmit a paid task.
+7. Local Codex image generation is optional and requires a compatible installed helper, logged-in Codex and registration of this extension's ID. The optional nativeMessaging permission is requested only when the user chooses that mode. Protocol actions are explicitly allowlisted to image status/start/poll/read/cancel. No helper is bundled or required for other features. See docs/LOCAL-HELPER.md for current compatibility limits.
+8. Sign into a test X account. Open bookmarks and scroll normally: only already-loaded bookmarks are saved; pause is available. Search, add notes/tags, export Markdown. No private X API or automatic scrolling is used.
+9. Add a post to the reply inbox, write a local draft, then choose Fill X reply box. The extension does not click Send. Contacts and local reply records are account-separated.
+10. If the test account has X Articles, choose Publish to X in a nonempty writing draft. It opens X and fills a draft with text/media. There is no platform menu and no final Publish click. X account feature restrictions still apply.
+11. Optional reply classification may be tested with your own supported Jev service. Unknown/invalid responses fail open. Human/AI reports are uncertain content judgments, not identity verification; account blocking is never automatic.
+12. Configuration backup excludes API keys by default and always excludes OAuth sessions. Web/image source settings are included; articles/images/bookmarks have separate export paths. Community subscription and contribution are off by default, require an invitation and are not needed for the extension.
 
-Optional Jev testing:
-Open 连接. Choose your provider (e.g. TypeSafe or OpenRouter), paste your own Jev API key and click 连接并保存. The extension requests access to that provider's domain and performs one bounded connection test before saving. Uses TypeSafe /v1/systemone or OpenRouter /alpha/decisions with state/questions and typed Noul answers, NOT an ordinary chat-completions endpoint. It accepts only JSON decision data and does not execute model responses or download executable code. Return to an X conversation and refresh to see AI estimates; change 过滤 threshold to test reversible automatic collapsing. Main-post forecasts require a visible view count, an age between 10 minutes and 24 hours, and a not-yet-reached view target. Click the flame → 我感觉能爆 to keep a local forecast record; revisiting the post updates visible metrics.
+Data: extension storage.local and IndexedDB, no Chrome Sync. Optional AI/search requests send relevant user-provided content to the chosen service. No analytics, advertising, private-message access or Chrome browsing-history collection. Store categories and policy disclose local data as well.
 
-KOL: open an X profile, load at least five posts by that author, then explicitly click 分析值得关注. Current loaded samples only; interaction remains unknown without three author replies. 工作台 → 账号 shows saved scores and evidence. No follower-based score or identity certification.
-Interest: 工作台 → 兴趣 lets the user state topics/avoidances. The sparkle icon after a post timestamp opens interest/worth-reply estimates, reversible yes/no feedback with an optional reason, and 稍后回复. Automatic interest estimates default OFF; enabling them uses the same model quota. Up to six feedback examples and stated preferences go to the selected model. These preferences do not train X recommendations or model weights.
+Verification: automated tests, production UI fixtures and a real Flash text call passed. Installed extension pages were blocked by tooling; real X article transfer and every external search/image/login service were not revalidated in this release. Screenshots are actual production UI with synthetic demonstration content; promotional artwork is conceptual AI art, not fabricated UI.
 
-Permissions: storage retains local settings/credentials; mandatory hosts are X/Twitter only for reading loaded posts and adding controls. Optional HTTPS/localhost hosts support an explicitly chosen model base URL, granted per origin at connection time. No history, cookies, debugger, nativeMessaging, identity or webRequest permission. No analytics/tracking SDK and no remotely hosted code.
-
-AI results can be wrong and are not proof of identity. No AI accuracy claim, automated X blocking, mass posting or background scraping is included. KOL and interest are limited-sample model references with user-controlled actions.
-
-Source and test boundaries: https://github.com/joeseesun/qiaomu-x-helper/blob/main/docs/QA.md
 Privacy: https://github.com/joeseesun/qiaomu-x-helper/blob/main/PRIVACY.md
 Support: https://github.com/joeseesun/qiaomu-x-helper/issues

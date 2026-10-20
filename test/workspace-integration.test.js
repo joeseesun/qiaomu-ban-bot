@@ -10,9 +10,9 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn){for(let i=0;i<150;i++){if(await fn())return;await delay(15);}throw Error('workspace integration did not settle');}
 const item=(id=1,kind='post')=>({id:String(id),handle:'alice',displayName:'艾丽丝',kind,text:'给 @me 的具体问题：如何排查缓存？ '+id,parent:'',metrics:{views:300,likes:8,replies:2,reposts:1}});
 function environment(){
- let listener;const calls=[],opened=[],factory=new IDBFactory(),runtime={id:'workspace-fixture',getURL:p=>`chrome-extension://workspace-fixture/${p}`,onMessage:{addListener:f=>listener=f}};
+ let listener;const calls=[],opened=[],factory=new IDBFactory(),runtime={onConnect:{addListener(){}},id:'workspace-fixture',getURL:p=>`chrome-extension://workspace-fixture/${p}`,onMessage:{addListener:f=>listener=f}};
  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({banbot:{apiKey:'never-expose-fixture',settings:{provider:'typesafe'}}}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[],create:async options=>{opened.push(options);},sendMessage:async()=>{}}};
- vm.runInNewContext(background,{chrome,indexedDB:factory,IDBKeyRange,crypto,TextEncoder,URL,URLSearchParams,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,init)=>{const payload=JSON.parse(init.body);calls.push({url,payload});return Response.json({model:'jev-integration-fixture',answers:Object.fromEntries(Object.keys(payload.questions).map(k=>[k,{type:'noul',noul:k==='originality'?.7:.85}])),usage:{input_tokens:10}});}});
+ vm.runInNewContext(background,{atob,btoa,chrome,indexedDB:factory,IDBKeyRange,crypto,TextEncoder,URL,URLSearchParams,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,init)=>{const payload=JSON.parse(init.body);calls.push({url,payload});return Response.json({model:'jev-integration-fixture',answers:Object.fromEntries(Object.keys(payload.questions).map(k=>[k,{type:'noul',noul:k==='originality'?.7:.85}])),usage:{input_tokens:10}});}});
  const dispatch=(message,url=runtime.getURL('ui.html'),who='admin')=>new Promise(resolve=>listener(message,{id:runtime.id,url,...(who==='content'?{tab:{id:1},frameId:0}:who==='frame'?{tab:{id:1},frameId:1}:{})},resolve));
  return{dispatch,runtime,chrome,factory,calls,opened};
 }
@@ -47,6 +47,10 @@ test('production settings save/edit/export searches, open native X queries, and 
  assert.equal((await e.dispatch({type:'workspace-page',store:'inbox',owner:'me'})).data.items[0].status,'pending');
  [...d.querySelectorAll('#ws-inbox-detail button')].find(b=>b.textContent==='标为已处理').click();await until(()=>!d.querySelector('.workspace-row'));
  d.querySelector('[data-inbox-status="done"]').click();await until(()=>d.querySelector('#ws-inbox-detail')?.textContent.includes('恢复待回复'));assert.equal(d.querySelector('[aria-label="回复草稿"]').value,note.value);
+ // The detail renders before the asynchronous inbox count. Wait for the whole load
+ // before tearing down JSDOM, including when other builds heavily load the machine.
+ await until(()=>!d.querySelector('#ws-list').hasAttribute('aria-busy'));
+ assert.equal(d.querySelector('[data-inbox-status="done"] small').textContent,'1');
  }finally{dom.window.close();}
 });
 test('inbox controls preserve native nodes and detect recycled articles without navigating',async()=>{
