@@ -10,6 +10,8 @@ import { Features } from './features.js';
 import { importSearches, normalizeSearch } from './search.js';
 import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
+import { handleOf, validateItem } from './core.js';
+const owners = new Map();
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
 const forecasts = new Forecasts();
@@ -18,6 +20,7 @@ const engine = new Engine({
   get: async key => { await secure; return chrome.storage.local.get(key); },
   set: async value => { await secure; return chrome.storage.local.set(value); },
 }, undefined, new IndexedAnnotations());
+engine.activeOwners=owners;
 const workspace=new Workspace(),features=new Features(workspace,engine);
 const community=new Community({get:async k=>{await secure;return chrome.storage.local.get(k);},set:async v=>{await secure;return chrome.storage.local.set(v);}});
 engine.communityEvidence=id=>community.evidence(id);
@@ -37,12 +40,23 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return {};
     }
     if (who === 'none' || !message || typeof message.type !== 'string') throw new Error('消息来源无效');
+    if(who==='content' && Object.hasOwn(message,'owner')) {
+      const owner=handleOf(message.owner);
+      if(owners.get(sender.tab.id)!==owner){owners.set(sender.tab.id,owner);engine.revision++;}
+    }
+    const owner=who==='content'?owners.get(sender.tab.id)||'':'';
     if (message.type === 'snapshot') return engine.snapshot(who === 'admin');
-    if (message.type === 'classify') return engine.classify(message.item,message.force===true);
-    if (message.type === 'local-decision') return engine.localDecision(message.item);
-    if (message.type === 'list') { const result = await engine.listAction(message.handle, message.action); await broadcast(); return result; }
+    if (message.type === 'classify') return engine.classify(message.item,message.force===true,owner);
+    if (message.type === 'local-decision') return engine.localDecision(message.item,owner);
+    if (message.type === 'list') {
+      const item=message.item?validateItem(message.item):null;
+      const result = await engine.listAction(item?.handle||message.handle, message.action,item?.author?.userId); await broadcast({type:'accounts-changed'}); return result;
+    }
     if (message.type === 'feedback') { const result = await engine.feedback(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
-    if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return {...result,...shared}; }
+    if (message.type === 'learn') {
+      if(owner && handleOf(message.item?.handle)===owner)throw Error('自己的账号无需标记');
+      const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'accounts-changed'}); return {...result,...shared};
+    }
     if (message.type === 'options') {
       if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/inbox','workspace/interests','workspace/review'].includes(message.page)){
         const draft=message.page==='workspace/search'&&message.searchDraft?'?'+new URLSearchParams({draft:JSON.stringify(normalizeSearch(message.searchDraft))}):'';
@@ -131,7 +145,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const item=await engine.annotations.get(message.key);
       const result=await engine.editAnnotation(message.key,message.type==='remove-example'?null:message.label);
       if(item)await share(item,message.type==='remove-example'?null:message.label);
-      await broadcast({type:'annotation-changed',id:result.id});return result;
+      await broadcast({type:'accounts-changed'});return result;
     }
     if (message.type === 'connect') {
       const connection = resolveConnection(mergeSettings((await engine.snapshot()).settings,message.settings));
@@ -148,3 +162,4 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   })().then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message || '操作失败，请重试' }));
   return true;
 });
+chrome.tabs.onRemoved.addListener(id=>owners.delete(id));

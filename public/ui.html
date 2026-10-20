@@ -6,7 +6,7 @@
   <nav class="side-nav">
     <p class="side-heading">回复区</p>
     <a href="#overview" data-tab="overview"><span data-icon="EyeOff"></span>自动隐藏</a>
-    <a href="#accounts" data-tab="accounts"><span data-icon="ShieldCheck"></span>例外名单</a>
+    <a href="#accounts" data-tab="accounts"><span data-icon="ShieldCheck"></span>账号名单</a>
     <a href="#rules" data-tab="rules"><span data-icon="SlidersHorizontal"></span>高级规则</a>
     <p class="side-heading">在 X 上</p>
     <a href="#workspace/inbox" data-tab="workspace/inbox"><span data-icon="MessageSquarePlus"></span>待回复</a>
@@ -22,7 +22,7 @@
     <a href="#model" data-tab="model"><span data-icon="Cpu"></span>回复判断模型</a>
     <a href="#about" data-tab="about"><span data-icon="Info"></span>关于与反馈</a>
   </nav>
-  <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">0.3.1</span></p>
+  <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">0.4.1</span></p>
 </aside>
 <main id="app">
   <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>回复区安静，X 更好用。</p></div></div></header>
@@ -39,7 +39,7 @@
         <div class="sensitivity" role="group" aria-label="隐藏敏感度"><button type="button" data-threshold="70" aria-pressed="false">宽松</button><button type="button" data-threshold="50" aria-pressed="true">标准</button><button type="button" data-threshold="35" aria-pressed="false">严格</button><a id="sensitivity-custom" href="#rules" hidden></a></div></div>
       <label class="row"><span class="row-text"><b>隐藏引流回复</b><small>「看我主页」「同城约」这类话术，在本机识别，不用模型</small></span><span class="switch small"><input id="spamGuard" type="checkbox" role="switch"><span></span></span></label>
       <label class="row"><span class="row-text"><b>隐藏重复回复</b><small>同一句话只留第一条</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
-      <a class="row" href="#accounts" data-tab="accounts"><span class="row-text"><b>例外名单</b><small id="exceptions-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
+      <a class="row" href="#accounts" data-tab="accounts"><span class="row-text"><b>账号名单</b><small id="exceptions-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
       <a class="row" href="#rules" data-tab="rules"><span class="row-text"><b>高级规则</b><small>自定义百分比、附加规则和屏蔽词</small></span><span class="chev" aria-hidden="true">›</span></a>
     </div>
     <h3 class="group-title">主帖表现</h3>
@@ -79,7 +79,7 @@
   </section>
   <section id="rules" class="panel" hidden>
     <a class="back" href="#overview">‹ 设置</a>
-    <h2>高级规则</h2><p class="hint">大多数人不需要改这里。你的手动标注和例外名单始终优先。</p>
+    <h2>高级规则</h2><p class="hint">大多数人不需要改这里。你的手动标注和账号名单始终优先。</p>
     <h3 class="group-title">AI 回复</h3>
     <div class="card">
       <div class="inline-row"><span class="row-text"><b><label id="threshold-label" for="threshold-number">AI 估计高于</label></b><output id="threshold-value">高于 50% 隐藏，恰好 50% 保留。</output></span><div class="number-unit"><input id="threshold-number" type="number" min="1" max="99" step="1" value="50" aria-label="自定义隐藏概率"><span>%</span></div></div>
@@ -147,12 +147,12 @@
       <details id="contact-owner-setup" class="fine-print"><summary>手动添加我的 X 账号</summary><form id="contact-owner-form"><label class="field"><span>你用于发帖的 @用户名</span><input id="contact-owner-input" maxlength="16" placeholder="@my_account" required></label><button class="secondary">添加账号</button></form></details>
     </div>
     <div id="account-statistics">
-    <div class="page-heading"><div><h2>例外名单</h2><p class="hint">「始终显示」的人不会被隐藏，你关注的人也一样。「本机屏蔽」只在这台电脑上隐藏，不会在 X 拉黑。</p></div></div>
+    <div class="page-heading"><div><h2>账号名单</h2><p class="hint">标记真人后始终显示；标记 AI 后默认折叠。两者都跳过后续判断，只影响本机显示。</p><p id="current-accounts" class="hint"></p></div></div>
     <div id="account-lists" class="account-lists card">
     <form id="account-form"><label class="field"><span>添加账号</span><input id="account-handle" placeholder="@username" autocomplete="off" maxlength="16" required></label><div class="button-row"><button class="primary" name="action" value="allow">始终显示</button><button class="secondary" name="action" value="block">本机屏蔽</button></div></form>
-    <h3>始终显示</h3><div id="allowlist" class="account-list"></div><h3>本机屏蔽</h3><div id="blocklist" class="account-list"></div>
+    <h3>已折叠</h3><div id="blocklist" class="account-list"></div><h3>始终显示</h3><div id="allowlist" class="account-list"></div>
     </div>
-    <div class="page-heading"><div><h3 class="group-title sub-heading">标注最多的账号</h3><p class="hint">按你的标注条数排序，方便决定把谁放进例外名单。</p></div><button id="refresh-authors" class="icon-control" aria-label="刷新账号统计" title="刷新账号统计" data-icon="RefreshCw"></button></div>
+    <div class="page-heading"><div><h3 class="group-title sub-heading">历史标注</h3><p class="hint">同一账号以最近一次手动选择为准。</p></div><button id="refresh-authors" class="icon-control" aria-label="刷新账号统计" title="刷新账号统计" data-icon="RefreshCw"></button></div>
     <div class="label-filters" role="group" aria-label="账号排序"><button data-author-filter="ai" aria-pressed="true"><span data-icon="Bot"></span>AI 标注最多</button><button data-author-filter="human" aria-pressed="false"><span data-icon="UserRoundCheck"></span>真人标注最多</button></div>
     <div id="author-list" aria-live="polite"></div>
     <div class="pagination"><button id="authors-prev" class="secondary">上一页</button><span id="authors-page">第 1 页</span><button id="authors-next" class="secondary">下一页</button></div>

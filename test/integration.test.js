@@ -11,7 +11,7 @@ const until=async fn=>{for(let i=0;i<120;i++){if(await fn())return;await new Pro
 test('actual UI -> background -> Jev adapter -> auto folding -> user learning',async()=>{
   let saved={},listener;const calls=[],endpoints=[],permissions=[],contentListeners=[];
   const runtime={id:'our-extension',getURL:path=>`chrome-extension://our-extension/${path}`,onMessage:{addListener:fn=>{listener=fn;}},openOptionsPage:async()=>{}};
-  const chrome={runtime,permissions:{contains:async()=>true},storage:{local:{setAccessLevel:async()=>{},get:async()=>structuredClone(saved),set:async value=>{saved=structuredClone(value);}}},tabs:{query:async()=>[{id:1}],sendMessage:async(id,message)=>{contentListeners.forEach(fn=>fn(message));}}};
+  const chrome={runtime,permissions:{contains:async()=>true},storage:{local:{setAccessLevel:async()=>{},get:async()=>structuredClone(saved),set:async value=>{saved=structuredClone(value);}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[{id:1}],sendMessage:async(id,message)=>{contentListeners.forEach(fn=>fn(message));}}};
   vm.runInNewContext(background,{indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,options)=>{
     const payload=JSON.parse(options.body);calls.push(payload);endpoints.push(url);
     if(options.headers.Authorization==='Bearer invalid')return new Response('',{status:401});
@@ -30,6 +30,11 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     const d=settings.window.document;d.getElementById('api-key').value='fixture-secret';d.getElementById('save-model').click();
     await until(()=>d.getElementById('notice').textContent.includes('密钥已保存'));
     assert.equal(calls.length,1);assert.equal(d.getElementById('test-text').value,'');assert.equal(d.getElementById('api-key').value,'••••••••••••••••');assert.equal(d.getElementById('api-key').readOnly,true);assert.equal(saved.banbot.apiKey,'fixture-secret');
+    const ownItem={id:'90',handle:'my_account',kind:'reply',text:'自己的回复'};
+    const self=await dispatch({type:'classify',item:ownItem,owner:'my_account',force:true},page.window.location.href,true);
+    assert.equal(self.data.account,'self');assert.equal(calls.length,1);
+    assert.deepEqual(Array.from((await dispatch({type:'snapshot'},settings.window.location.href)).data.activeOwners),['my_account']);
+    assert.equal((await dispatch({type:'learn',item:ownItem,owner:'my_account',label:'ai'},page.window.location.href,true)).ok,false);
     assert.equal(d.getElementById('key-badge').hidden,false);
     assert.equal((await dispatch({type:'reveal-key'},page.window.location.href,true)).ok,false);assert.equal((await dispatch({type:'authors'},page.window.location.href,true)).ok,false);
     d.getElementById('toggle-key').click();await until(()=>d.getElementById('api-key').type==='text');
@@ -46,26 +51,32 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     [...reply.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='展开').click();
     assert.equal(reply.hasAttribute('data-qb-collapsed'),false);
     [...reply.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='标记 AI').click();
-    await until(()=>reply.hasAttribute('data-qb-collapsed')&&reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('已标注 AI'));
+    await until(()=>reply.hasAttribute('data-qb-collapsed')&&reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('已折叠账号'));
     assert.equal(page.window.document.querySelector('article .qb-host'),otherHost,'marking one reply must preserve other posts');
     assert.equal(otherHost.shadowRoot.querySelector('button'),otherControl,'other controls must not be rebuilt');
     reply.className='native-row x-hover';
     assert.equal(page.window.getComputedStyle(original).display,'none');
-    const negative=[...reply.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='标记真人');negative.click();
-    await until(()=>!reply.hasAttribute('data-qb-collapsed') && reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('已标注真人'));
+    const negative=[...reply.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='标为真人');negative.click();
+    await until(()=>!reply.hasAttribute('data-qb-collapsed') && reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('始终显示此账号'));
     assert.equal(reply.firstElementChild,original);assert.equal(reply.querySelector('.qb-host').parentElement,original);assert.equal((await dispatch({type:'annotations'},settings.window.location.href)).data.items[0].label,'human');
     d.querySelector('nav [data-tab="annotations"]').click();await until(()=>d.querySelector('.annotation-row [aria-pressed="true"]')?.textContent==='真人');
     d.querySelector('nav [data-tab="accounts"]').click();await until(()=>d.querySelector('#author-list .empty-state'));
     d.querySelector('[data-author-filter="human"]').click();await until(()=>d.querySelector('.author-row'));
     assert.ok(d.querySelector('.author-row').textContent.includes('真人 1'));assert.equal(d.querySelector('.author-profile').href,'https://x.com/reader');
+    const beforeAccountActions=calls.length;
+    d.querySelector('#allowlist button[aria-label="改标为 AI @reader"]').click();
+    await until(()=>d.querySelector('#blocklist button[aria-label="恢复显示 @reader"]')&&reply.hasAttribute('data-qb-collapsed'));
+    d.querySelector('#blocklist button[aria-label="恢复显示 @reader"]').click();
+    await until(()=>d.querySelector('#allowlist button[aria-label="恢复自动检测 @reader"]')&&!reply.hasAttribute('data-qb-collapsed'));
+    assert.equal(calls.length,beforeAccountActions,'account changes must not call the model');
     const response=await dispatch({type:'classify',item:{id:'999',handle:'another',kind:'reply',text:'谢谢，确实解决了问题。',metrics:{}}},page.window.location.href,true);
     assert.equal(response.ok,true);assert.equal(calls.at(-1).state.user_labelled_examples[0].label,'human');
     const root=reply.querySelector('.qb-host').shadowRoot;
-    assert.equal(root.querySelector('.pop-head strong').textContent,'你标为真人','a human label hides the model estimate');assert.equal(root.querySelector('.scores'),null);
-    assert.equal(root.querySelector('[data-label="human"]').getAttribute('aria-pressed'),'true');
-    root.querySelector('[data-label="human"]').focus();root.querySelector('[data-label="human"]').click();
-    await until(()=>reply.querySelector('.qb-host').shadowRoot.querySelector('[data-label="human"]').getAttribute('aria-pressed')==='false');
-    assert.equal(root.activeElement?.dataset.label,'human');
+    assert.equal(root.querySelector('strong').textContent,'始终显示此账号','a human label hides the model estimate');assert.equal(root.querySelector('.scores'),null);
+    const resume=[...root.querySelectorAll('button')].find(b=>b.textContent==='恢复自动检测');
+    resume.focus();resume.click();
+    await until(()=>reply.querySelector('.qb-host').shadowRoot.querySelector('[data-label="human"]'));
+    assert.equal((await dispatch({type:'annotations'},settings.window.location.href)).data.items.length,1,'resuming detection preserves annotation history');
     assert.equal(page.window.document.querySelector('article .qb-host'),otherHost);
     const publicState=await dispatch({type:'snapshot'},page.window.location.href,true);
     assert.equal(JSON.stringify(publicState).includes('fixture-secret'),false);assert.equal(publicState.data.learning,undefined);
@@ -90,7 +101,7 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
 
 test('contacts and forecast UI round-trip through background, isolated from credentials and model requests',async()=>{
   let listener;let modelCalls=0;const runtime={id:'book-test',getURL:p=>`chrome-extension://book-test/${p}`,onMessage:{addListener:f=>listener=f}};
-  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{query:async()=>[]}};
+  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[]}};
   vm.runInNewContext(background,{indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{modelCalls++;throw Error('contacts must not call Jev');}});
   const dispatch=(m,content=false)=>new Promise(resolve=>listener(m,{id:runtime.id,url:content?'https://x.com/home':runtime.getURL('ui.html'),...(content?{tab:{id:1},frameId:0}:{})},resolve));
   assert.equal((await dispatch({type:'contacts-observe',owner:'me'},true)).ok,true);

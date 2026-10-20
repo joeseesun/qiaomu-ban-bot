@@ -1,6 +1,7 @@
 import { connectionFields, resolveConnection, sameCredentialTarget, mergeSettings } from './connection.js';
 import { DEFAULTS, PROVIDERS, handleOf } from './core.js';
 import { MemoryAnnotations } from './annotations.js';
+import { accountHandles } from './account-rules.js';
 import { Contacts } from './contacts.js';
 import { initContactsUI } from './ui-contacts.js';
 import { initForecastsUI } from './ui-forecasts.js';
@@ -160,15 +161,23 @@ $('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true)
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
 function renderAccounts(){
+  $('current-accounts').textContent=snapshot.activeOwners?.length?`当前登录：${snapshot.activeOwners.map(h=>'@'+h).join('、')} · 自动跳过判断`:'打开已登录的 X 页面后，自动识别自己的账号。';
   for(const kind of ['allowlist','blocklist']){
     const container=$(kind);container.replaceChildren();
-    if(!snapshot.settings[kind].length)container.textContent='暂无账号';
-    for(const handle of snapshot.settings[kind]){
+    const handles=accountHandles(snapshot.settings,kind==='allowlist'?'human':'ai');
+    if(!handles.length)container.textContent='暂无账号';
+    for(const handle of handles){
       const row=document.createElement('div');row.className='account-row';
       const name=document.createElement('span');name.textContent='@'+handle;
-      const remove=document.createElement('button');remove.className='quiet';remove.textContent='移除';remove.setAttribute('aria-label',`移除 @${handle}`);
-      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:'remove'});renderAccounts();await loadAuthors();}catch(e){notice(e.message,true);remove.disabled=false;}};
-      row.append(name,remove);container.append(row);
+      const remove=document.createElement('button');remove.className='quiet';remove.textContent=kind==='blocklist'?'恢复显示':'恢复自动检测';remove.setAttribute('aria-label',`${remove.textContent} @${handle}`);
+      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:kind==='blocklist'?'allow':'remove'});renderAccounts();await loadAuthors();notice(kind==='blocklist'?'已恢复显示，以后跳过判断。':'已移除，下次重新判断。');}catch(e){notice(e.message,true);remove.disabled=false;}};
+      row.append(name,remove);
+      if(kind==='allowlist'){
+        const change=document.createElement('button');change.className='quiet';change.textContent='改标为 AI';change.setAttribute('aria-label',`改标为 AI @${handle}`);
+        change.onclick=async()=>{change.disabled=true;try{snapshot=await send({type:'list',handle,action:'block'});renderAccounts();await loadAuthors();notice('已折叠该账号，后续跳过判断。');}catch(e){notice(e.message,true);change.disabled=false;}};
+        row.append(change);
+      }
+      container.append(row);
     }
   }
   $('feedback').replaceChildren();
@@ -195,7 +204,7 @@ async function loadAuthors(reset=false){
       const head=document.createElement('div');head.className='author-head';head.append(rank,info,counts);
       const actions=document.createElement('div');actions.className='author-actions';
       for(const [action,title,icon,listKey] of [['block','本机屏蔽','UserRoundMinus','blocklist'],['allow','始终保留','ShieldCheck','allowlist']]){
-        const selected=snapshot.settings[listKey].includes(entry.handle),b=document.createElement('button');b.className='secondary';b.append(glyph(icon),document.createTextNode(selected?title==='本机屏蔽'?'已屏蔽':'已保留':title));b.setAttribute('aria-pressed',String(selected));b.setAttribute('aria-label',`${selected?'取消':''}${title} @${entry.handle}`);
+        const selected=accountHandles(snapshot.settings,action==='block'?'ai':'human').includes(entry.handle),b=document.createElement('button');b.className='secondary';b.append(glyph(icon),document.createTextNode(selected?title==='本机屏蔽'?'已屏蔽':'已保留':title));b.setAttribute('aria-pressed',String(selected));b.setAttribute('aria-label',`${selected?'取消':''}${title} @${entry.handle}`);
         b.onclick=async()=>{for(const n of actions.querySelectorAll('button'))n.disabled=true;try{snapshot=await send({type:'list',handle:entry.handle,action:selected?'remove':action});renderAccounts();await loadAuthors();notice(selected?'账号设置已取消。':`${title} @${entry.handle}。`);}catch(e){notice(e.message,true);for(const n of actions.querySelectorAll('button'))n.disabled=false;}};
         actions.append(b);
       }
@@ -225,7 +234,7 @@ function render({connection=true}={}){
   $('sensitivity-custom').hidden=!!PRESETS[pct];$('sensitivity-custom').textContent=`自定义 ${pct}%`;
   $('hide-ai-hint').textContent=s.filterMode!=='ai'?'现在只标出估计，不隐藏':({70:'宽松：只隐藏把握很大的，AI 估计高于 70%',50:'标准：AI 估计高于 50% 就隐藏',35:'严格：高于 35% 就隐藏，偶尔会误伤真人'})[pct]||`自定义：AI 估计高于 ${pct}% 就隐藏`;
   document.querySelector('.sensitivity').classList.toggle('muted',s.filterMode!=='ai');
-  $('exceptions-summary').textContent=`始终显示 ${s.allowlist.length} 人 · 本机屏蔽 ${s.blocklist.length} 人`;
+  $('exceptions-summary').textContent=`始终显示 ${accountHandles(s,'human').length} 人 · 已折叠 ${accountHandles(s,'ai').length} 人`;
   $('radar-hint').textContent='依据发布时间、浏览增长及互动率，不设固定爆款门槛';
   $('annotations-summary').textContent=`${(snapshot.learningCount||0).toLocaleString()} 条，随时改标或导出`;
   $('model-summary').textContent=`${!snapshot.configured?'未连接模型，AI 判断暂不可用':snapshot.connection?'已连接 Jev':'密钥已保存'} · 今天 ${snapshot.stats.requests.toLocaleString()} 次`;
@@ -298,7 +307,7 @@ async function loadLabels(reset=false){
     $('labels-page').textContent=`第 ${pageIndex+1} 页 · 每页 20 条`;$('labels-prev').disabled=pageIndex===0;$('labels-next').disabled=!nextCursor;
   }finally{if(generation===labelsEpoch)$('annotation-list').removeAttribute('aria-busy');}
 }
-async function changeLabel(entry,label,button){button.disabled=true;try{await send({type:'edit-annotation',key:entry.key,label});await loadLabels(false);notice(label?`已改为${label==='ai'?' AI':'真人'}。`:'标注已移除，原帖不受影响。');}catch(e){notice(e.message,true);button.disabled=false;}}
+async function changeLabel(entry,label,button){button.disabled=true;try{await send({type:'edit-annotation',key:entry.key,label});await loadLabels(false);notice(label?`已改为${label==='ai'?' AI':'真人'}。`:'标注已移除，账号名单已更新。');}catch(e){notice(e.message,true);button.disabled=false;}}
 for(const b of document.querySelectorAll('[data-label-filter]'))b.onclick=async()=>{labelFilter=b.dataset.labelFilter;for(const n of document.querySelectorAll('[data-label-filter]'))n.setAttribute('aria-pressed',String(n===b));try{await loadLabels(true);}catch(e){notice(e.message,true);}};
 bind('refresh-annotations',()=>loadLabels(true));
 bind('labels-next',async()=>{if(!nextCursor)return;cursors[++pageIndex]=nextCursor;await loadLabels();});

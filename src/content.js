@@ -7,8 +7,11 @@ import { skeleton } from './spam.js';
 import { MomentumTracker, compactRate } from './momentum.js';
 import { bookmarkPath } from './bookmarks.js';
 import { ruleMatches } from './rules.js';
-const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
+import { currentOwner } from './composer.js';
+import { accountRule } from './account-rules.js';
+const send = async message => { const r = await chrome.runtime.sendMessage({...message,owner:currentOwner()}); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
+let owner=currentOwner();
 let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map(), texts: new Map() };
 const states = new Map(), shown = new Set(), seenText = new Map();
 const momentum = new MomentumTracker();
@@ -139,8 +142,9 @@ function keepReadingPosition(article, state, update, fromTop = false) {
     if(Math.abs(delta)>.5) window.scrollBy({top:delta,behavior:'instant'});
   };
   update(); restorePosition();
-  if(action) host?.shadowRoot.querySelector(`[data-label="${action}"]`)?.focus({preventScroll:true});
+  if(action) (host?.shadowRoot.querySelector(`[data-label="${action}"]`)||host?.shadowRoot.querySelector('.disclosure'))?.focus({preventScroll:true});
   else if(expansion) host?.shadowRoot.querySelector('[data-action="expand"]')?.focus({preventScroll:true});
+  else if(active)host?.shadowRoot.querySelector('.disclosure')?.focus({preventScroll:true});
   // X's virtual list can measure after our synchronous mutation. Stop anchoring
   // immediately when the user scrolls or starts another gesture.
   let cancelled=false;
@@ -185,8 +189,10 @@ function render(article, state) {
   if (!article.isConnected || states.get(article) !== state) return;
   const { item, result } = state;
   state.hotHost?.remove(); state.hotHost=null;
-  const isLocal = settings.blocklist.includes(item.handle) && !settings.allowlist.includes(item.handle) || ruleMatches(item,settings).length>0;
+  const policy=accountRule(item,settings,currentOwner());
+  const isLocal = policy==='ai' || ruleMatches(item,settings).length>0;
   restore(article);
+  if(policy==='self'){state.host?.remove();return;}
   if (!settings.enabled || (!isLocal && (item.kind === 'unknown' || (item.kind === 'post' && !settings.radar)))) { state.host?.remove(); return; }
   const host = hostFor(article); if (!host) return;
   const root = host.shadowRoot;
@@ -207,6 +213,32 @@ function render(article, state) {
   host.style.setProperty('--qb-amber', dark ? '#e9bd7c' : '#8a5300');
   host.style.setProperty('--qb-amber-bg', dark ? '#e9bd7c1f' : '#fff4e0');
   const bar = el('div', null, 'bar'), toolbar = el('div', null, 'toolbar'); bar.append(toolbar); root.append(bar);
+  if(policy) {
+    const collapsed=policy==='ai'&&!shown.has(item.id);
+    if(collapsed){article.append(host);article.setAttribute('data-qb-collapsed','');bar.classList.add('folded');host.dataset.qbPlace='fold';}
+    else {
+      const side=item.kind==='reply'&&avatarColumn(article),group=actionGroup(article);
+      if(side){side.append(host);bar.classList.add('side');host.dataset.qbPlace='avatar';}
+      else if(group){mountInline(group,host);bar.classList.add('inline');host.dataset.qbPlace='inline';}
+    }
+    if(policy==='ai'){
+      toolbar.append(el('span',`已折叠账号 · @${item.handle}`,'label'));
+      const expand=button(collapsed?'展开':'收起',()=>keepReadingPosition(article,state,()=>{collapsed?shown.add(item.id):shown.delete(item.id);render(article,state);},true),{className:'link'});
+      expand.dataset.action='expand';
+      expand.setAttribute('aria-expanded',String(!collapsed));toolbar.append(expand);
+    }
+    const panel=disclosure(bar,toolbar,'账号操作',{glyph:policy==='human'?icons.UserRoundCheck:icons.Ellipsis,popover:true,className:'trigger marked'});
+    const action=value=>send({type:'list',item,action:value});
+    const head=el('div',null,'pop-head');
+    head.append(el('strong',policy==='human'?'始终显示此账号':'你已折叠此账号'),el('small','已跳过自动判断，可随时更改。'));panel.append(head);
+    const choices=el('div',null,'actions');
+    choices.append(button(policy==='human'?'改标为 AI':'标为真人',()=>item.kind==='reply'?annotate(item,'learn',policy==='human'?'ai':'human'):action(policy==='human'?'block':'allow'),{glyph:policy==='human'?icons.Bot:icons.UserRoundCheck}));
+    choices.append(button('恢复自动检测',()=>action('remove'),{glyph:icons.RefreshCw}));
+    if(policy==='ai')choices.append(button('恢复显示',()=>action('allow'),{glyph:icons.Eye}));
+    panel.append(choices);
+    if(detailsOpen)panel.open();
+    return;
+  }
   if (state.error && item.kind==='post') {
     toolbar.append(el('span', state.error, 'label muted'));
     toolbar.append(button('重试', () => { state.error = ''; state.started = false; return processArticle(article, state, true); })); return;
@@ -260,12 +292,12 @@ function render(article, state) {
   // Replies from accounts you follow show nothing unless you acted on them.
   if (item.kind === 'reply' && item.author?.youFollow === true && !result?.override && !result?.annotation && !isLocal) { host.remove(); return; }
   let decision = decide(item, result, settings);
-  if (result?.override) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '已标注 AI' : '已标注真人' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
+  if (result?.override && !policy) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '已标注 AI' : '已标注真人' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
   if (!decision.collapse && !result?.override && state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !settings.allowlist.includes(item.handle)) decision = { collapse: true, label: '与已读回复文字重复' };
   const expanded = shown.has(item.id);
   const collapsed = decision.collapse && !expanded;
   const reopened = expanded && decision.collapse;
-  const hasScore = typeof result?.scores?.ai_written === 'number';
+  const hasScore = !policy && typeof result?.scores?.ai_written === 'number';
   const percent = hasScore ? Math.round(aiScore(item, result) * 100) : null;
   const high = hasScore && aiScore(item, result) > settings.threshold;
   const side = !collapsed && !reopened && item.kind === 'reply' && avatarColumn(article);
@@ -309,7 +341,7 @@ function render(article, state) {
   panel.append(head);
   if(!configured)panel.append(button('连接 Jev，开启文本判断',()=>send({type:'options'})));
   if(state.error)panel.append(detailLine(state.error),button('重试判断',()=>{state.error='';state.started=false;return processArticle(article,state,true);}));
-  if (result?.scores && !markedHuman) {
+  if (result?.scores && !markedHuman && !policy) {
     const scores = el('dl', null, 'scores');
     for (const [key,name] of [['ai_written','AI 概率'],['spam','引流']]) {
       const cell = el('div'); cell.append(el('dt',name),el('dd',`${Math.round((key==='ai_written'?aiScore(item,result):result.scores[key])*100)}%`)); scores.append(cell);
@@ -325,7 +357,7 @@ function render(article, state) {
       control.dataset.label=value; control.setAttribute('aria-pressed',String(selected));
       choices.append(control);
     }
-    panel.append(el('p','你的判断（只记在本机，再点撤销）','hint'),choices);
+    panel.append(el('p','标记后适用于此账号，停止自动判断；可在账号操作中更改。','hint'),choices);
   }
   const { section, actions } = actionSection(panel, `显示与账号 · @${item.handle}`);
   if (item.kind === 'reply') actions.append(button(collapsed ? '展开原文' : '隐藏这条回复', () => {
@@ -341,6 +373,7 @@ function render(article, state) {
   if (detailsOpen) panel.open();
 }
 async function processArticle(article, state, manual = false) {
+  if(accountRule(state.item,settings,currentOwner())){state.started=true;render(article,state);return;}
   if (bookmarkPath(location.pathname)) return;
   if (state.started && !manual) return;
   if (manual) {
@@ -387,6 +420,7 @@ const intersection = new IntersectionObserver(entries => {
 }, { rootMargin: '40px', threshold: 0.05 });
 function scan() {
   scheduled = false;
+  if(currentOwner()!==owner){owner=currentOwner();void refresh();return;}
   if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } seenText.clear(); shown.clear(); templates.clear(); conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map(), texts: new Map() }; }
   for (const [article] of states) if (!article.isConnected) { intersection.unobserve(article); resetArticle(article); }
   if (!settings.enabled || bookmarkPath(location.pathname)) return;
@@ -408,7 +442,7 @@ function scan() {
     if (conversation.texts.size > 300) conversation.texts.delete(conversation.texts.keys().next().value);
     if (conversation.parents.size > 2000) conversation.parents.delete(conversation.parents.keys().next().value);
     if (conversation.replyIds.size > 2000) conversation.replyIds.delete(conversation.replyIds.values().next().value);
-    const fingerprint = JSON.stringify([item.id, item.text, item.kind, item.parent,item.author?.userId,item.directParent?.id,item.root?.id]);
+    const fingerprint = JSON.stringify([item.id, item.handle, item.text, item.kind, item.parent,item.author?.userId,item.directParent?.id,item.root?.id]);
     const existing = states.get(article);
     if (existing?.fingerprint === fingerprint) {
       const changed=JSON.stringify(existing.item.metrics)!==JSON.stringify(item.metrics);
@@ -437,7 +471,7 @@ const observer = new MutationObserver(records => {
     const target=r.target.nodeType===1 ? r.target : r.target.parentElement;
     if (target?.closest('.qb-host, .qb-hot-host')) return false;
     if (r.type==='characterData') return Boolean(target?.closest('[data-testid="tweetText"], [data-testid="User-Name"]'));
-    if (r.type==='attributes') return Boolean(target?.closest(ARTICLE) && (target.matches('a[href*="/status/"]') || target.matches('time')));
+    if (r.type==='attributes') return Boolean(target?.matches('[data-testid="AppTabBar_Profile_Link"]') || target?.closest(ARTICLE) && (target.matches('a[href*="/status/"]') || target.matches('time')));
     return [...r.addedNodes,...r.removedNodes].some(n=>!(n instanceof Element && n.matches('.qb-host, .qb-hot-host')));
   })) schedule();
 });
@@ -460,12 +494,26 @@ async function refreshAnnotation(id) {
     } catch { /* A failed notification must leave the current reading state intact. */ }
   }
 }
+let accountRefresh=Promise.resolve();
+async function refreshAccounts() {
+  const data=await send({type:'snapshot'}),previous=settings;
+  settings=data.settings;configured=data.configured;
+  for(const [article,state] of states){
+    const policy=accountRule(state.item,settings,currentOwner());
+    if(policy===accountRule(state.item,previous,currentOwner()))continue;
+    state.version=(state.version||0)+1;state.started=!!policy;state.result=null;state.error='';
+    shown.delete(state.item.id);
+    keepReadingPosition(article,state,()=>render(article,state));
+    if(!policy){intersection.unobserve(article);intersection.observe(article);}
+  }
+}
 chrome.runtime.onMessage.addListener(message => {
   if (message.type === 'refresh') void refresh();
   if (message.type === 'annotation-changed') void refreshAnnotation(message.id);
+  if (message.type === 'accounts-changed') accountRefresh=accountRefresh.then(refreshAccounts).catch(()=>{});
 });
 window.addEventListener('popstate', schedule);
 window.addEventListener('qx-evidence-updated', schedule);
 // Also catches X's pushState navigation when no tweet has mounted yet.
-setInterval(() => { if (location.href !== lastUrl) schedule(); }, 1000);
+setInterval(() => { if (location.href !== lastUrl || currentOwner()!==owner) schedule(); }, 1000);
 void refresh();

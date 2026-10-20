@@ -41,7 +41,7 @@ test('failure is not cached as clean, and a 429 causes cooldown',async()=>{
 test('feedback, allowlist and blocklist avoid further model calls',async()=>{
   let calls=0;const {engine}=setup(async()=>{calls++;return result();});
   await engine.feedback(item(1),'keep');assert.deepEqual(await engine.classify(item(1)),{override:'keep'});
-  await engine.listAction('alice','allow');assert.deepEqual(await engine.classify(item(2)),{local:true});
+  await engine.listAction('alice','allow');assert.equal((await engine.classify(item(2))).account,'human');
   await engine.listAction('alice','block');assert.deepEqual((await engine.snapshot()).settings.allowlist,[]);assert.equal(calls,0);
 });
 test('snapshot never discloses credentials; provider changes clear old key',async()=>{
@@ -72,7 +72,7 @@ test('user labels affect later requests, invalidate cached decisions, and can be
   await engine.classify(item(2));
   await engine.learn({...item(1),text:'作为人工智能语言模型，我不能执行此请求。'},'ai');
   assert.equal((await engine.classify({...item(1),text:'作为人工智能语言模型，我不能执行此请求。'})).override,'hide');
-  await engine.classify(item(2));assert.equal(requests.length,2);assert.equal(requests[1].examples[0].label,'ai');
+  await engine.classify({...item(2),handle:'another'});assert.equal(requests.length,2);assert.equal(requests[1].examples[0].label,'ai');
   const snapshot=await engine.snapshot(true);assert.equal(snapshot.learning.length,1);
   assert.equal((await engine.snapshot()).learning,undefined);
   await engine.removeExample(snapshot.learning[0].key);assert.equal((await engine.snapshot(true)).learning.length,0);
@@ -82,11 +82,11 @@ test('negative labels retain short replies and bound the personalization example
   let examples;const {engine}=setup(async(i,s)=>{examples=s.examples;return result();});
   for(let n=0;n<45;n++)await engine.learn({...item(n),text:'谢谢，已解决。'},n%2?'ai':'human');
   assert.equal((await engine.classify({...item(44),text:'谢谢，已解决。'})).override,'keep');
-  await engine.classify(item(100));assert.ok(examples.length<=6);assert.ok((await engine.snapshot(true)).learning.length<=40);
+  await engine.classify({...item(100),handle:'another'});assert.ok(examples.length<=6);assert.ok((await engine.snapshot(true)).learning.length<=40);
 });
-test('clear history ordered after a label removes examples and overrides together',async()=>{
+test('clear history removes examples while preserving account choices',async()=>{
   const {engine}=setup(async()=>result());await Promise.all([engine.learn(item(1),'ai'),engine.clearHistory()]);
-  assert.equal((await engine.snapshot(true)).learning.length,0);assert.deepEqual(await engine.localDecision(item(1)),{});
+  assert.equal((await engine.snapshot(true)).learning.length,0);assert.equal((await engine.localDecision(item(1))).account,'ai');
 });
 test('explicit human labels survive provider and semantic-rule changes',async()=>{
   const {engine}=setup(async()=>result());await engine.learn(item(1),'human');

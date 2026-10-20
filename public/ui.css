@@ -83,6 +83,9 @@ footer{display:flex;gap:12px;justify-content:space-between;border-top:1px solid 
 #notice,#demo-note{font-size:13px;background:var(--soft);color:var(--accent);padding:10px 12px;border-radius:6px;margin:0 0 16px;overflow-wrap:anywhere}
 #notice.error{background:#fff0e7;color:#9b4023}
 .account-row{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0;font-size:13px}
+.account-lists .account-row>span{margin-right:auto;min-width:0;overflow-wrap:anywhere}
+.account-lists .account-row>button{flex:none}
+@media(max-width:600px){.account-lists .account-row{flex-wrap:wrap;justify-content:flex-start}.account-lists .account-row>span{flex-basis:100%}}
 .empty{font-size:13px;color:var(--muted);padding:10px 0}
 .feedback-row{font-size:13px;padding:10px 0;border-bottom:1px solid var(--line)}
 .feedback-row p{overflow-wrap:anywhere;color:var(--muted);font-size:13px}
