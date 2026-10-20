@@ -1,0 +1,3 @@
+无需扩展账号。免费测试：刷新 X，回复下可人工标 AI/真人；常用 @ 支持昵称、账号、拼音插入；书签页自动保存已加载内容，可暂停、备注并导出 Markdown。工作台含搜索构建/保存/JSON 导入导出、待回复及复盘 CSV。
+模型需自备密钥，在连接页授权所选域名并连接保存，默认 TypeSafe。使用 systemone/decisions JSON，不执行远程代码。设置阈值测试折叠。账号主页加载至少 5 条主帖再点击分析值得关注；互动不足明确留空。帖子时间旁星光入口记录兴趣正反反馈，自动兴趣估计默认关闭，不训练 X 推荐。原始看好与后续数据分开保留，不后台抓取或代发。
+完整说明：https://github.com/joeseesun/qiaomu-x-helper/blob/main/docs/store/reviewer-notes.txt

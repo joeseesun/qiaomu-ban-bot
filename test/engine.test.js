@@ -47,7 +47,7 @@ test('feedback, allowlist and blocklist avoid further model calls',async()=>{
 test('snapshot never discloses credentials; provider changes clear old key',async()=>{
   const {engine}=setup(async()=>result());
   assert.equal(JSON.stringify(await engine.snapshot(true)).includes('fixture'),false);
-  await engine.updateSettings({provider:'typesafe'});assert.equal((await engine.snapshot()).configured,false);
+  await engine.updateSettings({provider:'magpie'});assert.equal((await engine.snapshot()).configured,false);
   await assert.rejects(engine.classify(item(1)),/API Key/);
 });
 test('concurrent list edits preserve every author and partial preferences preserve lists',async()=>{
@@ -64,8 +64,8 @@ test('one click validates a real model response before saving the candidate cred
 });
 test('failed connection validation preserves the previous working setup',async()=>{
   const {engine,saved}=setup(async()=>{throw new Error('unauthorized');});
-  await assert.rejects(engine.connect({provider:'typesafe'},'wrong'),/unauthorized/);
-  assert.equal(saved().banbot.apiKey,'fixture');assert.equal((await engine.snapshot()).settings.provider,'magpie');
+  await assert.rejects(engine.connect({provider:'magpie'},'wrong'),/unauthorized/);
+  assert.equal(saved().banbot.apiKey,'fixture');assert.equal((await engine.snapshot()).settings.provider,'typesafe');
 });
 test('user labels affect later requests, invalidate cached decisions, and can be removed',async()=>{
   const requests=[];const {engine}=setup(async(i,s)=>{requests.push(structuredClone(s));return result();});

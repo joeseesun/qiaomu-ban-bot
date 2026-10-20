@@ -15,9 +15,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: python3 -m unittest discover -s server -p 'test_*.py'
       - run: npm run package
       - uses: actions/upload-artifact@v4
         with:
           name: chrome-extension
-          path: artifacts/qiaomu-ban-bot-*-chrome.zip
+          path: artifacts/qiaomu-x-helper-*-chrome.zip
           if-no-files-found: error

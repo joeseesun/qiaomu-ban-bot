@@ -36,7 +36,7 @@ test('semantic rule is independent of AI authorship', () => {
   const s = { ...DEFAULTS, customRule: '引流' };
   assert.equal(decide(reply, result({ ai_written: .1, rule_match: .96 }), s).collapse, true);
   assert.equal(decide(reply, result({ ai_written: .1, rule_match: .96 }), DEFAULTS).collapse, false);
-  const q = buildRequest(reply, s); assert.equal(q.model, 'typesafe/jev-latest'); assert.ok(q.questions.rule_match); assert.equal(q.state.text, reply.text);
+  const q = buildRequest(reply, s); assert.equal(q.model, 'jev-latest'); assert.ok(q.questions.rule_match); assert.equal(q.state.text, reply.text);
 });
 test('hot forecast requires timestamp, minimum observation, views and open time window', () => {
   const now = 1800000000000;
@@ -48,7 +48,7 @@ test('hot forecast requires timestamp, minimum observation, views and open time 
 });
 test('cache identity includes context, rules, provider and forecast target', async () => {
   const key = await cacheKey(reply, DEFAULTS, 1);
-  for (const [item,s] of [[{...reply,text:'edited'},DEFAULTS],[{...reply,parent:'other'},DEFAULTS],[reply,{...DEFAULTS,customRule:'promotion'}],[reply,{...DEFAULTS,provider:'typesafe'}]]) assert.notEqual(await cacheKey(item,s,1),key);
+  for (const [item,s] of [[{...reply,text:'edited'},DEFAULTS],[{...reply,parent:'other'},DEFAULTS],[reply,{...DEFAULTS,customRule:'promotion'}],[reply,{...DEFAULTS,provider:'magpie'}]]) assert.notEqual(await cacheKey(item,s,1),key);
   assert.equal(await cacheKey(reply,{...DEFAULTS,threshold:.99},1),key);
 });
 test('input boundary and duplicates do not confuse short human replies', () => {
@@ -67,7 +67,7 @@ test('AI folds strictly above 50%, without relaxing promotion and custom rules',
 test('actual HTTP adapter uses decisions protocol, rejects redirects and handles status/errors', async () => {
   const valid = { model: 'jev-test', answers: Object.fromEntries(['ai_written','useful','spam'].map(k=>[k,{type:'noul',noul:.3}])) };
   await analyze(reply, DEFAULTS, 'fixture-key', async (url, init) => {
-    assert.equal(url,'https://magpie.qiaomu.ai/v1/systemone'); assert.equal(init.redirect,'error'); assert.equal(init.credentials,'omit'); assert.equal(init.headers.Authorization,'Bearer fixture-key');
+    assert.equal(url,'https://api.typesafe.ai/v1/systemone'); assert.equal(init.redirect,'error'); assert.equal(init.credentials,'omit'); assert.equal(init.headers.Authorization,'Bearer fixture-key');
     const body=JSON.parse(init.body); assert.equal(body.state.text,reply.text); assert.equal(body.messages,undefined); return new Response(JSON.stringify(valid));
   });
   await assert.rejects(analyze(reply,DEFAULTS,'fixture',async()=>new Response('',{status:429})), /限流/);

@@ -7,8 +7,13 @@ import { initForecastsUI } from './ui-forecasts.js';
 import { Forecasts } from './forecasts.js';
 import { Bookmarks } from './bookmarks.js';
 import { initBookmarksUI } from './ui-bookmarks.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download};
+import { initWorkspaceUI } from './ui-workspace.js';
+import { initCommunityUI } from './ui-community.js';
+import { Workspace } from './workspace.js';
+import { Features } from './features.js';
+import { importSearches, SEARCH_TEMPLATES } from './search.js';
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
@@ -23,6 +28,16 @@ const getBookmarks=()=>exportBookmarks??=(demo?new Bookmarks(indexedDB,'qiaomu-b
 const demoBookmarksReady=demo?getBookmarks().capture('demo_me',Array.from({length:25},(_,n)=>({id:String(30001+n),handle:'demo_author_'+(n%3),displayName:['开源观察站','产品随记','小夏同学'][n%3],text:['一个值得反复使用的小工具：把复杂的步骤，变成一次清晰的操作。\n这是模拟书签，方便预览导出效果。','做产品时，先找到那个每天都会发生的小麻烦。','留存思考的过程，比堆积链接更重要。'][n%3],publishedAt:Date.now()-86400000,partial:n===1,links:['https://example.com'],images:[]}))):Promise.resolve();
 const demoContacts=demo?new Contacts(indexedDB,'qiaomu-banbot-demo-contacts'):null;
 const demoForecasts=demo?new Forecasts(indexedDB,'qiaomu-banbot-demo-forecasts'):null;
+const demoWorkspace=demo?new Workspace(indexedDB,IDBKeyRange,'qiaomu-x-helper-demo-workspace'):null;
+const demoFeatures=demo?new Features(demoWorkspace,{evaluate:async(state,questions)=>({scores:Object.fromEntries(Object.keys(questions).map(k=>[k,k==='originality'?.78:k==='interaction'?.83:.86])),model:'示例模型',analyzedAt:Date.now()})}):null;
+const demoWorkspaceReady=demo?(async()=>{
+  await demoWorkspace.profile('demo_me',{topics:'AI 工具、独立开发、开源项目',avoid:'空泛广告',enabled:false});
+  if(!(await demoWorkspace.page('searches','demo_me')).items.length){for(const t of SEARCH_TEMPLATES.slice(0,3))if(!t.ownerField)await demoWorkspace.saveSearch('demo_me',{name:t.name,category:t.category,filters:t.filters,pinned:true});}
+  const item={id:'50001',handle:'demo_author',displayName:'开源观察站',kind:'post',text:'你在实际项目里怎样评估 AI 工具？想比较真实使用经验。',parent:'',metrics:{}};
+  await demoWorkspace.queue('demo_me',item,{score:.88,pinned:true});
+  await demoWorkspace.saveFeedback('demo_me',item,'yes','具体有用');
+  await demoWorkspace.rate('demo_me','demo_author',{displayName:'开源观察站',dimensions:{content:.86,originality:.78,interaction:null},overall:83,postCount:8,replyCount:1,coverage:'partial',model:'示例模型',evidence:[{id:item.id,kind:'post',text:item.text}]});
+})():Promise.resolve();
 const demoForecastsReady=demo?demoForecasts.watch('demo_me',{id:'10001',handle:'demo_author',displayName:'开源观察站',text:'一个开源小工具，能把三个小时的重复工作缩短到几分钟。',createdAt:Date.now()-3600000,metrics:{views:320,likes:8,replies:2}}, {scores:{hot:.32},model:'演示模型'},30000):Promise.resolve();
 const demoContactsReady=demo?Promise.all(Array.from({length:26},(_,n)=>demoContacts.put('demo_me',{handle:'friend_'+(n+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],note:n<2?'一起做开源的朋友':'',pinned:n<2},{at:Date.now()-n*3600000}))):Promise.resolve();
 const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n%25+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
@@ -30,6 +45,22 @@ let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configur
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
+    if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
+    if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
+    if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
+    if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update','inbox-rank','interest-label'].includes(message.type)){
+      await demoWorkspaceReady;const w=demoWorkspace,m=message;
+      if(m.type==='workspace-state')return w.profile(m.owner);
+      if(m.type==='workspace-page')return w.page(m.store,m.owner,m);
+      if(m.type==='workspace-configure')return w.profile(m.owner,m.profile);
+      if(m.type==='workspace-remove')return w.remove(m.store,m.owner,m.id);
+      if(m.type==='search-save')return w.saveSearch(m.owner,m.search);
+      if(m.type==='search-import')return w.importSearches(m.owner,importSearches(m.value));
+      if(m.type==='interest-label')return w.saveFeedback(m.owner,m.item,m.label,m.reason);
+      if(m.type==='inbox-rank')return demoFeatures.rankInbox(m.owner,m.id);
+      if(m.type==='inbox-update')return w.queue(m.owner,await w.get('inbox',m.owner,m.id),{status:m.status,pinned:m.pinned,note:m.note});
+    }
+    if(message.type==='forecast-summary'){await demoForecastsReady;return demoForecasts.summary(message.owner);}
     if(message.type.startsWith('bookmarks-')){await demoBookmarksReady;const b=getBookmarks();if(message.type==='bookmarks-state')return b.state();if(message.type==='bookmarks-page')return b.page(message);if(message.type==='bookmarks-edit')return b.edit(message.owner,message.id,message);if(message.type==='bookmarks-remove')return b.remove(message.owner,message.id);}
     if(message.type==='forecast-page'){await demoForecastsReady;return demoForecasts.page(message);}
     if(message.type==='forecast-remove')return demoForecasts.remove(message.owner,message.id);
@@ -92,12 +123,16 @@ function fillConnection(settings){
   renderKey();providerDetails();
 }
 async function tab(name){
+  document.body.classList.remove('inbox-workbench');
+  const workspaceRoute=name.startsWith('workspace')?name:null;
+  if(workspaceRoute)name='workspace';
   const contactsView=name==='contacts';if(contactsView)name='accounts';
-  if(!['overview','rules','annotations','accounts','model','about','forecasts','bookmarks'].includes(name))name='overview';
+  if(!['overview','rules','annotations','accounts','model','about','forecasts','bookmarks','workspace'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
   for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===(name==='forecasts'?'overview':name));n.setAttribute('aria-current',n.dataset.tab===(name==='forecasts'?'overview':name)?'page':'false');}
-  history.replaceState(null,'',`${location.pathname}${location.search}#${contactsView?'contacts':name}`);
+  history.replaceState(null,'',`${location.pathname}${location.search}#${workspaceRoute|| (contactsView?'contacts':name)}`);
+  if(name==='workspace'){const [route,query='']=workspaceRoute.split('?');await workspaceUI.open(route.split('/')[1]||'search',new URLSearchParams(query).get('draft')||'');}
   if(name==='bookmarks')await bookmarksUI.open();
   if(name==='forecasts')await forecastsUI.open();
   if(name==='annotations')await loadLabels(true);
@@ -110,6 +145,8 @@ async function tab(name){
 const contactsUI=initContactsUI({send,notice,glyph});
 const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
 const forecastsUI=initForecastsUI({send,notice});
+const workspaceUI=initWorkspaceUI({send,notice,glyph});
+const communityUI=initCommunityUI({send,notice,demo});
 $('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true));
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
@@ -171,6 +208,7 @@ function thresholdCopy(){
 }
 function render({connection=true}={}){
   const s=snapshot.settings;
+  communityUI.set(s);
   for(const k of ['enabled','radar','duplicates','highlightUseful'])$(k).checked=s[k];
   for(const k of ['customRule','hotViews','dailyLimit'])$(k).value=s[k];
   $('threshold').value=$('threshold-number').value=Math.round(s.threshold*100);
@@ -200,7 +238,7 @@ bind('preview-expand',()=>{$('preview-text').hidden=!$('preview-text').hidden;$(
 bind('open-options',()=>demo?tab('rules'):chrome.runtime.openOptionsPage());
 bind('save-rules',async()=>{
   if(!$('hotViews').reportValidity()||!$('threshold-number').reportValidity())return;
-  await save({filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
+  await save({...communityUI.get(),filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
 });
 bind('save-usage',async()=>{if(!$('dailyLimit').reportValidity())return;await save({dailyLimit:Number($('dailyLimit').value)});notice(`每日上限已设为 ${snapshot.settings.dailyLimit.toLocaleString()} 次。`);});
 bind('save-model',async()=>{

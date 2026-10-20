@@ -1,9 +1,9 @@
 {
-  "name": "qiaomu-ban-bot",
-  "version": "0.1.9",
+  "name": "qiaomu-x-helper",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "A Jev-powered Chrome extension for quieter X conversations.",
+  "description": "A Chrome assistant for X replies, mentions, post tracking, and bookmark export.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.js",

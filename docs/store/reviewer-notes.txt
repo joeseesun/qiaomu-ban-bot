@@ -1,0 +1,26 @@
+Qiaomu X Helper 0.2.0 is an independent, Simplified Chinese UI extension for reading and organizing content on X. It is not affiliated with X.
+
+No separate extension login is required. Use a reviewer-owned X account for X pages; do not use the publisher's personal account. The extension is free. Optional AI features use the user's own Jev API key and may incur charges from that selected provider. No developer credential is bundled, and no model call is made until a key is configured.
+
+Testing without an API key:
+1. Open X, refresh after installation, open the extension and choose 账号 → 常用 @. The extension can observe the signed-in handle from X; if necessary choose 手动添加我的 X 账号, then add your own @handle.
+2. @vista8 appears as an editable/removable feedback contact. Add another contact, name, note or pin, then search by name, handle or pinyin.
+3. In the X post/reply editor, click the added @ control and select a contact. It inserts display name + @handle at the caret. Undo should restore the draft. It does not post automatically.
+4. Open X bookmarks (either /i/bookmarks or the newer /i/history bookmark view). Loaded bookmarks are copied locally, and a sticky progress bar offers pause/resume and 查看 / 导出. Open that library, search, edit a note/tag and export Markdown. No X bookmark is removed by deleting a local copy.
+5. In an X conversation, use the robot/human annotation buttons to manually mark a reply and inspect 标注 in the extension. Account blocking always requires the user's own X confirmation.
+
+Additional local features: 工作台 → 搜索 builds native X search queries, with templates, a local saved library and JSON round-trip. 待回复 stores only loaded notification mentions or manually added posts; the toggle pauses capture. Processing statuses are manual and do not claim a sent reply. 工作台 → 复盘 shows saved initial predictions and visible metric snapshots and exports CSV.
+
+Optional Jev testing:
+Open 连接. Choose your provider (e.g. TypeSafe or OpenRouter), paste your own Jev API key and click 连接并保存. The extension requests access to that provider's domain and performs one bounded connection test before saving. Uses TypeSafe /v1/systemone or OpenRouter /alpha/decisions with state/questions and typed Noul answers, NOT an ordinary chat-completions endpoint. It accepts only JSON decision data and does not execute model responses or download executable code. Return to an X conversation and refresh to see AI estimates; change 过滤 threshold to test reversible automatic collapsing. Main-post forecasts require a visible view count, an age between 10 minutes and 24 hours, and a not-yet-reached view target. Click the flame → 我感觉能爆 to keep a local forecast record; revisiting the post updates visible metrics.
+
+KOL: open an X profile, load at least five posts by that author, then explicitly click 分析值得关注. Current loaded samples only; interaction remains unknown without three author replies. 工作台 → 账号 shows saved scores and evidence. No follower-based score or identity certification.
+Interest: 工作台 → 兴趣 lets the user state topics/avoidances. The sparkle icon after a post timestamp opens interest/worth-reply estimates, reversible yes/no feedback with an optional reason, and 稍后回复. Automatic interest estimates default OFF; enabling them uses the same model quota. Up to six feedback examples and stated preferences go to the selected model. These preferences do not train X recommendations or model weights.
+
+Permissions: storage retains local settings/credentials; mandatory hosts are X/Twitter only for reading loaded posts and adding controls. Optional HTTPS/localhost hosts support an explicitly chosen model base URL, granted per origin at connection time. No history, cookies, debugger, nativeMessaging, identity or webRequest permission. No analytics/tracking SDK and no remotely hosted code.
+
+AI results can be wrong and are not proof of identity. No AI accuracy claim, automated X blocking, mass posting or background scraping is included. KOL and interest are limited-sample model references with user-controlled actions.
+
+Source and test boundaries: https://github.com/joeseesun/qiaomu-x-helper/blob/main/docs/QA.md
+Privacy: https://github.com/joeseesun/qiaomu-x-helper/blob/main/PRIVACY.md
+Support: https://github.com/joeseesun/qiaomu-x-helper/issues

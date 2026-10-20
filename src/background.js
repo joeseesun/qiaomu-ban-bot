@@ -5,6 +5,10 @@ import { IndexedAnnotations } from './annotations.js';
 import { Contacts } from './contacts.js';
 import { Forecasts } from './forecasts.js';
 import { Bookmarks, bookmarkPath } from './bookmarks.js';
+import { Workspace } from './workspace.js';
+import { Features } from './features.js';
+import { importSearches } from './search.js';
+import { Community, COMMUNITY_ORIGIN } from './community.js';
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
 const forecasts = new Forecasts();
@@ -13,6 +17,11 @@ const engine = new Engine({
   get: async key => { await secure; return chrome.storage.local.get(key); },
   set: async value => { await secure; return chrome.storage.local.set(value); },
 }, undefined, new IndexedAnnotations());
+const workspace=new Workspace(),features=new Features(workspace,engine);
+const community=new Community({get:async k=>{await secure;return chrome.storage.local.get(k);},set:async v=>{await secure;return chrome.storage.local.set(v);}});
+engine.communityEvidence=id=>community.evidence(id);
+void community.sync();
+async function share(item,label){try{const result=await community.enqueue(item,label);void community.sync();return result;}catch(e){return{shared:false,reason:e.message};}}
 async function broadcast(message = {type:'refresh'}) {
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.tabs.sendMessage(tab.id, message)));
@@ -26,8 +35,28 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'local-decision') return engine.localDecision(message.item);
     if (message.type === 'list') { const result = await engine.listAction(message.handle, message.action); await broadcast(); return result; }
     if (message.type === 'feedback') { const result = await engine.feedback(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
-    if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
-    if (message.type === 'options') { if(['contacts','forecasts','bookmarks'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
+    if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return {...result,...shared}; }
+    if (message.type === 'options') { if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/ratings','workspace/inbox','workspace/interests','workspace/review'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
+    if(message.type==='workspace-state')return workspace.profile(message.owner);
+    if(message.type==='kol-analyze')return features.kol(message.owner,message.handle,message.items);
+    if(message.type==='kol-get')return workspace.get('ratings',message.owner,message.handle);
+    if(message.type==='interest-analyze')return features.interest(message.owner,message.item);
+    if(message.type==='interest-status'){const row=await workspace.get('feedback',message.owner,message.id);return{label:row?.label||null,reason:row?.reason||''};}
+    if(message.type==='interest-label'){const r=await workspace.saveFeedback(message.owner,message.item,message.label,message.reason);await broadcast({type:'interest-changed',owner:message.owner});return r;}
+    if(message.type==='inbox-add'){
+      if(message.source==='mention'){
+        if(who!=='content'||!/^\/notifications(?:\/mentions)?\/?$/.test(new URL(sender.url).pathname))throw Error('自动提及仅限 X 通知页。');
+        if(!(await workspace.profile(message.owner)).collectMentions)return{skipped:'paused'};
+      }
+      const row=await workspace.queue(message.owner,message.item,{source:message.source==='mention'?'mention':'manual'});await broadcast({type:'inbox-changed',owner:message.owner,id:message.item.id});return row;
+    }
+    if(message.type==='inbox-status'){if(!Array.isArray(message.ids)||message.ids.length>50)throw Error('待回复查询过多');return Promise.all(message.ids.filter(id=>/^\d{1,25}$/.test(id)).map(async id=>{const r=await workspace.get('inbox',message.owner,id);return{id,status:r?.status||null};}));}
+    if(message.type==='inbox-summary')return workspace.inboxSummary(message.owner);
+    if(message.type==='author-evidence'){
+      const item=(await import('./core.js')).validateItem(message.item),rows=await engine.annotations.byAuthor({...item,id:''});
+      return{ai:rows.filter(r=>r.label==='ai').length,human:rows.filter(r=>r.label==='human').length,sampleLimit:40,community:item.author?.userId?await community.evidence(item.author.userId).catch(()=>null):null};
+    }
+    if(message.type==='profile-note'&&who==='content')return contacts.put(message.owner,{handle:message.handle,displayName:message.displayName,note:message.note});
     if(message.type==='forecast-watch'&&who==='content'){await contacts.observe(message.owner);return forecasts.watch(message.owner,message.item,message.result,message.target);}
     if(message.type==='forecast-observe'&&who==='content')return forecasts.observe(message.owner,message.items);
     if(message.type==='contacts-page')return contacts.page(message);
@@ -42,11 +71,32 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return bookmarks.capture(message.owner,message.items);
     }
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
+    if(message.type==='community-state')return community.snapshot();
+    if(message.type==='community-connect'){
+      if(!await chrome.permissions.contains({origins:[COMMUNITY_ORIGIN+'/*']}))throw Error('尚未授予社区服务访问权限。');
+      return community.connect(message.invite);
+    }
+    if(message.type==='community-configure')return community.configure(message);
+    if(message.type==='community-sync')return community.sync();
+    if(message.type==='community-withdraw')return community.withdraw();
+    if(message.type==='workspace-configure'){const r=await workspace.profile(message.owner,message.profile||{});await broadcast({type:'interest-changed',owner:message.owner});return r;}
+    if(message.type==='workspace-page')return workspace.page(message.store,message.owner,message);
+    if(message.type==='search-save')return workspace.saveSearch(message.owner,message.search);
+    if(message.type==='search-import')return workspace.importSearches(message.owner,importSearches(message.value));
+    if(message.type==='workspace-remove'){
+      if(!['searches','ratings','feedback','inbox'].includes(message.store))throw Error('未知记录类型。');
+      const r=await workspace.remove(message.store,message.owner,message.id);
+      if(message.store==='inbox')await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});
+      if(message.store==='feedback'){await workspace.profile(message.owner,{});await broadcast({type:'interest-changed',owner:message.owner});}return r;
+    }
+    if(message.type==='inbox-update'){const row=await workspace.get('inbox',message.owner,message.id);if(!row)throw Error('这条记录已移除。');const updated=await workspace.queue(message.owner,row,{status:message.status,pinned:message.pinned,note:message.note});await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});return updated;}
+    if(message.type==='inbox-rank')return features.rankInbox(message.owner,message.id);
     if(message.type==='bookmarks-state')return bookmarks.state();
     if(message.type==='bookmarks-page')return bookmarks.page(message);
     if(message.type==='bookmarks-edit')return bookmarks.edit(message.owner,message.id,message);
     if(message.type==='bookmarks-remove')return bookmarks.remove(message.owner,message.id);
     if(message.type==='forecast-page')return forecasts.page(message);
+    if(message.type==='forecast-summary')return forecasts.summary(message.owner);
     if(message.type==='forecast-remove')return forecasts.remove(message.owner,message.id);
     if(message.type==='contacts-state')return contacts.state(message.owner);
     if(message.type==='contacts-save')return contacts.put(message.owner,message.contact);
@@ -56,7 +106,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='annotations')return engine.annotationPage(message);
     if(message.type==='reveal-key'){await engine.ready;return {apiKey:engine.data.apiKey};}
     if (message.type === 'remove-example' || message.type==='edit-annotation') {
+      const item=await engine.annotations.get(message.key);
       const result=await engine.editAnnotation(message.key,message.type==='remove-example'?null:message.label);
+      if(item)await share(item,message.type==='remove-example'?null:message.label);
       await broadcast({type:'annotation-changed',id:result.id});return result;
     }
     if (message.type === 'connect') {
