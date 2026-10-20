@@ -1,5 +1,5 @@
 import { mergeSettings, sameCredentialTarget, resolveConnection, connectionIdentity, connectionFields } from './connection.js';
-import { normalizeSettings, validateItem, cacheKey, annotationKey, hotStatus, handleOf } from './core.js';
+import { normalizeSettings, validateItem, cacheKey, annotationKey, textKey, hotStatus, handleOf } from './core.js';
 import { analyze, analyzeDecision } from './jev.js';
 import { examplesFor } from './learning.js';
 import { MemoryAnnotations } from './annotations.js';
@@ -92,7 +92,7 @@ export class Engine {
     return this.mutate(async () => {
       const item = validateItem(input);
       if (item.kind !== 'reply' || !['ai','human',null].includes(label) || !item.text.trim()) throw new Error('请选择有效的回复标签');
-      const key = await annotationKey(item);
+      const key = (await this.annotations.post(item.id))?.key || await annotationKey(item);
       return this.changeAnnotation(key,item,label);
     });
   }
@@ -101,8 +101,10 @@ export class Engine {
     const before={learning:this.data.learning,overrides:structuredClone(this.data.overrides),cache:this.data.cache};
     if(label) {
       const modelKey=item.key===key&&previous?.modelKey?previous.modelKey:await cacheKey(item,this.data.settings);
-      const modelResult=this.data.cache[modelKey]?.result || (previous?.modelKey===modelKey?previous.modelResult:undefined);
-      await this.annotations.put({...item,text:item.text.slice(0,1000),parent:item.parent.slice(0,500),key,label,at:Date.now(),modelKey,modelResult});
+      const textDigest=await textKey(item.text);
+      const modelResult=this.data.cache[modelKey]?.result || Object.values(this.data.cache).find(c=>c.postId===item.id&&c.textDigest===textDigest)?.result || previous?.modelResult;
+      const {observedReplies,...record}=item;
+      await this.annotations.put({...record,text:item.text.slice(0,1000),parent:item.parent.slice(0,500),key,label,at:Date.now(),modelKey,modelResult});
       delete this.data.overrides[key];
     } else await this.annotations.remove(key);
     this.data.cache={};this.revision++;
@@ -173,11 +175,11 @@ export class Engine {
     const item = validateItem(input);
     const key=await annotationKey(item), modelKey=await cacheKey(item,this.data.settings);
     let override = this.data.overrides[key] || this.data.overrides[modelKey];
-    const sample=await this.annotations.get(key);
+    const sample=await this.annotations.get(key)||await this.annotations.post(item.id);
     // Backfill names from an already visible post; never fetch profiles or alter labels.
-    if(sample&&item.displayName&&sample.displayName!==item.displayName)await this.mutate(()=>this.annotations.rememberName(key,item.displayName));
+    if(sample&&(item.displayName&&sample.displayName!==item.displayName||item.author?.userId&&!sample.author?.userId))await this.mutate(()=>this.annotations.rememberName(sample.key,item.displayName||sample.displayName,item.author));
     if(sample && (!override || sample.at>override.at)) override={label:sample.label==='ai'?'hide':'keep',source:'learning'};
-    return { ...(sample?.modelKey===modelKey ? sample.modelResult : {}),
+    return { ...(sample?.modelResult || {}),
       ...(override ? {override:override.label,...(override.source==='learning'?{learned:true}:{})} : {}),
       ...(sample ? {annotation:sample.label} : {}),
     };
@@ -185,6 +187,12 @@ export class Engine {
   async classify(input, manual = false) {
     await this.ready;
     const item = validateItem(input), settings = structuredClone(this.data.settings);
+    if(item.kind==='reply'){
+      const history=await this.annotations.byAuthor(item);
+      const distinct=[...new Map(history.map(r=>[r.id,r])).values()];
+      settings.authorLabels={source:'your manual labels on other posts',identityCoverage:item.author?.userId?'matching stable user IDs; unverified legacy labels excluded':'handle only; account renames or reassignment are unknown',ai:distinct.filter(r=>r.label==='ai').length,human:distinct.filter(r=>r.label==='human').length,posts:distinct.length,sampleLimit:40};
+      if(this.communityEvidence&&item.author?.userId)settings.communityLabels=await this.communityEvidence(item.author.userId).catch(()=>null);
+    }
     if (!manual && !settings.enabled) return { skipped: 'disabled' };
     if (!manual && (settings.allowlist.includes(item.handle) || settings.blocklist.includes(item.handle))) return { local: true };
     const hot = item.kind === 'post' ? hotStatus(item, settings) : null;
@@ -213,7 +221,7 @@ export class Engine {
         if (revision !== this.revision) return { skipped: 'changed' };
         this.data.stats.inputTokens += result.inputTokens;
         this.data.lastError = ''; this.data.lastModel = result.model;
-        this.data.cache[key] = { result, expires: Date.now() + (item.kind === 'reply' ? 7 * 86400000 : 300000) };
+        this.data.cache[key] = { result, postId:item.id,textDigest:await textKey(item.text), expires: Date.now() + (item.kind === 'reply' ? 7 * 86400000 : 300000) };
         this.data.cache = Object.fromEntries(Object.entries(this.data.cache).filter(([, c]) => c.expires > Date.now()).sort((a, b) => b[1].result.analyzedAt - a[1].result.analyzedAt).slice(0, 1000));
         await this.save();
         return { ...result, hot };

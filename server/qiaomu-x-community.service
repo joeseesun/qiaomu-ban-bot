@@ -1,0 +1,24 @@
+[Unit]
+Description=Qiaomu X community annotations
+After=network.target
+
+[Service]
+Type=simple
+User=qiaomu-x-community
+Group=qiaomu-x-community
+WorkingDirectory=/opt/qiaomu-apps/x-community
+Environment=COMMUNITY_DB=/var/lib/qiaomu-x-community/community.sqlite
+ExecStart=/usr/bin/python3 /opt/qiaomu-apps/x-community/community.py --port 3258
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/qiaomu-x-community
+MemoryMax=256M
+TasksMax=40
+
+[Install]
+WantedBy=multi-user.target

@@ -263,3 +263,26 @@ button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 #ws-review-summary{font-variant-numeric:tabular-nums}#ws-review-list:empty{display:none}
 @media(max-width:480px){nav{gap:0}nav button{font-size:11px}.workspace-grid{grid-template-columns:minmax(0,1fr)}.workspace-actions{gap:6px}.workspace-row-head{gap:6px}.workspace-dimensions b{font-size:14px}.workspace-note-editor{flex-wrap:wrap}.workspace-note-editor input{flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+/* Reading and queue additions keep inherited spacing and theme tokens. */
+.rule-editor{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.rule-editor>input{flex:1;min-width:120px}.rule-editor .field{flex:1;min-width:120px;margin:0}
+.rule-editor select,.rule-editor>input{font:inherit;max-width:100%;padding:8px;border:1px solid var(--line,#ddd);border-radius:6px;color:inherit;background:transparent}
+.rule-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#eee)}.rule-row>span{flex:1;overflow-wrap:anywhere}.rule-row small{color:var(--muted,#777)}
+.inbox-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:start}
+#ws-inbox-detail{position:sticky;top:20px;border:1px solid var(--line,#ddd);border-radius:8px;padding:18px;min-width:0}
+.inbox-row{padding:12px}.inbox-row.selected{border-color:var(--text,#777)}.inbox-select{display:block;background:transparent;border:0;color:inherit;text-align:left;width:100%;padding:0;font:inherit;cursor:pointer}.inbox-select .annotation-text{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#ws-inbox-detail .annotation-text{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:680px){.inbox-layout{grid-template-columns:minmax(0,1fr)}#ws-inbox-detail{position:static}}
+body.inbox-workbench:not(.popup) #app{max-width:1040px}
+.inbox-workbench #workspace>.page-heading{display:none}
+.inbox-workbench #workspace>.field{flex-direction:row;align-items:center;justify-content:flex-end;margin:0 0 12px;font-size:12px}
+.inbox-workbench #ws-owner{width:180px;min-height:34px;padding:6px 10px}
+.inbox-workbench .workspace-tabs{margin-bottom:16px}
+.inbox-workbench #ws-inbox-view h3{font-size:20px;font-weight:600;color:var(--ink);margin:0 0 6px}
+.inbox-workbench #ws-inbox-view>.hint{margin:6px 0 12px}
+.inbox-workbench .rule-editor{gap:12px;margin:12px 0}
+.inbox-workbench .inbox-preferences{margin:8px 0}
+.inbox-workbench .workspace-list-tools{margin-top:14px;padding-top:14px}
+.inbox-workbench .inbox-row{padding:16px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+.inbox-workbench .inbox-row.selected{background:var(--soft);border-color:var(--focus)}
+.inbox-workbench #ws-inbox-detail{background:var(--bg)}

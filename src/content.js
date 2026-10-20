@@ -3,6 +3,7 @@ import { ARTICLE, extractArticle } from './dom.js';
 import { CSS, icons, icon } from './content-ui.js';
 import { currentOwner } from './composer.js';
 import { bookmarkPath } from './bookmarks.js';
+import { ruleMatches } from './rules.js';
 const send = async message => { const r = await chrome.runtime.sendMessage(message); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
 let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map() };
@@ -123,11 +124,12 @@ function render(article, state) {
   if (!article.isConnected || states.get(article) !== state) return;
   const { item, result } = state;
   state.hotHost?.remove(); state.hotHost=null;
-  const isLocal = settings.blocklist.includes(item.handle) && !settings.allowlist.includes(item.handle);
+  const isLocal = settings.blocklist.includes(item.handle) && !settings.allowlist.includes(item.handle) || ruleMatches(item,settings).length>0;
   restore(article);
   if (!settings.enabled || (!isLocal && (item.kind === 'unknown' || (item.kind === 'post' && !settings.radar)))) { state.host?.remove(); return; }
   const host = hostFor(article); if (!host) return;
   const root = host.shadowRoot;
+  const detailsOpen=root.querySelector('.panel')?.hidden===false;
   root.replaceChildren();
   const style = el('style'); style.textContent = CSS; root.append(style);
   const background = getComputedStyle(document.body).backgroundColor;
@@ -139,11 +141,11 @@ function render(article, state) {
   host.style.setProperty('--qb-button', dark ? '#171717' : '#fff');
   host.style.setProperty('--qb-border', dark ? '#333' : '#eaeaea');
   const bar = el('div', null, 'bar'), toolbar = el('div', null, 'toolbar'); bar.append(toolbar); root.append(bar);
-  if (state.error) {
+  if (state.error && item.kind==='post') {
     toolbar.append(el('span', state.error, 'label muted'));
     toolbar.append(button('重试', () => { state.error = ''; state.started = false; return processArticle(article, state, true); })); return;
   }
-  if (!configured && !isLocal) { toolbar.append(el('span', '乔木 X 助手 · 连接 Jev 后自动判断', 'label muted'), button('连接模型', () => send({ type: 'options' }))); return; }
+  if (!configured && !isLocal && item.kind==='post') { host.remove(); return; }
   if (item.kind === 'post' && !isLocal) {
     if (!settings.radar) return;
     if (!result) { toolbar.append(el('span', state.started ? '正在判断热帖潜力…' : '乔木热帖雷达', 'label muted'), button('判断热帖潜力', () => processArticle(article, state, true))); return; }
@@ -195,18 +197,20 @@ function render(article, state) {
   if (collapsed) { article.append(host); article.setAttribute('data-qb-collapsed', ''); bar.classList.add('folded'); }
   else if (expanded && decision.collapse) { host.parentElement.prepend(host); bar.classList.add('expanded'); }
   const hasScore = typeof result?.scores?.ai_written === 'number';
-  const title = hasScore ? `AI 概率：${Math.round(result.scores.ai_written * 100)}%` : 'AI 概率：—';
-  const signals = el('div', null, 'signals'), label = el('span', title, 'label score');
+  const title = hasScore ? `AI ${Math.round(result.scores.ai_written * 100)}` : '';
+  const signals = el('div', null, 'signals'), label = el('span', title, 'label score ai-chip');
+  label.hidden=!collapsed&&!expanded&&!result?.annotation&&!(hasScore&&result.scores.ai_written>settings.threshold)&&!decision.rules;
   label.title=hasScore ? result?.annotation ? '标注前的模型估计；人工标注不会改写这个分数' : '模型估计，不能证明作者身份' : '尚无模型评分';
-  const extra = expanded && decision.collapse ? `已展开 · @${item.handle}` : collapsed ? `@${item.handle}${result?.annotation ? ' · '+decision.label : ''}` : result?.annotation ? decision.label : settings.filterMode === 'label' && hasScore ? '仅标记' : decision.label && !decision.useful && !/AI/.test(decision.label) ? decision.label : '';
+  const extra = expanded && decision.collapse ? `已展开 · @${item.handle}` : collapsed ? `@${item.handle}${result?.annotation ? ' · '+decision.label : ''}` : result?.annotation ? decision.label : decision.label && !decision.useful && !/AI/.test(decision.label) ? decision.label : '';
   if (extra) label.append(el('span', extra, 'status'));
   signals.append(label);
   if (decision.useful && !decision.collapse) {
     const good = el('span', null, 'good'); good.title = '值得一读'; good.setAttribute('role','img'); good.setAttribute('aria-label','值得一读'); good.append(icon(icons.BookOpenCheck)); signals.append(good);
   }
   toolbar.append(signals);
+  let choices;
   if (item.kind === 'reply') {
-    const choices=el('div',null,'annotation'); choices.setAttribute('role','group'); choices.setAttribute('aria-label','人工标注');
+    choices=el('div',null,'annotation'); choices.setAttribute('role','group'); choices.setAttribute('aria-label','人工标注');
     for(const [value,name,glyph] of [['ai','标记 AI',icons.Bot],['human','标记真人',icons.UserRoundCheck]]) {
       const selected=result?.annotation===value;
       const control=button(name,()=>annotate(item,'learn',selected?null:value),{glyph,iconOnly:true});
@@ -214,14 +218,23 @@ function render(article, state) {
       control.title=selected ? `已${name}，再次点击撤销` : name;
       choices.append(control);
     }
-    if(collapsed)toolbar.append(choices);else toolbar.prepend(choices);
   }
   toolbar.append(el('span',null,'toolbar-spacer'));
+  toolbar.append(button(collapsed?'展开原文':'隐藏这条回复',()=>{
+    if(collapsed){keepReadingPosition(article,state,()=>{shown.add(item.id);render(article,state);},true);return;}
+    return annotate(item,'feedback','hide');
+  },{glyph:collapsed?icons.Eye:icons.EyeOff,iconOnly:true}));
+  toolbar.append(button('在 X 拉黑此作者，需确认',()=>openXBlock(article,item),{glyph:icons.UserRoundX,iconOnly:true}));
+  if(!collapsed)toolbar.append(signals);
   if (decision.collapse) {
     const toggle=button(collapsed ? '展开' : '收起', () => keepReadingPosition(article,state,()=>{ collapsed ? shown.add(item.id) : shown.delete(item.id); render(article, state); }, true));
     toggle.dataset.action='expand';toggle.setAttribute('aria-expanded',String(!collapsed));toolbar.append(toggle);
   }
   const panel = disclosure(bar, toolbar);
+  if(detailsOpen){panel.hidden=false;toolbar.querySelector('.disclosure').setAttribute('aria-expanded','true');}
+  if(choices)panel.append(choices);
+  if(!configured)panel.append(button('连接 Jev，开启文本判断',()=>send({type:'options'})));
+  if(state.error)panel.append(detailLine(state.error),button('重试判断',()=>{state.error='';state.started=false;return processArticle(article,state,true);}));
   if (result?.scores) {
     const scores = el('dl', null, 'scores');
     for (const [key,name] of [['ai_written','AI 概率'],['spam','引流']]) {
@@ -230,7 +243,7 @@ function render(article, state) {
     panel.append(scores);
   }
   if (item.kind === 'reply') {
-    panel.append(el('p','机器人 / 真人：点击标注，再点撤销。标注用于后续判断，不会改写上方模型分数。','hint'));
+    panel.append(el('p','标注这条文本为 AI / 非 AI，再点撤销。单条回复不能证明账号是机器人。','hint'));
   }
   const { section, actions } = actionSection(panel, `显示与账号 · @${item.handle}`);
   if (item.kind === 'reply') actions.append(button(collapsed ? '展开原文' : '折叠此条', () => {
@@ -253,7 +266,9 @@ async function processArticle(article, state, manual = false) {
     state.item = { ...latest, kind: state.item.kind };
   }
   if (state.item.kind === 'unknown') { render(article, state); return; }
-  if (!settings.enabled || !configured || (state.item.kind === 'post' && !settings.radar)) { render(article, state); return; }
+  if (!settings.enabled || (state.item.kind === 'post' && !settings.radar)) { render(article, state); return; }
+  if(!configured){state.started=true;try{state.result=await send({type:'local-decision',item:state.item});}catch{}render(article,state);return;}
+  if(ruleMatches(state.item,settings).some(r=>r.action==='fold')){state.started=true;state.result=await send({type:'local-decision',item:state.item}).catch(()=>null);render(article,state);return;}
   if (settings.allowlist.includes(state.item.handle) || settings.blocklist.includes(state.item.handle)) { render(article, state); return; }
   state.started = true; state.error = ''; render(article, state);
   const generation = epoch, fingerprint = state.fingerprint, version=state.version;
@@ -285,7 +300,7 @@ function scan() {
     if (item.kind === 'reply' && item.parent) conversation.parents.set(item.id,item.parent);
     if (conversation.parents.size > 2000) conversation.parents.delete(conversation.parents.keys().next().value);
     if (conversation.replyIds.size > 2000) conversation.replyIds.delete(conversation.replyIds.values().next().value);
-    const fingerprint = JSON.stringify([item.id, item.text, item.kind, item.parent]);
+    const fingerprint = JSON.stringify([item.id, item.text, item.kind, item.parent,item.author?.userId,item.directParent?.id,item.root?.id]);
     const existing = states.get(article);
     if (existing?.fingerprint === fingerprint) { existing.item.displayName=item.displayName; if ((existing.host && !existing.host.isConnected)||(existing.hotHost&&!existing.hotHost.isConnected)) render(article, existing); continue; }
     if (existing) { intersection.unobserve(article); resetArticle(article); }
@@ -337,6 +352,7 @@ chrome.runtime.onMessage.addListener(message => {
   if (message.type === 'annotation-changed') void refreshAnnotation(message.id);
 });
 window.addEventListener('popstate', schedule);
+window.addEventListener('qx-evidence-updated', schedule);
 // Also catches X's pushState navigation when no tweet has mounted yet.
 setInterval(() => { if (location.href !== lastUrl) schedule(); }, 1000);
 void refresh();

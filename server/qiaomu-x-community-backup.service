@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up Qiaomu X community SQLite
+[Service]
+Type=oneshot
+User=qiaomu-x-community
+Group=qiaomu-x-community
+ExecStart=/usr/bin/python3 /opt/qiaomu-apps/x-community/backup.py
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/qiaomu-x-community

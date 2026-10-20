@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily Qiaomu X community backup
+[Timer]
+OnCalendar=*-*-* 04:10:00
+RandomizedDelaySec=600
+Persistent=true
+[Install]
+WantedBy=timers.target

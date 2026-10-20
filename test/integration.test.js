@@ -61,7 +61,7 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     const response=await dispatch({type:'classify',item:{id:'999',handle:'another',kind:'reply',text:'谢谢，确实解决了问题。',metrics:{}}},page.window.location.href,true);
     assert.equal(response.ok,true);assert.equal(calls.at(-1).state.user_labelled_examples[0].label,'human');
     const root=reply.querySelector('.qb-host').shadowRoot;
-    assert.equal(root.querySelector('.score').firstChild.textContent,'AI 概率：96%');
+    assert.equal(root.querySelector('.score').firstChild.textContent,'AI 96');
     assert.equal(root.querySelector('[data-label="human"]').getAttribute('aria-pressed'),'true');
     root.querySelector('[data-label="human"]').focus();root.querySelector('[data-label="human"]').click();
     await until(()=>reply.querySelector('.qb-host').shadowRoot.querySelector('[data-label="human"]').getAttribute('aria-pressed')==='false');

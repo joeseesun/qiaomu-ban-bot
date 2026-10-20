@@ -1,3 +1,4 @@
+import { enrichItem } from './observations.js';
 export const ARTICLE = 'article[data-testid="tweet"]';
 function ownElements(article, selector) {
   return [...article.querySelectorAll(selector)].filter(node => node.closest(ARTICLE) === article && !node.closest('[data-testid="quoteTweet"], [data-testid="card.wrapper"]') && !node.closest('div[role="link"][tabindex="0"]'));
@@ -78,5 +79,5 @@ export function extractArticle(article, href = location.href, conversation = {})
     }
     if (!parent && conversation.rootId === rootID) parent = conversation.parents?.get(id) || (id !== rootID ? conversation.parent || '' : '');
   }
-  return { id, handle, displayName, text, kind, parent, metrics, createdAt: Number.isFinite(createdAt) ? createdAt : null };
+  return enrichItem({ id, handle, displayName, text, kind, parent, metrics, createdAt: Number.isFinite(createdAt) ? createdAt : null });
 }

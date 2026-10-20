@@ -1,6 +1,6 @@
-import { createElement, Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink, Flame } from 'lucide';
+import { createElement, Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, UserRoundX, Eye, EyeOff, ExternalLink, Flame } from 'lucide';
 
-export const icons = { Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, Eye, EyeOff, ExternalLink, Flame };
+export const icons = { Bot, BookOpenCheck, ChevronDown, UserRoundCheck, ShieldCheck, UserRoundMinus, UserRoundX, Eye, EyeOff, ExternalLink, Flame };
 export const icon = node => createElement(node, { width:16, height:16, 'stroke-width':1.7, 'aria-hidden':'true', focusable:'false' });
 
 // The panel is inline, so it remains inside the tweet at narrow widths and does
@@ -10,6 +10,8 @@ export const CSS = `
 *, *::before, *::after { box-sizing:border-box; }
 [hidden] { display:none !important; }
 .bar { padding:4px 0; }
+.bar:not(.folded):not(.expanded) .toolbar { justify-content:flex-end; }
+.ai-chip { color:#b74339; background:#b7433910; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; }
 .bar.folded { margin:8px 0; padding:8px 10px; background:var(--qb-bg,#fafafa); border:1px solid var(--qb-border,#eaeaea); border-radius:6px; }
 .bar.expanded { margin:0 0 12px; padding:8px 0; border-bottom:1px solid var(--qb-border,#eaeaea); }
 .expanded .status { color:var(--qb-strong,#171717); font-weight:500; }

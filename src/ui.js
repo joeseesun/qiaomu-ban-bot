@@ -8,6 +8,7 @@ import { Forecasts } from './forecasts.js';
 import { Bookmarks } from './bookmarks.js';
 import { initBookmarksUI } from './ui-bookmarks.js';
 import { initWorkspaceUI } from './ui-workspace.js';
+import { initCommunityUI } from './ui-community.js';
 import { Workspace } from './workspace.js';
 import { Features } from './features.js';
 import { importSearches, SEARCH_TEMPLATES } from './search.js';
@@ -44,6 +45,9 @@ let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configur
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
+    if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
+    if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
+    if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
     if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update','inbox-rank','interest-label'].includes(message.type)){
       await demoWorkspaceReady;const w=demoWorkspace,m=message;
       if(m.type==='workspace-state')return w.profile(m.owner);
@@ -54,7 +58,7 @@ async function send(message){
       if(m.type==='search-import')return w.importSearches(m.owner,importSearches(m.value));
       if(m.type==='interest-label')return w.saveFeedback(m.owner,m.item,m.label,m.reason);
       if(m.type==='inbox-rank')return demoFeatures.rankInbox(m.owner,m.id);
-      if(m.type==='inbox-update')return w.queue(m.owner,await w.get('inbox',m.owner,m.id),{status:m.status,pinned:m.pinned});
+      if(m.type==='inbox-update')return w.queue(m.owner,await w.get('inbox',m.owner,m.id),{status:m.status,pinned:m.pinned,note:m.note});
     }
     if(message.type==='forecast-summary'){await demoForecastsReady;return demoForecasts.summary(message.owner);}
     if(message.type.startsWith('bookmarks-')){await demoBookmarksReady;const b=getBookmarks();if(message.type==='bookmarks-state')return b.state();if(message.type==='bookmarks-page')return b.page(message);if(message.type==='bookmarks-edit')return b.edit(message.owner,message.id,message);if(message.type==='bookmarks-remove')return b.remove(message.owner,message.id);}
@@ -119,6 +123,7 @@ function fillConnection(settings){
   renderKey();providerDetails();
 }
 async function tab(name){
+  document.body.classList.remove('inbox-workbench');
   const workspaceRoute=name.startsWith('workspace')?name:null;
   if(workspaceRoute)name='workspace';
   const contactsView=name==='contacts';if(contactsView)name='accounts';
@@ -141,6 +146,7 @@ const contactsUI=initContactsUI({send,notice,glyph});
 const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
 const forecastsUI=initForecastsUI({send,notice});
 const workspaceUI=initWorkspaceUI({send,notice,glyph});
+const communityUI=initCommunityUI({send,notice,demo});
 $('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true));
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
@@ -202,6 +208,7 @@ function thresholdCopy(){
 }
 function render({connection=true}={}){
   const s=snapshot.settings;
+  communityUI.set(s);
   for(const k of ['enabled','radar','duplicates','highlightUseful'])$(k).checked=s[k];
   for(const k of ['customRule','hotViews','dailyLimit'])$(k).value=s[k];
   $('threshold').value=$('threshold-number').value=Math.round(s.threshold*100);
@@ -231,7 +238,7 @@ bind('preview-expand',()=>{$('preview-text').hidden=!$('preview-text').hidden;$(
 bind('open-options',()=>demo?tab('rules'):chrome.runtime.openOptionsPage());
 bind('save-rules',async()=>{
   if(!$('hotViews').reportValidity()||!$('threshold-number').reportValidity())return;
-  await save({filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
+  await save({...communityUI.get(),filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
 });
 bind('save-usage',async()=>{if(!$('dailyLimit').reportValidity())return;await save({dailyLimit:Number($('dailyLimit').value)});notice(`每日上限已设为 ${snapshot.settings.dailyLimit.toLocaleString()} 次。`);});
 bind('save-model',async()=>{
