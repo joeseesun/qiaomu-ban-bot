@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>乔木 X 助手 · 设置重新规划</title>
+<style>
+:root{color-scheme:light;--shell:#f4f5f5;--shell-line:#dce0e1;--ink:#171717;--mut:#666;--line:#eaeaea;--soft:#fafafa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--shell);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+h1,h2,h3,p{margin:0}button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #171717;outline-offset:2px}
+main{max-width:1360px;margin:auto;padding:26px 24px 80px}
+.intro{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:18px;flex-wrap:wrap}
+.intro h1{font-size:24px;font-weight:600}.intro p{color:#5b6870;margin-top:6px;font-size:13px}
+.intro a{font-size:13px;color:var(--ink)}
+
+/* ---------- 选择外壳（与上次预览一致） ---------- */
+.panel{background:#fff;border:1px solid var(--shell-line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;border-bottom:1px solid #eff3f4}
+.panel-head h2{font-size:15px;font-weight:600}.panel-head small{font-size:11px;color:#5b6870;white-space:nowrap}
+.rec{font-size:11px;color:#126a59;background:#e8f2ee;border-radius:4px;padding:2px 7px;margin-left:8px;font-weight:500}
+.current{margin-bottom:22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,420px)}
+.current .panel-head{grid-column:1/-1}
+.problems{padding:18px 20px;border-left:1px solid #eff3f4;font-size:13px;color:#3d4a52}
+.problems h3{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--ink)}
+.problems ol{margin:0;padding-left:18px;display:grid;gap:7px}
+.directions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.meta{padding:12px 18px;border-top:1px solid #eff3f4;font-size:12.5px;color:#3d4a52;display:grid;gap:4px}
+.meta b{color:var(--ink);font-weight:600}
+.choice-wrap{padding:0 18px 16px;margin-top:auto}
+.choice-wrap .qmdp-pick-button{width:100%;min-height:38px;border:1px solid #171717;border-radius:6px;background:#171717;color:#fff;font-size:13px;font-weight:500}
+.compare{margin-top:22px;background:#fff;border:1px solid var(--shell-line);border-radius:12px;overflow:auto}
+.compare table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:760px}
+.compare th,.compare td{text-align:left;padding:10px 14px;border-bottom:1px solid #eff3f4;vertical-align:top}
+.compare th{font-weight:600;background:#fafbfb}.compare td:first-child{color:#5b6870;white-space:nowrap}
+.dials{margin-top:22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;border-top:1px solid var(--shell-line);padding-top:16px}
+.dial{display:grid;gap:5px;font-size:12px}.dial b{font-weight:500;display:flex;justify-content:space-between}.dial small{color:#5b6870}.dial input{width:100%;accent-color:#171717}
+.note{font-size:12px;color:#5b6870;margin-top:14px}
+
+/* ---------- 缩放舞台 ---------- */
+.mock{position:relative;overflow:hidden;background:#f3f3f3;border-bottom:1px solid #eff3f4}
+.stage{position:absolute;left:0;top:0;width:1000px;height:640px;transform-origin:0 0;padding:20px;display:flex;gap:20px;align-items:flex-start}
+.cap{position:absolute;font-size:11px;color:#8a8a8a;top:4px;letter-spacing:0}
+
+/* ---------- 样机通用原语：Vercel 黑白（DESIGN.md 已定） ---------- */
+.m{font:13px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--ink);text-align:left}
+.m *{box-sizing:border-box}
+.m .pop{width:340px;flex:none;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgb(0 0 0 / 8%);overflow:hidden}
+.m .page{flex:1;min-width:0;height:600px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
+.m .ph{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.m .logo{width:26px;height:26px;border-radius:7px;background:#171717;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.m .ph b{font-size:14px;font-weight:600}.m .ph span{margin-left:auto;font:11px ui-monospace,Menlo,monospace;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.m .mut{color:var(--mut)}.m .sm{font-size:12px}
+.m .sw{width:34px;height:20px;border-radius:999px;background:#171717;position:relative;flex:none;border:0;padding:0}
+.m .sw::after{content:"";position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .16s cubic-bezier(.23,1,.32,1)}
+.m .sw.off{background:#d4d4d4}.m .sw.off::after{left:2px}
+.m .sw.big{width:42px;height:24px}.m .sw.big::after{width:20px;height:20px;left:20px}.m .sw.big.off::after{left:2px}
+.m .row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line)}
+.m .row:last-child{border-bottom:0}
+.m .row .t{flex:1;min-width:0}.m .row .t b{display:block;font-weight:500;font-size:13px}.m .row .t small{display:block;color:var(--mut);font-size:12px;line-height:1.45}
+.m .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px;gap:2px;background:#fff}
+.m .seg button{border:0;background:transparent;border-radius:4px;padding:3px 10px;font-size:12px;color:var(--mut)}
+.m .seg button[aria-pressed=true]{background:#171717;color:#fff}
+.m .btn{border:1px solid #171717;background:#171717;color:#fff;border-radius:6px;padding:6px 12px;font-size:12.5px;font-weight:500}
+.m .btn.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+.m .btn.ghost:hover{background:var(--soft)}
+.m .link{border:0;background:none;padding:0;color:var(--ink);font-size:12.5px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#bbb}
+.m .chev{color:#999;font-size:15px;line-height:1}
+.m .new{font-size:10.5px;color:#126a59;background:#e8f2ee;border-radius:4px;padding:0 5px;margin-left:6px;font-weight:500;vertical-align:1px}
+.m .h{font-size:11.5px;color:var(--mut);padding:14px 16px 6px;font-weight:500}
+.m .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0}
+.m .chk i{width:14px;height:14px;border-radius:4px;background:#171717;flex:none;display:grid;place-items:center;color:#fff;font-size:10px;font-style:normal}
+.m .chk i.off{background:#fff;border:1px solid #c8c8c8}
+.m .av{width:22px;height:22px;border-radius:50%;background:#8b8f94;color:#fff;font-size:10.5px;display:grid;place-items:center;flex:none}
+.m .tag{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:4px;padding:0 5px;white-space:nowrap}
+.m .num{font-variant-numeric:tabular-nums}
+.m .foot{display:flex;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+
+/* ---------- A · 一页到底 ---------- */
+.da .page{display:grid;grid-template-columns:132px minmax(0,1fr)}
+.da .anchors{padding:18px 0 0 16px;font-size:12.5px;display:grid;align-content:start;gap:2px;border-right:1px solid var(--line)}
+.da .anchors a{color:var(--mut);text-decoration:none;padding:4px 0}
+.da .anchors a.on{color:var(--ink);font-weight:600}
+.da .scroll{overflow:hidden;padding:0 22px}
+.da .sec{padding:18px 0 6px;border-bottom:1px solid var(--line)}
+.da .sec h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.da .sec .row{padding:10px 0}
+.da .sub{padding:4px 0 8px 0;display:flex;gap:14px;align-items:center}
+.da details{font-size:12.5px;color:var(--mut);padding:8px 0}
+.da .pop .row{padding:12px 16px}
+
+/* ---------- B · 核心在前，补充功能收进列表 ---------- */
+.db .hero{padding:16px 16px 14px;border-bottom:1px solid var(--line)}
+.db .hero .big{font-size:26px;font-weight:600;letter-spacing:0;line-height:1.15}
+.db .hero .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.db .recent .row{padding:8px 16px;font-size:12.5px}
+.db .recent .row .t{display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden}
+.db .page{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.db .col{overflow:hidden;border-right:1px solid var(--line)}
+.db .col:last-child{border-right:0;background:#fff}
+.db .group{margin:0 16px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.db .group .row{padding:6px 12px}.db .col .h{padding:10px 16px 4px}
+.db .crumb{display:flex;align-items:center;gap:6px;padding:14px 18px 6px;font-size:12.5px;color:var(--mut)}
+.db .sub h3{font-size:16px;font-weight:600;padding:0 18px 4px}
+.db .sub p{padding:0 18px 12px;font-size:12.5px;color:var(--mut)}
+.db .field{margin:0 18px 12px;display:grid;gap:5px;font-size:12.5px}
+.db .field input{border:1px solid var(--line);border-radius:6px;padding:6px 9px;font:inherit;width:160px}
+
+/* ---------- C · 一句话规则 ---------- */
+.dc .sentence{font-size:19px;line-height:2.05;font-weight:500;padding:18px 18px 8px}
+.dc .pop .sentence{font-size:16px;line-height:2.1;padding:16px 16px 6px}
+.dc .tok{display:inline-flex;align-items:center;gap:4px;border-bottom:1.5px solid #171717;padding:0 2px;line-height:1.3;cursor:pointer;font-weight:600}
+.dc .tok::after{content:"▾";font-size:10px;color:#999}
+.dc .tok.add{border-bottom:1.5px dashed #aaa;color:var(--mut);font-weight:500}
+.dc .tok.add::after{content:""}
+.dc .pick{position:absolute;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgb(0 0 0 / 10%);padding:4px;width:200px;font-size:12.5px;z-index:2}
+.dc .pick div{padding:6px 10px;border-radius:5px;display:flex;justify-content:space-between}
+.dc .pick div.on{background:var(--soft);font-weight:600}
+.dc .today{display:flex;gap:22px;padding:6px 18px 14px;border-bottom:1px solid var(--line)}
+.dc .today div b{display:block;font-size:20px;font-weight:600}
+.dc .today div span{font-size:11.5px;color:var(--mut)}
+.dc .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 18px}
+.dc .tile{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:4px;font-size:12.5px}
+.dc .tile .top{display:flex;justify-content:space-between;align-items:center}
+.dc .tile small{color:var(--mut);font-size:11.5px;line-height:1.4}
+
+/* ---------- D · 控制台侧栏 ---------- */
+.dd .page{display:grid;grid-template-columns:168px minmax(0,1fr)}
+.dd .side{background:var(--soft);border-right:1px solid var(--line);padding:12px 8px;font-size:12.5px;overflow:hidden}
+.dd .side .g{font-size:11px;color:#999;padding:7px 8px 2px}
+.dd .side a{display:flex;justify-content:space-between;padding:4px 8px;border-radius:5px;color:var(--mut);text-decoration:none}
+.dd .side a.on{background:#ececec;color:var(--ink);font-weight:600}
+.dd .content{padding:16px 22px;overflow:hidden}
+.dd .content h3{font-size:16px;font-weight:600}
+.dd .form{margin-top:12px;border-top:1px solid var(--line)}
+.dd .fr{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid var(--line);align-items:start}
+.dd .fr>label{font-weight:500;font-size:12.5px;padding-top:2px}
+.dd .fr small{display:block;color:var(--mut);font-size:11.5px;margin-top:3px}
+.dd .quota{height:4px;background:#eee;border-radius:2px;overflow:hidden;margin:6px 0 2px}.dd .quota i{display:block;height:100%;width:4%;background:#171717}
+.dd .pop table{width:100%;border-collapse:collapse;font-size:12.5px}
+.dd .pop td{padding:8px 16px;border-bottom:1px solid var(--line)}
+.dd .pop td:last-child{text-align:right}
+
+@media (max-width:900px){
+  .directions{grid-template-columns:1fr}
+  .current{grid-template-columns:1fr}.problems{border-left:0;border-top:1px solid #eff3f4}
+  .dials{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.m .sw::after{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <div class="intro">
+    <div><h1>设置菜单重新规划 · 四个结构方向</h1><p>方向样机，用来选信息架构和交互方式，不是最终页面。视觉沿用 DESIGN.md 已定的黑白 Vercel 风格，所以四个方向主要差在结构。点开关、分段和下拉可以试。</p></div>
+    <a href="方案.md">盘点、调研与新功能清单 →</a>
+  </div>
+
+  <section class="panel current">
+    <div class="panel-head"><h2>现状 · 0.3.0</h2><small>8 个主导航 · 约 15 个页面 · 60+ 控件</small></div>
+    <div class="mock" data-h="600"><div class="stage m" style="height:600px">
+      <div class="pop" style="width:360px">
+        <div class="ph"><div class="logo">乔</div><b>乔木 X 助手</b><span>0.3.0</span></div>
+        <div style="display:flex;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden"><span style="color:var(--ink);font-weight:600;padding:9px 0;border-bottom:2px solid #171717">概览</span><span style="padding:9px 0">过滤</span><span style="padding:9px 0">标注</span><span style="padding:9px 0">账号</span><span style="padding:9px 0">书签</span><span style="padding:9px 0">工作台</span><span style="padding:9px 0">连接</span><span style="padding:9px 0">关于</span></div>
+        <div class="row" style="border-bottom:0"><div class="t"><b style="font-size:16px;font-weight:600">正在整理你的回复区</b><small>AI 概率高于 50% 时折叠。</small></div><button class="sw big" type="button"></button></div>
+        <div style="display:flex;gap:28px;padding:10px 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><div><b class="num" style="font-size:20px;font-weight:500">38</b><div class="sm mut">今日判断</div></div><div><b class="num" style="font-size:20px;font-weight:500">126</b><div class="sm mut">复用结果</div></div><div><b class="num" style="font-size:20px;font-weight:500">65</b><div class="sm mut">我的标注</div></div></div>
+        <div style="padding:12px 16px 4px;font-weight:600">折叠，不是删除。</div><div class="sm mut" style="padding:0 16px 8px">原文随时可展开。判断不对，点一下真人图标…</div>
+        <div style="margin:0 16px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;background:var(--soft)"><span><b>AI 概率：94%</b> <span class="sm mut">已折叠 · 界面示例</span></span><span class="sm">展开</span></div>
+        <div class="row" style="border:0;padding-top:14px"><div class="t"><b style="font-weight:600">看看主帖的热度潜力</b></div><button class="sw" type="button"></button></div>
+        <div style="padding:0 16px 14px;display:grid;gap:8px"><button class="btn ghost" type="button">查看我的看好追踪</button><button class="btn ghost" type="button">打开完整设置</button></div>
+      </div>
+      <div style="flex:1;font-size:12.5px;color:#3d4a52;display:grid;gap:10px;padding-top:6px">
+        <div style="font-weight:600;color:var(--ink)">完整设置页的页面树</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;line-height:1.7">
+          <div><b>概览</b> 总开关 · 3 个数字 · 演示条 · 热帖开关</div>
+          <div><b>过滤</b> 2 种模式 · 阈值×2 · 附加规则 · 词汇规则 · 去重 · 值得一读 · 热帖目标 · 保存</div>
+          <div><b>标注</b> 筛选 · 列表 · 导出 · 社区共建</div>
+          <div><b>账号</b> 常用 @ ／ 标注统计 · 名单 · 最近操作</div>
+          <div><b>书签</b> 导出 · 账号 · 搜索 · 备注</div>
+          <div><b>工作台</b> 搜索 ／ 账号 ／ 待回复 ／ 兴趣 ／ 复盘</div>
+          <div><b>连接</b> 服务 · 密钥 · 模型 · 高级 · 每日上限 · 测试</div>
+          <div><b>关于</b> 链接 · 二维码 · 清空数据</div>
+          <div><b>（隐藏）看好追踪</b></div>
+          <div style="color:#b74339"><b>没有入口</b> 引流识别 spamGuard</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="problems"><h3>用户说「太多太乱」的具体原因</h3><ol>
+      <li>核心「隐藏」只是 8 个入口之一；弹窗第一屏是统计数字和演示条。</li>
+      <li>引流识别已经内置并默认开启，但设置里找不到开关。</li>
+      <li>同一件事散几处：热帖开关在概览、目标在过滤；「看好」在两处；「我的 X 账号」选择器出现 4 次。</li>
+      <li>「账号」里混着常用 @ 和标注统计，两件事无关。</li>
+      <li>阈值有单选、数字框、滑块三种控件；有的开关即时生效，有的要点「保存设置」。</li>
+      <li>主流程出现「复用结果、决策接口、Noul 概率」等技术词。</li>
+    </ol></div>
+  </section>
+
+  <div class="directions" id="directions"></div>
+
+  <div class="compare"><table>
+    <thead><tr><th></th><th>A · 一页到底</th><th>B · 核心在前 <span class="rec" style="margin:0">推荐</span></th><th>C · 一句话规则</th><th>D · 控制台侧栏</th></tr></thead>
+    <tbody>
+      <tr><td>弹窗</td><td>总开关 + 3 个开关 + 今日数字</td><td>今日隐藏数 + 2 个核心开关 + 最近隐藏 3 条</td><td>一句可点的规则 + 今日数字</td><td>状态表格 + 用量条</td></tr>
+      <tr><td>主导航</td><td>无，长页 + 左侧锚点</td><td>无，两层列表（主页 › 子页）</td><td>无，规则句 + 功能磁贴</td><td>侧栏 4 组 14 项</td></tr>
+      <tr><td>改敏感度</td><td>1 次点击（就在首屏）</td><td>1 次点击</td><td>点词 → 选档，2 次</td><td>进「规则」页，2 次</td></tr>
+      <tr><td>补充功能</td><td>页下方同一长页</td><td>「补充功能」列表，各自子页</td><td>底部 9 个磁贴</td><td>侧栏「工具」组</td></tr>
+      <tr><td>再加 20 个功能</td><td>页面变很长，锚点变多</td><td>放进对应分组，首屏不变</td><td>磁贴墙变满，句子装不下</td><td>侧栏变长，但位置清楚</td></tr>
+      <tr><td>保存方式</td><td colspan="4">四个方向一致：开关与分段改了就存；只有文本类保留各自的保存按钮</td></tr>
+      <tr><td>好处</td><td>什么都能滚动找到，无需记层级</td><td>首屏只有核心，其余一眼可见但不抢</td><td>最容易懂，像在读一句话</td><td>扩展空间最大，适合以后继续加功能</td></tr>
+      <tr><td>代价</td><td>页面长，补充功能多时仍显满</td><td>补充功能多一次点击</td><td>例外、名单等复杂项不好塞进句子</td><td>最像「后台」，与「安静」偏好相悖</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="dials" data-qmdp-dials aria-label="设计拨盘">
+    <label class="dial"><b>视觉冒险度 <output data-qmdp-output="variance">3</output></b><input data-qmdp-dial="variance" type="range" min="1" max="10" value="3"><small>系统设置般克制 ↔ 有明显个性</small></label>
+    <label class="dial"><b>动效强度 <output data-qmdp-output="motion">2</output></b><input data-qmdp-dial="motion" type="range" min="1" max="10" value="2"><small>静止 ↔ 切换、展开都有过渡</small></label>
+    <label class="dial"><b>信息密度 <output data-qmdp-output="density">4</output></b><input data-qmdp-dial="density" type="range" min="1" max="10" value="4"><small>只留核心 ↔ 一页看到全部</small></label>
+  </div>
+  <p class="note">也可以只挑细节混搭，在确认框里写，比如「B 的结构 + A 的例外写法」。键盘 1–4 也能选。</p>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const sw=(on=true,big='')=>`<button class="sw ${big} ${on?'':'off'}" type="button" role="switch" aria-checked="${on}"></button>`;
+const seg=(opts,on)=>`<span class="seg">${opts.map(o=>`<button type="button" aria-pressed="${o===on}">${o}</button>`).join('')}</span>`;
+const row=(t,s,ctrl)=>`<div class="row"><div class="t"><b>${t}</b>${s?`<small>${s}</small>`:''}</div>${ctrl}</div>`;
+const chk=(t,on=true)=>`<div class="chk"><i class="${on?'':'off'}">${on?'✓':''}</i>${t}</div>`;
+const head=`<div class="ph"><div class="logo">乔</div><b>乔木 X 助手</b><span>0.4.0</span></div>`;
+
+const D={
+A:{name:'一页到底',
+  build:()=>`<div class="pop">${head}
+    ${row('<span style="font-size:15px;font-weight:600">自动隐藏</span>','今天隐藏 23 条回复',sw(true,'big'))}
+    ${row('隐藏 AI 回复','敏感度：标准',sw())}
+    ${row('隐藏引流回复','不需要模型',sw())}
+    ${row('隐藏重复回复','',sw())}
+    <div class="foot"><span>已连接 Jev</span><span style="color:var(--ink)">完整设置 ›</span></div></div>
+  <div class="page"><nav class="anchors"><a class="on">隐藏</a><a>例外</a><a>补充功能</a><a>X 体验</a><a>我的记录</a><a>模型与数据</a><a>关于</a></nav>
+    <div class="scroll">
+      <div class="sec"><h3>隐藏</h3><p class="sm mut">隐藏的回复折成一行，随时可以展开。</p>
+        ${row('隐藏 AI 回复','',sw())}<div class="sub"><span class="sm mut">敏感度</span>${seg(['宽松','标准','严格'],'标准')}<span class="sm mut">推荐「标准」：高于 50% 才隐藏</span></div>
+        ${row('隐藏引流回复','「点我主页」「私信领取」等，不需要模型',sw())}
+        ${row('隐藏重复回复','同样的话只留第一条',sw())}
+        <details><summary>高级：自定义百分比、只标注不隐藏、附加规则、词汇规则</summary></details></div>
+      <div class="sec"><h3>例外</h3><p class="sm mut" style="margin-bottom:6px">这些人的回复永远不隐藏。</p>
+        ${chk('我关注的人<span class="new">新</span>')}${chk('关注我的人<span class="new">新</span>')}
+        <div class="sm" style="padding:6px 0 8px">始终显示 <b class="num">12</b> 人 · 本机屏蔽 <b class="num">3</b> 人 <button class="link" type="button">管理</button></div></div>
+      <div class="sec"><h3>补充功能</h3>
+        ${row('标出值得一读的回复','',sw(false))}${row('主帖热度预测','24 小时目标 10,000 浏览',sw(false))}
+        <div class="sm mut" style="padding:6px 0">稍后回复 · 看好追踪 · 常用 @ · 书签导出 · 高级搜索 · 兴趣估计 …</div></div>
+    </div></div>`,
+  meta:'<b>一个长页，按重要性从上往下排。</b>弹窗是四个开关；设置页没有标签页，左边锚点跳转。核心在第一屏，例外紧跟其后，补充功能在下面。查找不用记层级，但功能越多页面越长。'},
+
+B:{name:'核心在前',rec:true,
+  build:()=>`<div class="pop">${head}
+    <div class="hero"><div class="top"><span class="sm mut">自动隐藏 · 已开启</span>${sw(true,'big')}</div><div class="big num">23 条</div><div class="sm mut">今天隐藏 · AI 17 · 引流 6</div></div>
+    ${row('隐藏 AI 回复','标准 · 高于 50%',sw())}
+    ${row('隐藏引流回复','不需要模型',sw())}
+    <div class="h">最近隐藏</div>
+    <div class="recent">
+      <div class="row"><div class="t"><span class="av">林</span><b style="display:inline;font-weight:500">@linjian</b><span class="tag">AI 82%</span></div><button class="link" type="button">显示</button></div>
+      <div class="row"><div class="t"><span class="av" style="background:#a3876a">寻</span><b style="display:inline;font-weight:500">@xun_0914</b><span class="tag">引流</span></div><button class="link" type="button">显示</button></div>
+    </div>
+    <div class="foot"><span>已连接 Jev</span><span style="color:var(--ink)">设置 ›</span></div></div>
+  <div class="page"><div class="col">
+      <div class="h" style="padding-top:10px">回复区</div>
+      <div class="group">${row('隐藏 AI 回复',`<span style="display:inline-block;margin-top:4px">${seg(['宽松','标准','严格'],'标准')}</span>`,sw())}${row('隐藏引流回复','不需要模型',sw())}${row('例外','我关注的、关注我的、12 人始终显示','<span class="chev">›</span>')}</div>
+      <div class="h">功能 · 每项都可单独关</div>
+      <div class="group">${row('稍后回复','4 条待回复',sw()+'<span class="chev">›</span>')}${row('常用 @','28 位',sw()+'<span class="chev">›</span>')}${row('书签保存与导出','312 条',sw()+'<span class="chev">›</span>')}${row('全部 9 项','热帖 · 看好 · 搜索 · 兴趣 · 账号评分…','<span class="chev">›</span>')}</div>
+      <div class="h">X 体验<span class="new">新</span></div>
+      <div class="group">${row('默认看「正在关注」','',sw(false))}${row('隐藏推荐、广告和 Grok','',sw(false)+'<span class="chev">›</span>')}</div>
+      <div class="group" style="margin-top:12px">${row('我的记录 · 模型与数据','已连接 Jev · 65 条标注','<span class="chev">›</span>')}</div>
+    </div>
+    <div class="col sub"><div class="crumb">‹ 设置 / 隐藏</div><h3>例外</h3><p>这些人的回复永远不隐藏。判断错了，在 X 上点一下「始终显示此人」也会加进来。</p>
+      <div class="group" style="margin:0 18px 14px">${row('我关注的人<span class="new">新</span>','',sw())}${row('关注我的人<span class="new">新</span>','',sw())}</div>
+      <div class="h" style="padding:0 18px 6px">始终显示 · 12 人</div>
+      <div class="group" style="margin:0 18px">${row('<span class="av" style="display:inline-grid;margin-right:6px">风</span>@fengxiao','','<button class="link" type="button">移除</button>')}${row('<span class="av" style="display:inline-grid;margin-right:6px;background:#6c8073">木</span>@mu_notes','','<button class="link" type="button">移除</button>')}</div>
+      <div class="h" style="padding:14px 18px 6px">本机屏蔽 · 3 人</div>
+    </div></div>`,
+  meta:'<b>首屏只有「回复区」，其余按用途收成一行行入口。</b>弹窗回答三件事：开着没、今天藏了多少、有没有误伤。设置页是两层列表，像系统设置：回复区在最上；每个功能一行（开关 + ›），在 X 上加的每个按钮都能单独关；以后的「X 体验」改进单独成组，再加 20 项也不挤。'},
+
+C:{name:'一句话规则',
+  build:()=>`<div class="pop">${head}
+    <div class="row" style="border:0;padding-bottom:0"><div class="t"><b class="mut" style="font-weight:400">自动隐藏已开启</b></div>${sw(true,'big')}</div>
+    <div class="sentence">隐藏 <span class="tok">AI 回复</span> 和 <span class="tok">引流</span>，敏感度 <span class="tok">标准</span>，<span class="tok">我关注的人</span> 除外。</div>
+    <div class="today" style="padding:4px 16px 14px"><div><b class="num">23</b><span>今天隐藏</span></div><div><b class="num">2</b><span>你恢复的</span></div></div>
+    <div class="foot"><span>已连接 Jev</span><span style="color:var(--ink)">完整设置 ›</span></div></div>
+  <div class="page" style="overflow:visible">
+    <div class="sentence">隐藏 <span class="tok">AI 回复</span>、<span class="tok">引流</span> 和 <span class="tok">重复回复</span>，<br>敏感度 <span class="tok" id="c-tok">标准</span>，<span class="tok">我关注的人</span> 和 <span class="tok">关注我的人</span> 除外，<span class="tok add">＋ 再加条件</span></div>
+    <div class="pick" style="left:110px;top:118px"><div>宽松 <span class="mut">高于 70%</span></div><div class="on">标准 · 推荐 <span class="mut">50%</span></div><div>严格 <span class="mut">高于 35%</span></div><div>自定义…</div></div>
+    <div class="today"><div><b class="num">23</b><span>今天隐藏</span></div><div><b class="num">17</b><span>AI</span></div><div><b class="num">6</b><span>引流</span></div><div><b class="num">2</b><span>你恢复的</span></div></div>
+    <div class="h" style="padding:14px 18px 8px">更多功能</div>
+    <div class="grid">
+      <div class="tile"><div class="top"><b>值得一读</b>${sw(false)}</div><small>标出有用补充</small></div>
+      <div class="tile"><div class="top"><b>热帖预测</b>${sw(false)}</div><small>目标 10,000 浏览</small></div>
+      <div class="tile"><div class="top"><b>稍后回复</b><span class="chev">›</span></div><small>4 条待回复</small></div>
+      <div class="tile"><div class="top"><b>常用 @</b><span class="chev">›</span></div><small>28 位联系人</small></div>
+      <div class="tile"><div class="top"><b>书签导出</b><span class="chev">›</span></div><small>已保存 312 条</small></div>
+      <div class="tile"><div class="top"><b>高级搜索</b><span class="chev">›</span></div><small>5 个已存搜索</small></div>
+    </div>
+    <div class="foot" style="position:absolute;left:0;right:0;bottom:0"><span>我的记录 · 模型与数据 · 关于</span><span>0.4.0</span></div>
+  </div>`,
+  meta:'<b>把设置写成一句能点的话。</b>每个下划线词点开就是一个选项，读完这句话就知道插件在做什么。补充功能做成磁贴放在下面。最好懂，但名单管理、词汇规则这类复杂项仍要另开页面。'},
+
+D:{name:'控制台侧栏',
+  build:()=>`<div class="pop">${head}
+    <table><tr><td>自动隐藏</td><td>${sw(true)}</td></tr><tr><td>AI 回复</td><td><span class="sm mut">标准</span> ${sw()}</td></tr><tr><td>引流回复</td><td>${sw()}</td></tr><tr><td>重复回复</td><td>${sw()}</td></tr><tr><td>今天隐藏</td><td class="num">23</td></tr><tr><td>模型</td><td class="sm">Jev · 已连接</td></tr></table>
+    <div style="padding:10px 16px"><div class="sm mut" style="display:flex;justify-content:space-between"><span>今日用量</span><span class="num">38 / 10,000</span></div><div class="quota" style="height:4px;background:#eee;border-radius:2px;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:4%;background:#171717"></i></div></div>
+    <div class="foot"><span>暂停 1 小时</span><span style="color:var(--ink)">控制台 ›</span></div></div>
+  <div class="page"><nav class="side">
+      <div class="g">隐藏</div><a class="on">规则</a><a>例外与名单 <span>15</span></a>
+      <div class="g">记录</div><a>标注 <span>65</span></a><a>账号统计</a><a>社区</a>
+      <div class="g">工具</div><a>稍后回复 <span>4</span></a><a>看好追踪</a><a>常用 @</a><a>书签</a><a>搜索</a><a>兴趣</a>
+      <div class="g">X 体验</div><a>时间线</a><a>界面精简</a>
+      <div class="g">系统</div><a>模型连接</a><a>用量与数据</a><a>关于</a>
+    </nav>
+    <div class="content"><h3>隐藏规则</h3><p class="sm mut">改了就存。</p>
+      <div class="form">
+        <div class="fr"><label>AI 回复</label><div>${seg(['关','宽松','标准','严格'],'标准')}<small>推荐「标准」：AI 估计高于 50% 时隐藏</small></div></div>
+        <div class="fr"><label>引流回复</label><div>${sw()}<small>昵称、简介和正文中的引流话术，本机判断</small></div></div>
+        <div class="fr"><label>重复回复</label><div>${sw()}</div></div>
+        <div class="fr"><label>隐藏后显示为</label><div>${seg(['一行提示','只标注'],'一行提示')}</div></div>
+        <div class="fr"><label>附加规则</label><div><div style="border:1px solid var(--line);border-radius:6px;padding:6px 9px;color:#aaa;font-size:12.5px">例如：隐藏与主帖无关的空投广告</div></div></div>
+        <div class="fr"><label>词汇规则</label><div class="sm">4 条 <button class="link" type="button">编辑</button></div></div>
+      </div></div></div>`,
+  meta:'<b>像 Vercel 后台：左侧分组、右侧表单。</b>所有功能都有固定位置，以后加功能只要往侧栏加一项。弹窗是一张状态表。结构最清楚、扩展性最好，但最像「后台」，入口数量和现在差不多，只是排整齐了。'}
+};
+
+for(const k of ['A','B','C','D']){
+  const d=D[k],card=document.createElement('article');
+  card.className='panel';card.dataset.designOption=k;card.dataset.name=d.name;
+  card.innerHTML=`<div class="panel-head"><h2>${k} · ${d.name}${d.rec?'<span class="rec">推荐</span>':''}</h2><small>方向样机 · 左：弹窗　右：完整设置页</small></div><div class="mock" data-h="640"><div class="stage m d${k.toLowerCase()}">${d.build()}</div></div><div class="meta">${d.meta}</div><div class="choice-wrap"><button class="qmdp-pick-button" type="button">选择 ${k} · ${d.name}</button></div>`;
+  $('#directions').append(card);
+}
+function fit(){document.querySelectorAll('.mock').forEach(m=>{const s=m.firstElementChild,h=+m.dataset.h,w=m.clientWidth,k=Math.min(1,w/1000);s.style.transform=`scale(${k})`;m.style.height=(h*k)+'px';});}
+addEventListener('resize',fit);fit();
+document.addEventListener('click',e=>{
+  const s=e.target.closest('.m .sw');if(s){s.classList.toggle('off');s.setAttribute('aria-checked',String(!s.classList.contains('off')));}
+  const b=e.target.closest('.m .seg button');if(b){b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+});
+document.querySelectorAll('[data-qmdp-dial]').forEach(i=>i.oninput=()=>document.querySelector(`[data-qmdp-output="${i.dataset.qmdpDial}"]`).textContent=i.value);
+</script>
+</body>
+</html>

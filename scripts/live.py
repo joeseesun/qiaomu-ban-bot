@@ -14,8 +14,12 @@ provider = llm.get_provider(llm.load_registry(llm.DEFAULT_REGISTRY), 'magpie-ope
 llm.ensure_enabled(provider)
 secret = llm.resolve_secret(provider)
 root = pathlib.Path(__file__).resolve().parent.parent
-args = [arg for arg in sys.argv[1:] if arg in ['--post','--connection','--advanced','--reading']]
-result = subprocess.run(['node', str(root / 'scripts/live.mjs'), *args], input=json.dumps({'apiKey': secret}), text=True, cwd=root, capture_output=True)
+if '--thread' in sys.argv:
+    # Thread evaluation: pass the labelled file and an output tag through unchanged.
+    script, args = 'scripts/eval-thread.mjs', sys.argv[1:]
+else:
+    script, args = 'scripts/live.mjs', [arg for arg in sys.argv[1:] if arg in ['--post','--connection','--advanced','--reading']]
+result = subprocess.run(['node', str(root / script), *args], input=json.dumps({'apiKey': secret}), text=True, cwd=root, capture_output=True)
 print(result.stdout, end='')
 if result.returncode:
     print('Live test failed; no credential or raw provider response was logged.', file=sys.stderr)

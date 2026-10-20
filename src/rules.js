@@ -1,3 +1,4 @@
+import { spamSignals } from './spam.js';
 export const RULE_PRESETS=[
   {term:'我的福不黑',scope:'name',action:'fold'},
   {term:'互关',scope:'name',action:'fold'},
@@ -20,6 +21,8 @@ export function ruleMatches(item,settings){
     const text=r.scope==='all'?Object.values(fields).join('\n'):fields[r.scope]||'';
     if(text.normalize('NFKC').toLowerCase().includes(r.term.normalize('NFKC').toLowerCase()))hits.push({term:r.term,action:r.action,scope:r.scope});
   }
+  // Built-in lure detection; on unless the user turns it off.
+  if(settings.spamGuard!==false&&item.author?.youFollow!==true){const s=spamSignals(item);if(s.fold)hits.push({term:`疑似引流 ${s.score} 分：${s.reasons.slice(0,2).join('，')}`,action:'fold',scope:'builtin',score:s.score,reasons:s.reasons});}
   // Only invisible directional/control marks; emoji and non-Latin scripts are valid names.
   if(settings.symbolHint&&/[\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(item.displayName||''))hits.push({term:'名字含不可见方向符',action:'hint',scope:'name'});
   return hits;

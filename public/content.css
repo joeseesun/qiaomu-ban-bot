@@ -1,2 +1,5 @@
 article[data-testid="tweet"][data-qb-collapsed] > :not(.qb-host) { display: none !important; }
 article[data-testid="tweet"] .qb-host { display: block; width: 100%; min-width: 0; flex: 0 0 auto; box-sizing: border-box; }
+article[data-testid="tweet"] [role="group"] > .qb-host[data-qb-place="inline"],
+article[data-testid="tweet"] [role="group"] > .qx-interest-host { display: inline-flex; width: auto; flex: 0 0 auto; align-items: center; }
+article[data-testid="tweet"] .qb-host[data-qb-place="avatar"] { display: flex; justify-content: center; width: 100%; margin-top: 6px; }

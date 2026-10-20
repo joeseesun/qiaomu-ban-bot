@@ -12,9 +12,10 @@ import { initCommunityUI } from './ui-community.js';
 import { Workspace } from './workspace.js';
 import { Features } from './features.js';
 import { importSearches, SEARCH_TEMPLATES } from './search.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search};
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
+if('scrollRestoration' in history)history.scrollRestoration='manual';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
 if(params.has('popup'))document.body.classList.add('popup');
@@ -47,6 +48,7 @@ async function send(message){
     await demoReady;$('demo-note').hidden=false;
     if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
     if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
+    if(message.type==='inbox-compose')throw Error('当前为模拟预览；已安装扩展会打开真实的 X 回复框。');
     if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
     if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update','inbox-rank','interest-label'].includes(message.type)){
       await demoWorkspaceReady;const w=demoWorkspace,m=message;
@@ -95,7 +97,9 @@ async function send(message){
   if(!response?.ok)throw Error(response?.error||'暂时无法连接扩展。请关闭后重新打开。');
   return response.data;
 }
-function notice(text,error=false){$('notice').textContent=text;$('notice').className=error?'error':'';$('notice').hidden=!text;}
+// Confirmations float briefly at the bottom; errors stay until the next action.
+let noticeTimer=0;
+function notice(text,error=false){clearTimeout(noticeTimer);$('notice').textContent=text;$('notice').className=error?'error':'';$('notice').hidden=!text;if(text&&!error)noticeTimer=setTimeout(()=>{$('notice').hidden=true;},2400);}
 function bind(id,fn){$(id).addEventListener('click',async()=>{const b=$(id);b.disabled=true;notice('');try{await fn();}catch(e){notice(e.message,true);}finally{b.disabled=false;}});}
 function hideKey(){keyEpoch++;if(!keyEditing&&savedForProvider())$('api-key').value=MASK;$('api-key').type='password';keyVisible=false;updateKeyButton();}
 function updateKeyButton(){const b=$('toggle-key');b.replaceChildren(glyph(keyVisible?'EyeOff':'Eye'));const text=keyVisible?'隐藏密钥':'显示密钥';b.setAttribute('aria-label',text);b.title=text;b.setAttribute('aria-pressed',String(keyVisible));}
@@ -130,8 +134,13 @@ async function tab(name){
   if(!['overview','rules','annotations','accounts','model','about','forecasts','bookmarks','workspace'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
+  // Section ids double as hash routes, so the browser also jumps to the
+  // section on load. Reset after that native scroll, too.
+  document.documentElement.scrollTop=0;document.body.scrollTop=0;requestAnimationFrame(()=>scrollTo(0,0));
   for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===(name==='forecasts'?'overview':name));n.setAttribute('aria-current',n.dataset.tab===(name==='forecasts'?'overview':name)?'page':'false');}
-  history.replaceState(null,'',`${location.pathname}${location.search}#${workspaceRoute|| (contactsView?'contacts':name)}`);
+  const route=workspaceRoute||(contactsView?'contacts':name);
+  history.replaceState(null,'',`${location.pathname}${location.search}#${route}`);
+  for(const a of document.querySelectorAll('.side-nav a')){if(a.dataset.tab===route.split('?')[0])a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(name==='workspace'){const [route,query='']=workspaceRoute.split('?');await workspaceUI.open(route.split('/')[1]||'search',new URLSearchParams(query).get('draft')||'');}
   if(name==='bookmarks')await bookmarksUI.open();
   if(name==='forecasts')await forecastsUI.open();
@@ -200,30 +209,39 @@ for(const b of document.querySelectorAll('[data-author-filter]'))b.onclick=async
 bind('refresh-authors',async()=>{snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);});
 bind('authors-next',async()=>{if(!authorNext)return;authorCursors[++authorIndex]=authorNext;await loadAuthors();});
 bind('authors-prev',async()=>{if(!authorIndex)return;authorIndex--;await loadAuthors();});
+const PRESETS={70:'宽松',50:'标准',35:'严格'};
 function thresholdCopy(){
-  const mode=document.querySelector('input[name="filterMode"]:checked')?.value||'ai',value=$('threshold').value;
-  const only=mode==='label';$('threshold').disabled=only;$('threshold-number').disabled=only;
-  $('threshold-label').textContent='AI 概率高于';
-  $('threshold-value').textContent=only?'只显示结果，不会按分数自动折叠。':`高于 ${value}% 自动折叠，恰好 ${value}% 保留。`;
+  const value=$('threshold-number').value;
+  $('threshold-value').textContent=`高于 ${value}% 隐藏，恰好 ${value}% 保留。`;
 }
 function render({connection=true}={}){
   const s=snapshot.settings;
   communityUI.set(s);
   for(const k of ['enabled','radar','duplicates','highlightUseful'])$(k).checked=s[k];
+  $('spamGuard').checked=s.spamGuard!==false;$('hide-ai').checked=s.filterMode==='ai';
   for(const k of ['customRule','hotViews','dailyLimit'])$(k).value=s[k];
-  $('threshold').value=$('threshold-number').value=Math.round(s.threshold*100);
-  document.querySelector(`input[name="filterMode"][value="${s.filterMode}"]`).checked=true;thresholdCopy();
-  $('status-title').textContent=!s.enabled?'已暂停，原文全部保留':snapshot.configured?'正在整理你的回复区':'连接模型，开始使用';
-  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?'前往「连接」，保存你的 API Key。':s.filterMode==='label'?'显示判断结果，保留所有原文。':`AI 概率高于 ${Math.round(s.threshold*100)}% 时折叠。`;
-  $('stat-requests').textContent=snapshot.stats.requests.toLocaleString();$('stat-cache').textContent=snapshot.stats.cacheHits.toLocaleString();$('stat-labels').textContent=(snapshot.learningCount||0).toLocaleString();
+  const pct=Math.round(s.threshold*100);$('threshold-number').value=pct;thresholdCopy();
+  for(const b of document.querySelectorAll('[data-threshold]'))b.setAttribute('aria-pressed',String(+b.dataset.threshold===pct));
+  $('sensitivity-custom').hidden=!!PRESETS[pct];$('sensitivity-custom').textContent=`自定义 ${pct}%`;
+  $('hide-ai-hint').textContent=s.filterMode!=='ai'?'现在只标出估计，不隐藏':({70:'宽松：只隐藏把握很大的，AI 估计高于 70%',50:'标准：AI 估计高于 50% 就隐藏',35:'严格：高于 35% 就隐藏，偶尔会误伤真人'})[pct]||`自定义：AI 估计高于 ${pct}% 就隐藏`;
+  document.querySelector('.sensitivity').classList.toggle('muted',s.filterMode!=='ai');
+  $('exceptions-summary').textContent=`始终显示 ${s.allowlist.length} 人 · 本机屏蔽 ${s.blocklist.length} 人`;
+  $('radar-hint').textContent='依据发布时间、浏览增长及互动率，不设固定爆款门槛';
+  $('annotations-summary').textContent=`${(snapshot.learningCount||0).toLocaleString()} 条，随时改标或导出`;
+  $('model-summary').textContent=`${!snapshot.configured?'未连接模型，AI 判断暂不可用':snapshot.connection?'已连接 Jev':'密钥已保存'} · 今天 ${snapshot.stats.requests.toLocaleString()} 次`;
+  $('status-title').textContent=!s.enabled?'已暂停，所有回复原样显示':'回复区正在保持安静';
+  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?(s.spamGuard!==false?'本机引流过滤已开启。连接模型后可判断 AI 回复。':'连接模型后可判断 AI 回复。'):s.filterMode==='label'?'只标出 AI 估计；本机词汇规则与手动屏蔽仍生效。':`AI 估计高于 ${Math.round(s.threshold*100)}% 的回复会折成一行，点一下就能展开。`;
+  $('stat-requests').textContent=snapshot.stats.requests.toLocaleString();$('stat-labels').textContent=(snapshot.learningCount||0).toLocaleString();
   $('model-state').textContent=!snapshot.configured?'未连接模型':snapshot.connection?'已连接 Jev':'密钥已保存';
+  document.body.classList.toggle('connected',!!snapshot.configured);
   if(connection)fillConnection(s);renderAccounts();
 }
 async function save(patch,forgetKey=false){snapshot=await send({type:'save',settings:patch,forgetKey});render({connection:forgetKey});}
-for(const name of ['enabled','radar'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name];notice(e.message,true);}});
-$('threshold').addEventListener('input',()=>{$('threshold-number').value=$('threshold').value;thresholdCopy();});
-$('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity()){$('threshold').value=$('threshold-number').value;thresholdCopy();}});
-for(const radio of document.querySelectorAll('input[name="filterMode"]'))radio.addEventListener('change',thresholdCopy);
+for(const name of ['enabled','radar','duplicates','highlightUseful','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
+$('hide-ai').addEventListener('change',async()=>{try{await save({filterMode:$('hide-ai').checked?'ai':'label'});notice($('hide-ai').checked?'已开启隐藏 AI 回复。':'已关闭按 AI 分数隐藏。');}catch(e){render({connection:false});notice(e.message,true);}});
+for(const b of document.querySelectorAll('[data-threshold]'))b.addEventListener('click',async()=>{try{await save({threshold:Number(b.dataset.threshold)/100});notice(`敏感度：${PRESETS[b.dataset.threshold]}。新的回复按这个标准隐藏。`);}catch(e){notice(e.message,true);}});
+$('hotViews').addEventListener('change',async()=>{if(!$('hotViews').reportValidity())return;try{await save({hotViews:Number($('hotViews').value)});notice(`热帖目标：${snapshot.settings.hotViews.toLocaleString()} 浏览。`);}catch(e){notice(e.message,true);}});
+$('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity())thresholdCopy();});
 $('api-key').addEventListener('input',()=>{if(!$('api-key').readOnly)keyEditing=true;});
 $('provider').addEventListener('change',()=>{keyEditing=false;$('api-key').value='';const provider=$('provider').value;fillConnection(provider===snapshot.settings.provider?snapshot.settings:{provider});$('advanced-connection').open=provider==='custom';});
 for(const id of ['base-url','model-name','protocol'])$(id).addEventListener('input',()=>{providerDetails();renderKey();});
@@ -234,11 +252,10 @@ bind('toggle-key',async()=>{
   if(savedForProvider()&&!keyEditing){const data=await send({type:'reveal-key'});if(generation!==keyEpoch)return;$('api-key').value=data.apiKey;}
   $('api-key').type='text';keyVisible=true;updateKeyButton();
 });
-bind('preview-expand',()=>{$('preview-text').hidden=!$('preview-text').hidden;$('preview-expand').textContent=$('preview-text').hidden?'展开':'收起';});
-bind('open-options',()=>demo?tab('rules'):chrome.runtime.openOptionsPage());
+bind('open-options',()=>{if(demo){document.body.classList.remove('popup');return tab('overview');}return chrome.runtime.openOptionsPage();});
 bind('save-rules',async()=>{
-  if(!$('hotViews').reportValidity()||!$('threshold-number').reportValidity())return;
-  await save({...communityUI.get(),filterMode:document.querySelector('input[name="filterMode"]:checked').value,threshold:Number($('threshold-number').value)/100,duplicates:$('duplicates').checked,highlightUseful:$('highlightUseful').checked,hotViews:Number($('hotViews').value),customRule:$('customRule').value});notice('已保存。新的回复会按你的设置整理。');
+  if(!$('threshold-number').reportValidity())return;
+  await save({...communityUI.get(),threshold:Number($('threshold-number').value)/100,customRule:$('customRule').value});notice('规则已保存。新的回复会按你的设置整理。');
 });
 bind('save-usage',async()=>{if(!$('dailyLimit').reportValidity())return;await save({dailyLimit:Number($('dailyLimit').value)});notice(`每日上限已设为 ${snapshot.settings.dailyLimit.toLocaleString()} 次。`);});
 bind('save-model',async()=>{
@@ -294,4 +311,5 @@ bind('test-model',async()=>{
   }catch(e){$('test-result').textContent='这次没有收到判断。原设置未改变。';throw e;}
 });
 send({type:'snapshot'}).then(async data=>{snapshot=data;render();await tab(location.hash.slice(1));}).catch(e=>notice(e.message,true));
+document.addEventListener('click',e=>{const row=e.target.closest('.settings-home a[data-tab], .side-nav a[data-tab]');if(!row||e.metaKey||e.ctrlKey||e.shiftKey)return;e.preventDefault();notice('');void tab(row.dataset.tab).catch(err=>notice(err.message,true));});
 window.addEventListener('hashchange',()=>{if(snapshot)void tab(location.hash.slice(1)).catch(e=>notice(e.message,true));});
