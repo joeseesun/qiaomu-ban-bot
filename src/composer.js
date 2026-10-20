@@ -1,7 +1,11 @@
 import { contactHandle, avatarURL } from './contacts.js';
 import { parseCount } from './dom.js';
 export const EDITOR='[contenteditable="true"][data-testid^="tweetTextarea_"]';
-export function currentOwner(doc=document){return contactHandle(doc.querySelector('[data-testid="AppTabBar_Profile_Link"]')?.getAttribute('href')?.slice(1));}
+export function currentOwner(doc=document){
+  const href=doc.querySelector('[data-testid="AppTabBar_Profile_Link"]')?.getAttribute('href');
+  if(!href)return '';
+  try {const url=new URL(href,'https://x.com');return /^(www\.)?(x|twitter)\.com$/.test(url.hostname)&&/^\/\w{1,15}\/?$/.test(url.pathname)?contactHandle(url.pathname.split('/')[1]):'';}catch{return '';}
+}
 export function articlePerson(article){
   const own=s=>[...article.querySelectorAll(s)].filter(n=>n.closest('article')===article&&!n.closest('[data-testid="quoteTweet"], [data-testid="card.wrapper"], div[role="link"][tabindex="0"]'));
   const path=own('time').map(n=>n.closest('a')?.getAttribute('href')).find(h=>/\/status\/\d+/.test(h||''));

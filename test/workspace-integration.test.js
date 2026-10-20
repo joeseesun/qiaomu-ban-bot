@@ -11,7 +11,7 @@ async function until(fn){for(let i=0;i<150;i++){if(await fn())return;await delay
 const item=(id=1,kind='post')=>({id:String(id),handle:'alice',displayName:'艾丽丝',kind,text:'给 @me 的具体问题：如何排查缓存？ '+id,parent:'',metrics:{views:300,likes:8,replies:2,reposts:1}});
 function environment(){
  let listener;const calls=[],opened=[],factory=new IDBFactory(),runtime={id:'workspace-fixture',getURL:p=>`chrome-extension://workspace-fixture/${p}`,onMessage:{addListener:f=>listener=f}};
- const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({banbot:{apiKey:'never-expose-fixture',settings:{provider:'typesafe'}}}),set:async()=>{}}},tabs:{query:async()=>[],create:async options=>{opened.push(options);},sendMessage:async()=>{}}};
+ const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({banbot:{apiKey:'never-expose-fixture',settings:{provider:'typesafe'}}}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[],create:async options=>{opened.push(options);},sendMessage:async()=>{}}};
  vm.runInNewContext(background,{chrome,indexedDB:factory,IDBKeyRange,crypto,TextEncoder,URL,URLSearchParams,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,init)=>{const payload=JSON.parse(init.body);calls.push({url,payload});return Response.json({model:'jev-integration-fixture',answers:Object.fromEntries(Object.keys(payload.questions).map(k=>[k,{type:'noul',noul:k==='originality'?.7:.85}])),usage:{input_tokens:10}});}});
  const dispatch=(message,url=runtime.getURL('ui.html'),who='admin')=>new Promise(resolve=>listener(message,{id:runtime.id,url,...(who==='content'?{tab:{id:1},frameId:0}:who==='frame'?{tab:{id:1},frameId:1}:{})},resolve));
  return{dispatch,runtime,chrome,factory,calls,opened};

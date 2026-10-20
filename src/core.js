@@ -2,12 +2,13 @@ export const VERSION = 'decision-v4';
 import { authorEvidence, contextEvidence, modelEvidence } from './evidence.js';
 import { normalizeRules, ruleMatches } from './rules.js';
 import { farmPrior } from './thread.js';
+import { accountRule, normalizeAccountRules } from './account-rules.js';
 import { PROVIDERS, connectionFields, connectionIdentity } from './connection.js';
 export { PROVIDERS } from './connection.js';
 export const DEFAULTS = {
   enabled: true, filterMode: 'ai', threshold: 0.5, duplicates: true,
   highlightUseful: true, radar: true, hotViews: 10000, dailyLimit: 10000,
-  customRule: '', wordRules:[], symbolHint:false, spamGuard:true, allowlist: [], blocklist: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
+  customRule: '', wordRules:[], symbolHint:false, spamGuard:true, allowlist: [], blocklist: [], accountRules: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
 };
 export const handleOf = value => typeof value === 'string' && /^@?[a-zA-Z0-9_]{1,15}$/.test(value.trim()) ? value.trim().replace(/^@/, '').toLowerCase() : '';
 const bound = (n, min, max, fallback) => typeof n === 'number' && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
@@ -15,6 +16,7 @@ export function normalizeSettings(value = {}) {
   const result = { ...DEFAULTS };
   for (const key of ['enabled', 'duplicates', 'highlightUseful', 'radar','symbolHint','spamGuard']) if (typeof value[key] === 'boolean') result[key] = value[key];
   result.wordRules=normalizeRules(value.wordRules);
+  result.accountRules=normalizeAccountRules(value.accountRules);
   result.threshold = bound(value.threshold, 0.01, 0.99, DEFAULTS.threshold);
   result.dailyLimit = Math.round(bound(value.dailyLimit, 1, Number.MAX_SAFE_INTEGER, DEFAULTS.dailyLimit));
   result.hotViews = Math.round(bound(value.hotViews, 1000, 10000000, DEFAULTS.hotViews));
@@ -89,8 +91,9 @@ export function parseResponse(data, keys) {
 }
 export function decide(item, result, settings) {
   if (!settings.enabled) return { collapse: false, label: '' };
-  if (settings.allowlist.includes(item.handle)) return { collapse: false, label: '始终保留' };
-  if (settings.blocklist.includes(item.handle)) return { collapse: true, label: '已在本地屏蔽此作者' };
+  const policy=accountRule(item,settings);
+  if (policy==='human') return { collapse: false, label: '始终显示此账号' };
+  if (policy==='ai') return { collapse: true, label: '你已折叠此账号' };
   const matches=ruleMatches(item,settings);
   const hint=matches.length?{label:'词汇规则 · '+matches.map(r=>r.term).join('、'),rules:matches}:{label:''};
   if(matches.some(r=>r.action==='fold'))return{collapse:true,...hint};

@@ -3,6 +3,7 @@ import { normalizeSettings, validateItem, cacheKey, annotationKey, textKey, hotS
 import { analyze, analyzeDecision } from './jev.js';
 import { examplesFor } from './learning.js';
 import { MemoryAnnotations } from './annotations.js';
+import { accountRule, sameAccount, setAccountRule } from './account-rules.js';
 
 const day = () => new Date().toLocaleDateString('en-CA');
 const emptyStats = () => ({ day: day(), requests: 0, cacheHits: 0, inputTokens: 0, errors: 0 });
@@ -21,9 +22,22 @@ export class Engine {
     this.annotationStats=await this.annotations.stats();
     const learning=await this.annotations.recent(40);
     const settings = normalizeSettings(saved.settings);
+    // Upgrade all historical manual labels, not just the 40 few-shot examples.
+    // The most recent explicit choice wins; old labels never reapply after restore.
+    if (!saved.accountRulesVersion) {
+      let before=null;
+      do {
+        const page=await this.annotations.page({before,limit:200});
+        for(const row of page.items) if(!settings.accountRules.some(r=>sameAccount(r,row)))
+          settings.accountRules=setAccountRule(settings.accountRules,row,row.label,row.key,row.at);
+        before=page.next;
+      } while(before);
+    }
     if (!saved.dailyLimitVersion && saved.settings?.dailyLimit === 300) settings.dailyLimit=10000;
     if (!saved.thresholdVersion && saved.settings?.threshold === .9) settings.threshold=.5;
     this.data = { dailyLimitVersion:1, thresholdVersion:1, settings, apiKey: typeof saved.apiKey === 'string' ? saved.apiKey : '', annotationRevision:this.annotationStats.revision, cache: saved.cacheVersion === CACHE_VERSION && saved.annotationRevision===this.annotationStats.revision ? saved.cache || {} : {}, cacheVersion: CACHE_VERSION, overrides: Object.fromEntries(Object.entries(saved.overrides||{}).filter(([,v])=>v.source!=='learning')), stats: saved.stats || emptyStats(), feedback: Array.isArray(saved.feedback) ? saved.feedback.slice(0, 100) : [], learning, connection: saved.connection || null, lastError: saved.lastError || '', lastModel: saved.lastModel || '' };
+    this.data.accountRulesVersion=1;
+    if(!saved.accountRulesVersion)await this.save();
   }
   save() {
     const {learning,...persistent}=this.data;
@@ -36,6 +50,7 @@ export class Engine {
   async snapshot(admin = false) {
     await this.ready; this.resetDay();
     const value = { settings: this.data.settings, configured: Boolean(this.data.apiKey), stats: this.data.stats, connection: this.data.connection, learningCount: this.annotationStats.total, annotationStats:this.annotationStats, lastError: this.data.lastError, lastModel: this.data.lastModel, revision: this.revision };
+    if(admin)value.activeOwners=[...new Set([...(this.activeOwners?.values()||[])].filter(Boolean))];
     if (admin) Object.assign(value, { feedback: this.data.feedback, learning: this.data.learning, cacheSize: Object.keys(this.data.cache).length });
     return structuredClone(value);
   }
@@ -98,7 +113,7 @@ export class Engine {
   }
   async changeAnnotation(key,item,label) {
     const previous=await this.annotations.get(key);
-    const before={learning:this.data.learning,overrides:structuredClone(this.data.overrides),cache:this.data.cache};
+    const before={settings:structuredClone(this.data.settings),learning:this.data.learning,overrides:structuredClone(this.data.overrides),cache:this.data.cache};
     if(label) {
       const modelKey=item.key===key&&previous?.modelKey?previous.modelKey:await cacheKey(item,this.data.settings);
       const textDigest=await textKey(item.text);
@@ -107,6 +122,12 @@ export class Engine {
       await this.annotations.put({...record,text:item.text.slice(0,1000),parent:item.parent.slice(0,500),key,label,at:Date.now(),modelKey,modelResult});
       delete this.data.overrides[key];
     } else await this.annotations.remove(key);
+    const s=this.data.settings;
+    if(label) {
+      s.accountRules=setAccountRule(s.accountRules,item,label,key);
+      s.allowlist=s.allowlist.filter(h=>h!==item.handle);
+      s.blocklist=s.blocklist.filter(h=>h!==item.handle);
+    } else s.accountRules=s.accountRules.filter(r=>r.key!==key);
     this.data.cache={};this.revision++;
     try {await this.syncAnnotations();await this.save();}
     catch {
@@ -114,7 +135,7 @@ export class Engine {
       Object.assign(this.data,before);await this.syncAnnotations();this.revision++;
       throw new Error('标注未保存，请重试');
     }
-    return {learningCount:this.annotationStats.total,id:item.id};
+    return {learningCount:this.annotationStats.total,id:item.id,handle:item.handle};
   }
   editAnnotation(key,label) {
     return this.mutate(async()=>{
@@ -142,15 +163,18 @@ export class Engine {
     try { await this.save(); } catch (error) { Object.assign(this.data, before); this.revision++; throw new Error('设置保存失败，请重试'); }
     return this.snapshot(true);
   }
-  listAction(handle, action) {
+  listAction(handle, action, userId='') {
     return this.mutate(() => {
     handle = handleOf(handle);
     if (!handle || !['allow', 'block', 'remove'].includes(action)) throw new Error('无效的账号操作');
     const s = this.data.settings;
     const allowlist = s.allowlist.filter(h => h !== handle), blocklist = s.blocklist.filter(h => h !== handle);
-    if (action === 'allow') allowlist.push(handle);
-    if (action === 'block') blocklist.push(handle);
-    return this.applySettings({ allowlist, blocklist });
+    const matching=s.accountRules.filter(r=>sameAccount(r,{handle,userId}));
+    if (action === 'allow' && !matching.length) allowlist.push(handle);
+    if (action === 'block' && !matching.length) blocklist.push(handle);
+    const accountRules=s.accountRules.filter(r=>!matching.includes(r));
+    if(action!=='remove')accountRules.push(...matching.map(r=>({...r,handle,label:action==='allow'?'human':'ai',key:'',at:Date.now()})));
+    return this.applySettings({ allowlist, blocklist, accountRules });
     });
   }
   feedback(itemInput, label) { return this.mutate(async () => {
@@ -170,23 +194,28 @@ export class Engine {
     await this.ready; this.revision++; this.data.cache = {}; this.data.overrides = {}; this.data.feedback = []; this.data.learning = []; this.data.lastError = ''; await this.annotations.clear(); await this.syncAnnotations(); await this.save();
     return this.snapshot(true);
   }); }
-  async localDecision(input) {
+  async localDecision(input, owner='') {
     await this.ready;
     const item = validateItem(input);
+    const policy=accountRule(item,this.data.settings,owner);
+    if(policy==='self')return {account:'self',override:'keep'};
     const key=await annotationKey(item), modelKey=await cacheKey(item,this.data.settings);
     let override = this.data.overrides[key] || this.data.overrides[modelKey];
     const sample=await this.annotations.get(key)||await this.annotations.post(item.id);
     // Backfill names from an already visible post; never fetch profiles or alter labels.
     if(sample&&(item.displayName&&sample.displayName!==item.displayName||item.author?.userId&&!sample.author?.userId))await this.mutate(()=>this.annotations.rememberName(sample.key,item.displayName||sample.displayName,item.author));
-    if(sample && (!override || sample.at>override.at)) override={label:sample.label==='ai'?'hide':'keep',source:'learning'};
+    if(policy)override={label:policy==='ai'?'hide':'keep',source:'learning'};
     return { ...(sample?.modelResult || {}),
+      ...(policy ? {account:policy} : {}),
       ...(override ? {override:override.label,...(override.source==='learning'?{learned:true}:{})} : {}),
-      ...(sample ? {annotation:sample.label} : {}),
+      ...(sample && policy ? {annotation:policy} : {}),
     };
   }
-  async classify(input, manual = false) {
+  async classify(input, manual = false, owner='') {
     await this.ready;
+    const revision=this.revision;
     const item = validateItem(input), settings = structuredClone(this.data.settings);
+    if(accountRule(item,settings,owner))return this.localDecision(item,owner);
     if(item.kind==='reply'){
       const history=await this.annotations.byAuthor(item);
       const distinct=[...new Map(history.map(r=>[r.id,r])).values()];
@@ -206,7 +235,6 @@ export class Engine {
     if (!manual && cached && cached.expires > Date.now()) { this.data.stats.cacheHits++; await this.save(); return { ...cached.result, cached: true, hot }; }
     if (this.inflight.has(key)) return this.inflight.get(key);
     if (this.queue.length >= 24) throw new Error('待判断的帖子较多，请稍后重试');
-    const revision = this.revision;
     const promise = this.enqueue(async () => {
       if (revision !== this.revision) return { skipped: 'changed' };
       this.resetDay();

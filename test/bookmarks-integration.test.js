@@ -12,7 +12,7 @@ const until=async fn=>{for(let i=0;i<180;i++){if(await fn())return;await wait(15
 const post=(id,text='正文',saved=true)=>`<article data-testid="tweet"><div data-testid="User-Name"><a href="/alice">艾丽丝</a></div><a href="/alice/status/${id}"><time datetime="2026-10-18T10:00:00Z"></time></a><div data-testid="tweetText">${text}</div>${saved?'<button data-testid="removeBookmark">已收藏</button>':''}</article>`;
 function environment(){
   const factory=new IDBFactory();let listener,modelCalls=0;const runtime={id:'bookmark-test',getURL:p=>`chrome-extension://bookmark-test/${p}`,onMessage:{addListener:f=>listener=f}};
-  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{query:async()=>[],create:async()=>{}}};
+  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[],create:async()=>{}}};
   vm.runInNewContext(background,{indexedDB:factory,IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{modelCalls++;throw Error('must not call model');}});
   const dispatch=(m,url=runtime.getURL('ui.html'),isContent=false)=>new Promise(resolve=>listener(m,{id:runtime.id,url,...(isContent?{tab:{id:1},frameId:0}:{})},resolve));
   return{factory,runtime,dispatch,modelCalls:()=>modelCalls};

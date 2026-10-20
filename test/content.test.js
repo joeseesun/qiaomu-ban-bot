@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 import { DEFAULTS } from '../src/core.js';
+import { setAccountRule } from '../src/account-rules.js';
 const code=(await build({entryPoints:['src/content.js'],bundle:true,write:false,format:'iife',target:'chrome120'})).outputFiles[0].text;
 const css=await readFile('public/content.css','utf8');
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -11,19 +12,51 @@ async function until(fn){for(let i=0;i<60;i++){if(fn())return;await pause(15);}t
 const markup=(id,text)=>`<article data-testid="tweet" id="a${id}"><div class="original"><div dir="auto">Replying to @parent</div><a href="/person${id}/status/${id}"><time datetime="2026-10-18T10:00:00Z">1h</time></a><div data-testid="tweetText">${text}</div></div></article>`;
 function mount(html,request){
   const dom=new JSDOM(`<body><main data-testid="primaryColumn">${html}</main></body>`,{url:'https://x.com/home',runScripts:'outside-only',pretendToBeVisual:true});
-  let settings={...DEFAULTS},listeners=[],overrides=new Map(),calls=[];
+  let settings={...DEFAULTS},listeners=[],overrides=new Map(),calls=[],messages=[];
   dom.window.IntersectionObserver=class{constructor(fn){this.fn=fn;}observe(target){queueMicrotask(()=>this.fn([{target,isIntersecting:true}]));}unobserve(){}disconnect(){}};
   dom.window.chrome={runtime:{onMessage:{addListener:fn=>listeners.push(fn)},sendMessage:async m=>{
+    messages.push(m);
     if(m.type==='snapshot')return {ok:true,data:{settings,configured:true}};
     if(m.type==='local-decision')return {ok:true,data:overrides.has(m.item.id)?{override:overrides.get(m.item.id)}:{}};
     if(m.type==='classify'){calls.push(m.item.id);return{ok:true,data:await request(m.item)};}
     if(m.type==='feedback'){overrides.set(m.item.id,m.label);listeners.forEach(fn=>fn({type:'annotation-changed',id:m.item.id}));return{ok:true,data:{}};}
+    if(m.type==='learn'){settings.accountRules=setAccountRule(settings.accountRules,m.item,m.label,'fixture');listeners.forEach(fn=>fn({type:'refresh'}));return{ok:true,data:{}};}
+    if(m.type==='list'){settings.accountRules=settings.accountRules.filter(r=>r.handle!==m.item?.handle);listeners.forEach(fn=>fn({type:'refresh'}));return{ok:true,data:{}};}
     return{ok:true,data:{}};
   }}};
   dom.window.eval(code);
-  return{dom,calls,settings,refresh:()=>listeners.forEach(fn=>fn({type:'refresh'})),close:()=>dom.window.close()};
+  return{dom,calls,messages,settings,refresh:()=>listeners.forEach(fn=>fn({type:'refresh'})),close:()=>dom.window.close()};
 }
 const result=(ai=.95)=>({model:'fixture',scores:{ai_written:ai,low_value:.1,spam:.1,useful:.1}});
+test('self has no judgement UI or requests and switching accounts updates the exemption',async()=>{
+  const env=mount('<a data-testid="AppTabBar_Profile_Link" href="/person1">我</a>'+markup(1,'My reply')+markup(2,'Other reply'),async()=>result(.2));
+  try{
+    const d=env.dom.window.document;
+    await until(()=>env.calls.includes('2'));
+    assert.equal(env.calls.includes('1'),false);assert.equal(d.getElementById('a1').querySelector('.qb-host'),null);
+    assert.equal(env.messages.find(m=>m.type==='classify').owner,'person1');
+    d.querySelector('[data-testid="AppTabBar_Profile_Link"]').href='https://x.com/person2';
+    await until(()=>env.calls.includes('1'));
+    assert.equal(d.getElementById('a2').querySelector('.qb-host'),null);
+  }finally{env.close();}
+});
+test('trusted authors retain a neutral menu to relabel all their posts or resume detection',async()=>{
+  const env=mount(markup(1,'First reply')+markup(2,'Another reply').replace('/person2/status/','/person1/status/'),async()=>result(.2));
+  env.settings.accountRules=[{handle:'person1',label:'human'}];
+  try{
+    const d=env.dom.window.document,a=d.getElementById('a1'),b=d.getElementById('a2');
+    await until(()=>a.querySelector('.qb-host')?.shadowRoot.querySelector('button[aria-label="账号操作"]'));
+    assert.equal(env.calls.length,0);
+    const root=a.querySelector('.qb-host').shadowRoot;
+    assert.equal(root.querySelector('.scores'),null);assert.ok(!root.textContent.includes('AI 写作估计'));
+    [...root.querySelectorAll('button')].find(n=>n.textContent==='改标为 AI').click();
+    await until(()=>a.hasAttribute('data-qb-collapsed')&&b.hasAttribute('data-qb-collapsed'));
+    assert.equal(env.calls.length,0);
+    [...a.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(n=>n.textContent==='恢复自动检测').click();
+    await until(()=>env.calls.includes('1')&&env.calls.includes('2'));
+    await until(()=>!a.hasAttribute('data-qb-collapsed')&&!b.hasAttribute('data-qb-collapsed'));
+  }finally{env.close();}
+});
 test('legacy low-information results never appear in the toolbar or expanded scores',async()=>{
   const env=mount(markup(1,'我现在都是扔给 Bot 让它抓数据'),async()=>({...result(.26),scores:{ai_written:.26,low_value:.99,spam:.01,useful:.1}}));
   try{
