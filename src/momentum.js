@@ -34,7 +34,7 @@ export function performance(item,{now=Date.now(),history=[],peers=[]}={}){
     // A single view metric is useful but not enough for a multi-signal score.
     if(ranks.length>=3)percentile=Math.round(median(ranks)*100);
   }
-  return{ageHours,metrics,rates,viewsPerHour,recentViewsPerHour,windowMinutes:base?Math.round((now-base.at)/60000):null,peerCount:pool.length,percentile,status:ready?'observed':'insufficient'};
+  return{ageHours,metrics,rates,viewsPerHour,recentViewsPerHour,recentViews:base?metrics.views-base.metrics.views:null,windowMinutes:base?Math.round((now-base.at)/60000):null,peerCount:pool.length,percentile,status:ready?'observed':'insufficient'};
 }
 export class MomentumTracker{
   constructor(){this.posts=new Map();}

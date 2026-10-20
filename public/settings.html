@@ -1,0 +1,69 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>写作与模型 · 乔木 X 助手</title><link rel="stylesheet" href="writer-base.css"><link rel="stylesheet" href="writer-settings.css"></head><body class="qx-writing-settings"><header class="writer-header"><a href="ui.html">‹ 乔木 X 助手</a><nav aria-label="写作设置"><a href="settings.html?section=write" data-writing-route="write">写长文</a><a href="settings.html?section=interpreter" data-writing-route="interpreter">文字模型</a><a href="settings.html?section=image-models" data-writing-route="image-models">图片模型</a></nav></header><main class="writer-settings-main"><p id="writing-error" role="alert" hidden></p><div id="write-section" class="settings-section">
+						<div class="settings-section-header">
+							<h2>写长文</h2>
+							<div class="settings-section-actions" id="write-actions"></div>
+						</div>
+						<div class="setting-item-description">所见即所得，支持 Markdown 导入导出。文章和图片都保存在本机。</div>
+						<div id="write-home"></div>
+						<div id="write-ai-actions"></div>
+					</div>
+<div id="interpreter-section" class="settings-section">
+						<div class="settings-section-header">
+							<h2>LLM 提供商与模型</h2>
+						</div>
+						<form id="interpreter-settings-form">
+							<div class="setting-group">
+								<div class="setting-item setting-item-heading">
+									<h3 data-i18n="providers">Providers</h3>
+									<div id="api-keys-warning-container" class="warning-container">
+										<div class="warning-icon">
+											<i data-lucide="alert-triangle"></i>
+										</div>
+										<div class="warning-text" data-i18n="apiKeysWarning">
+											By using an external provider you agree to their terms and privacy policy. Interpreter requests are sent directly to the provider you choose. Obsidian does not gather or store any data about your requests.
+										</div>
+									</div>
+								</div>
+								<div class="setting-items">
+								<div class="provider-list-container">
+									<div id="provider-list"></div>
+									<div class="add-btn">
+										<button type="button" id="add-provider-btn" data-i18n="addProvider">+ Add provider</button>
+									</div>
+								</div>
+								</div>
+							</div>
+							<div class="setting-group">
+								<div class="setting-item setting-item-heading"><h3 data-i18n="models">Models</h3></div>
+								<div class="setting-items">
+								<div class="model-list-container">
+									<div id="model-list"></div>
+									<div class="add-btn">
+										<button type="button" id="add-model-btn" data-i18n="addModel">+ Add model</button>
+									</div>
+								</div>
+								</div>
+							</div>
+						</form>
+					</div>
+<div id="image-models-section" class="settings-section">
+						<div class="settings-section-header">
+							<h2>生图模型</h2>
+						</div>
+						<div class="setting-item-description">给「写长文」里的 AI 配图和封面用。可以添加多个，选一个当默认。</div>
+						<div id="image-models-home"></div>
+					</div></main><div id="model-modal" class="modal-container provider-dialog">
+			<div class="modal-bg"></div>
+			<div class="modal">
+				<div class="modal-header"><div class="modal-title pd-title"></div></div>
+				<div class="modal-content pd-body"></div>
+				<div class="modal-button-container pd-actions"></div>
+			</div>
+		</div><div id="provider-modal" class="modal-container provider-dialog">
+			<div class="modal-bg"></div>
+			<div class="modal">
+				<div class="modal-header"><div class="modal-title pd-title"></div></div>
+				<div class="modal-content pd-body"></div>
+				<div class="modal-button-container pd-actions"></div>
+			</div>
+		</div><script type="module" src="writer/settings.js"></script></body></html>

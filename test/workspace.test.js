@@ -41,13 +41,6 @@ test('concurrent queue updates preserve completed state, pins and model score',a
  const w=store();await w.queue('me',item());await Promise.all([w.queue('me',item(),{status:'done'}),w.queue('me',item(),{pinned:true}),w.queue('me',item(),{score:.8})]);
  const row=await w.get('inbox','me','1');assert.equal(row.status,'done');assert.equal(row.pinned,true);assert.equal(row.score,.8);
 });
-test('KOL requires sufficient author-owned evidence, leaves missing interaction unknown and records source links',async()=>{
- const w=store(),calls=[],features=new Features(w,{evaluate:async(state,questions)=>{calls.push({state,questions});return{scores:{content:.8,originality:.6,interaction:.9},model:'fixture',analyzedAt:1};}});
- await assert.rejects(features.kol('me','alice',[item(1),item(2),...Array.from({length:12},(_,n)=>item(n+3,'other'))]),/2 条/);assert.equal(calls.length,0);
- const posts=Array.from({length:5},(_,i)=>item(i));const partial=await features.kol('me','alice',posts);assert.equal(partial.dimensions.interaction,null);assert.equal(partial.coverage,'partial');assert.equal(partial.overall,72);assert.equal(calls[0].questions.interaction,undefined);
- const full=await features.kol('me','alice',[...posts,...[6,7,8].map(id=>item(id,'alice','reply'))]);assert.equal(full.coverage,'sampled');assert.equal(full.overall,77);assert.equal(full.evidence.length,8);
- assert.equal((await w.page('ratings','other')).items.length,0);
-});
 test('interest uses bounded personal counterexamples, deleting feedback and changed preferences invalidate decisions',async()=>{
  const w=store();await w.profile('me',{topics:'开源 工具',enabled:true});
  for(let n=1;n<=12;n++)await w.saveFeedback('me',item(n),n%2?'yes':'no');

@@ -32,8 +32,8 @@ if(process.argv.includes('--advanced')){
   const items=texts.map((text,i)=>({id:String(8100+i),kind:'post',handle:'fixture',displayName:'构造样例',text,parent:'',metrics:{}}));
   await store.profile('fixture_owner',{topics:'开源工具、浏览器扩展开发、真实测试与排查经验',avoid:'抽象营销口号'});
   await store.saveFeedback('fixture_owner',{...items[0],id:'8199'},'yes','具体有用');
-  const kol=await features.kol('fixture_owner','fixture',items),interest=await features.interest('fixture_owner',{...items[1],id:'8200'});
-  const report={timestamp:new Date().toISOString(),provider:'magpie',note:'Constructed smoke fixtures, not an accuracy benchmark. Official TypeSafe credentials were not used.',kol:{overall:kol.overall,dimensions:kol.dimensions,postCount:kol.postCount,replyCount:kol.replyCount,model:kol.model},interest,requests:(await engine.snapshot()).stats.requests};
+  const interest=await features.interest('fixture_owner',{...items[1],id:'8200'});
+  const report={timestamp:new Date().toISOString(),provider:'magpie',note:'Constructed smoke fixtures, not an accuracy benchmark. Official TypeSafe credentials were not used.',interest,requests:(await engine.snapshot()).stats.requests};
   await mkdir('artifacts',{recursive:true});await writeFile('artifacts/live-advanced-smoke.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));process.exit(0);
 }
 if (process.argv.includes('--connection')) {

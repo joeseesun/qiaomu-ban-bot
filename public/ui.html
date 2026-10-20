@@ -14,11 +14,12 @@
     <a href="#bookmarks" data-tab="bookmarks"><span data-icon="Bookmark"></span>书签</a>
     <a href="#forecasts" hidden data-tab="forecasts"><span data-icon="Flame"></span>热帖与看好</a>
     <a href="#workspace/search" data-tab="workspace/search"><span data-icon="Search"></span>高级搜索</a>
+    <a href="settings.html?section=write" target="_blank"><span data-icon="Pencil"></span>写长文</a>
+    <a href="settings.html?section=interpreter" target="_blank"><span data-icon="Sparkles"></span>写作模型</a>
     <a href="#workspace/interests" hidden data-tab="workspace/interests"><span data-icon="Sparkles"></span>兴趣偏好</a>
-    <a href="#workspace/ratings" data-tab="workspace/ratings"><span data-icon="UsersRound"></span>账号评分</a>
     <p class="side-heading">记录与设置</p>
     <a href="#annotations" data-tab="annotations"><span data-icon="Tag"></span>我的标注</a>
-    <a href="#model" data-tab="model"><span data-icon="Cpu"></span>模型与用量</a>
+    <a href="#model" data-tab="model"><span data-icon="Cpu"></span>回复判断模型</a>
     <a href="#about" data-tab="about"><span data-icon="Info"></span>关于与反馈</a>
   </nav>
   <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">0.3.1</span></p>
@@ -30,6 +31,7 @@
   <section id="overview" class="panel">
     <div class="hero"><div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch large"><input id="enabled" type="checkbox" role="switch" aria-label="自动隐藏"><span></span></label></div>
     <p class="status-stats"><span>今天判断 <b id="stat-requests">—</b> 次</span><span>我的标注 <b id="stat-labels">—</b> 条</span></p></div>
+    <div class="popup-only writing-shortcuts"><a href="settings.html?section=write" target="_blank" class="secondary full">写长文</a><a href="settings.html?section=interpreter" target="_blank" class="secondary full">模型管理</a></div>
     <nav class="settings-home" aria-label="设置">
     <h3 class="group-title">隐藏什么</h3>
     <div class="group">
@@ -53,13 +55,14 @@
         <label class="row" hidden><span class="row-text"><b>标出值得一读</b><small>具体经验、有用补充和不同观点</small></span><span class="switch small"><input id="highlightUseful" type="checkbox" role="switch"><span></span></span></label>
         <button hidden id="open-forecasts" class="row" type="button"><span class="row-text"><b>看好追踪</b><small>你看好的帖子，3 天后看看实际表现</small></span><span class="chev" aria-hidden="true">›</span></button>
         <a class="row" href="#workspace/search" data-tab="workspace/search"><span class="row-text"><b>高级搜索</b><small>用表单组合条件，常用的可以存下来</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="settings.html?section=write" target="_blank"><span class="row-text"><b>写长文</b><small>编辑文章、AI 改写、导出或写入 X 草稿</small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="settings.html?section=interpreter" target="_blank"><span class="row-text"><b>写作模型</b><small>管理文字和图片服务、模型与密钥</small></span><span class="chev" aria-hidden="true">›</span></a>
         <a class="row" href="#workspace/interests" hidden data-tab="workspace/interests"><span class="row-text"><b>兴趣偏好</b><small>告诉它你想多看什么、少看什么</small></span><span class="chev" aria-hidden="true">›</span></a>
-        <a class="row" href="#workspace/ratings" data-tab="workspace/ratings"><span class="row-text"><b>账号评分</b><small>在账号主页，判断值不值得关注</small></span><span class="chev" aria-hidden="true">›</span></a>
       </div>
       <h3 class="group-title">记录与设置</h3>
       <div class="group">
         <a class="row" href="#annotations" data-tab="annotations"><span class="row-text"><b>我的标注</b><small id="annotations-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
-        <a class="row" href="#model" data-tab="model"><span class="row-text"><b>模型与数据</b><small id="model-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
+        <a class="row" href="#model" data-tab="model"><span class="row-text"><b>回复判断模型</b><small id="model-summary"></small></span><span class="chev" aria-hidden="true">›</span></a>
         <a class="row" href="#about" data-tab="about"><span class="row-text"><b>关于与反馈</b><small>反馈问题、源码、更新记录</small></span><span class="chev" aria-hidden="true">›</span></a>
       </div>
     </div>
@@ -172,10 +175,10 @@
   <section id="workspace" class="panel" hidden>
     <a class="back" href="#overview">‹ 设置</a>
         <label class="field contact-owner-field"><span>我的 X 账号</span><select id="ws-owner" aria-label="工作台所属账号"></select></label>
-    <div class="workspace-tabs" role="group" aria-label="工作台"><button data-ws-view="search" aria-pressed="true">搜索</button><button data-ws-view="ratings">账号</button><button data-ws-view="inbox">待回复</button><button data-ws-view="interests">兴趣</button><button data-ws-view="review">复盘</button></div>
+    <div class="workspace-tabs" role="group" aria-label="工作台"><button data-ws-view="search" aria-pressed="true">搜索</button><button data-ws-view="inbox">待回复</button><button data-ws-view="interests">兴趣</button><button data-ws-view="review">复盘</button></div>
     <div id="ws-empty-owner" class="empty-state" hidden>先登录 X，或在「账号 → 常用 @」添加自己的账号。搜索仍可直接使用。</div>
     <div id="ws-search-view" class="workspace-view">
-      <h3>高级搜索</h3><p class="hint">用表单组合条件，在 X 自己的搜索页打开结果。常用的可以存下来。</p>
+      <h3>高级搜索</h3><p class="hint">填条件就能搜索，不用记语法。也可以先选一个模板，再调整。</p>
       <div id="ws-templates" class="workspace-templates" aria-label="搜索模板"></div>
       <form id="ws-search-form"><div class="workspace-grid">
         <label class="field"><span>关键词</span><input id="ws-all" maxlength="400" placeholder="都要包含，例如：开源 工具"></label>
@@ -189,7 +192,7 @@
         <label class="field"><span>至少点赞</span><input id="ws-likes" type="number" min="0" max="1000000000" step="1"></label><label class="field"><span>至少转帖</span><input id="ws-reposts" type="number" min="0" max="1000000000" step="1"></label><label class="field"><span>至少回复</span><input id="ws-repliesMin" type="number" min="0" max="1000000000" step="1"></label>
       </div><div class="workspace-checks"><label><input id="ws-excludeReposts" type="checkbox">排除转帖</label><label><input id="ws-follows" type="checkbox">只看我关注的人</label></div></details>
       <details class="fine-print"><summary>直接编辑搜索语句</summary><label class="contact-pinned"><input id="ws-raw-mode" type="checkbox">使用下面的自定义语句</label><label class="field"><span class="sr-only">自定义搜索语句</span><textarea id="ws-raw" maxlength="2000" rows="3" placeholder="例如：from:vista8 min_faves:100"></textarea></label></details>
-      <div class="workspace-preview"><span>搜索语句</span><code id="ws-query-preview" aria-live="polite">填写条件后在这里预览</code><p id="ws-search-error" class="err" role="alert" hidden></p></div>
+      <div class="workspace-preview"><span>你要找的帖子</span><p id="ws-search-summary" aria-live="polite">填写下面任意条件即可搜索</p><details class="fine-print"><summary>查看生成的语句</summary><code id="ws-query-preview">填写条件后在这里预览</code></details><p id="ws-search-error" class="err" role="alert" hidden></p></div>
       <div class="workspace-actions"><button class="primary" type="submit"><span data-icon="Search"></span>在 X 搜索</button><button id="ws-copy-query" class="secondary" type="button"><span data-icon="Copy"></span>复制语句</button><button id="ws-reset" class="quiet" type="button">清空条件</button></div>
       </form>
       <details class="fine-print" id="ws-save-details"><summary>保存这次搜索</summary><form id="ws-save-form"><div class="workspace-grid"><label class="field"><span>名称</span><input id="ws-search-name" maxlength="80" required></label><label class="field"><span>分类（选填）</span><input id="ws-search-category" maxlength="40" placeholder="例如：选题、资料、我的账号"></label></div><label class="contact-pinned"><input id="ws-search-pinned" type="checkbox">置顶</label><div class="workspace-actions"><button id="ws-save-search" class="secondary">保存搜索</button><button id="ws-save-new" type="button" class="quiet" hidden>另存为新搜索</button></div></form></details>
@@ -200,7 +203,6 @@
       <form id="ws-interest-form"><label class="field"><span>我想多看</span><textarea id="ws-topics" maxlength="1000" rows="3" placeholder="例如：独立开发、AI 工具的实际用法、开源项目"></textarea></label><label class="field"><span>我想少看</span><textarea id="ws-avoid" maxlength="1000" rows="2" placeholder="例如：空泛推广、重复新闻、引战"></textarea></label><label class="toggle-row"><span>浏览时显示兴趣估计<small>需要模型密钥；只判断视口中的文字，每次计入请求额度</small></span><span class="switch small"><input id="ws-interest-enabled" type="checkbox" role="switch"><span></span></span></label><button class="primary">保存兴趣设置</button></form>
       <h3>你给过的反馈</h3><p class="hint">每次最多参考 6 条正反例；删除反馈后，后续判断不再使用。</p>
     </div>
-    <div id="ws-ratings-view" class="workspace-view" hidden><h3>账号评分</h3><p class="hint">打开一个账号的主页，往下看至少 5 条帖子，再点「分析值得关注」。评分看内容、独立表达和互动，不看粉丝多少。</p><a class="secondary" href="https://x.com/home" target="_blank" rel="noopener noreferrer">去 X 浏览账号 ↗</a><p class="hint">互动样本不足时只显示已有维度，结果会标出覆盖范围。不能证明事实正确或排除抄袭。</p></div>
     <div id="ws-inbox-view" class="workspace-view" hidden>
       <h3>待回复</h3><p class="hint">留住想继续的对话。在这里写草稿，一键填入 X 回复框。</p>
       <p id="ws-inbox-counts" class="hint"></p>

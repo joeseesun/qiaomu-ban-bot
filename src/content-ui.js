@@ -81,6 +81,18 @@ button:disabled { opacity:.5; cursor:wait; }
 .panel > button { margin:8px 16px; border:1px solid var(--qb-border); }
 .panel > .muted { margin:8px 16px; }
 p { margin:7px 0; }
+.momentum-panel .momentum-title { margin:0; font-size:14px; line-height:20px; }
+.momentum-verdict { font-size:12px; color:var(--qb-text); margin:4px 0 12px; }
+.momentum-speed { display:flex; flex-direction:column; gap:4px; padding:0 0 12px; }
+.momentum-speed strong { font-size:23px; line-height:28px; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
+.momentum-speed span { font-size:12px; color:var(--qb-text); }
+.momentum-panel .scores { padding:12px 0; border-top:1px solid var(--qb-border); gap:12px 24px; }
+.momentum-panel .scores dd { display:inline; font-size:16px; line-height:24px; }
+.momentum-panel .scores small { margin-left:8px; font-size:12px; color:var(--qb-text); }
+.momentum-help { margin:12px 0 0; font-size:12px; line-height:18px; color:var(--qb-text); }
+.momentum-help summary { cursor:pointer; width:fit-content; }
+.momentum-panel > button { margin:12px 0 0; border:1px solid var(--qb-border); font-size:12px; }
+.panel.momentum-panel { padding:16px; }
 .forecast-pop .actions { margin:0 -16px; }
 .err { color:#f4212e; padding:0 16px; font-size:13px; }
 @media (max-width:500px) { .inline .trigger:not(.high) { width:28px; height:28px; min-width:28px; } .inline .trigger.high { width:28px; height:28px; min-width:28px; padding:0; } .inline .trigger.high .trigger-text { display:none; } .inline .toolbar { min-height:28px; } .inline .trigger svg { width:16px; height:16px; } }

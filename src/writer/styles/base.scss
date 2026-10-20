@@ -1,0 +1,18 @@
+@import 'variables';
+@import 'inputs';
+@import 'toggles';
+* { box-sizing: border-box; }
+[hidden] { display:none !important; }
+body { margin:0; font:14px/1.6 var(--font-default,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif);color:var(--text-normal);background:var(--background-primary); }
+button,input,textarea,select { font:inherit; }
+button,a { -webkit-tap-highlight-color:transparent; }
+button { cursor:pointer; color:inherit; }
+button:active,a:active { opacity:.8; }
+a { color:inherit; }
+button:focus-visible,a:focus-visible,summary:focus-visible { outline:1px solid var(--text-muted); outline-offset:2px; }
+button.clickable-icon { width:30px;height:30px;padding:6px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:6px; }
+button.clickable-icon:hover { background:var(--background-modifier-hover); }
+
+:root { --field-focus-ring:none; }
+.provider-dialog .pd-actions button,.provider-dialog .pd-signin button,.provider-dialog .pd-paste button { border:1px solid transparent;border-radius:6px;min-height:34px;padding:6px 14px;line-height:20px; }
+.modal-container {position:fixed;}

@@ -2,6 +2,7 @@ import { build } from 'esbuild';
 import { mkdir, readFile, writeFile, cp, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { icons } from './icons.mjs';
+import { buildWriter } from './build-writer.mjs';
 const root = path.resolve(import.meta.dirname, '..');
 const output = path.join(root, 'dist/chrome');
 await rm(output, { recursive: true, force: true });
@@ -13,9 +14,10 @@ await cp(path.join(root, 'node_modules/lucide/LICENSE'), path.join(output, 'LICE
 await cp(path.join(root, 'node_modules/pinyin-pro/LICENSE'), path.join(output, 'LICENSE.pinyin-pro'));
 await icons(output);
 await Promise.all(['background', 'page-evidence', 'content', 'mentions', 'bookmark-content', 'workspace-content', 'ui'].map(name => build({ entryPoints: [path.join(root, `src/${name}.js`)], bundle: true, outfile: path.join(output, `${name}.js`), format: name === 'background' ? 'esm' : 'iife', target: 'chrome120', minify: false, legalComments: 'eof' })));
+await buildWriter(root, output);
 const manifest = {
   manifest_version: 3, name: '乔木 X 助手 · Qiaomu X Helper', version: pkg.version,
-  description: '整理 X 回复、自动填入回复草稿、快捷搜索、查看传播表现与导出本机书签。', minimum_chrome_version: '120',
+  description: '整理 X 回复、快捷搜索、查看传播表现、导出书签、管理写作模型并编辑 X 长文草稿。', minimum_chrome_version: '120',
   permissions: ['storage'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'],
   optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
   background: { service_worker: 'background.js', type: 'module' },
@@ -23,6 +25,8 @@ const manifest = {
   options_page: 'ui.html',
   icons: { 16: 'icons/icon-16.png', 32:'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
   content_scripts: [
+    {matches:['https://x.com/*','https://twitter.com/*','https://www.x.com/*','https://www.twitter.com/*'],js:['x-publish-main.js'],world:'MAIN',run_at:'document_idle',all_frames:false},
+    {matches:['https://x.com/*','https://twitter.com/*','https://www.x.com/*','https://www.twitter.com/*'],js:['x-publish-content.js'],run_at:'document_idle',all_frames:false},
     {matches:['https://x.com/*','https://twitter.com/*','https://www.x.com/*','https://www.twitter.com/*'],js:['page-evidence.js'],world:'MAIN',run_at:'document_idle',all_frames:false},
     { matches: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'], js: ['content.js','mentions.js','bookmark-content.js','workspace-content.js'], css: ['content.css'], run_at: 'document_idle', all_frames: false }],
   content_security_policy: { extension_pages: "script-src 'self'; object-src 'none'; base-uri 'none'" },

@@ -199,7 +199,7 @@ test('hot badge follows timestamp, opens details, and removes cleanly when radar
   const env=mount(html,async()=>({model:'fixture',analyzedAt:Date.now(),scores:{hot:.02,discussion:.1},hot:{status:'forecast',velocity:138}}));
   try{const d=env.dom.window.document;await until(()=>d.querySelector('.qb-hot-host'));const badge=d.querySelector('.qb-hot-host'),b=badge.shadowRoot.querySelector('button'),bar=d.querySelector('.qb-host').shadowRoot.querySelector('.bar');
     assert.equal(badge.previousElementSibling.tagName,'A');assert.equal(b.title,'传播表现');assert.equal(b.textContent,'');assert.match(b.getAttribute('aria-label'),/数据不足/);assert.equal(env.calls.length,0);assert.equal(bar.hidden,true);
-    b.click();assert.equal(bar.hidden,false);assert.equal(b.getAttribute('aria-expanded'),'true');assert.ok(!bar.textContent.includes('我感觉能爆'));assert.ok(bar.textContent.includes('更新当前数据'));assert.ok(bar.textContent.includes('不是爆款概率'));
+    b.click();assert.equal(bar.hidden,false);assert.equal(b.getAttribute('aria-expanded'),'true');assert.ok(!bar.textContent.includes('我感觉能爆'));assert.ok(bar.textContent.includes('更新数据'));assert.ok(bar.textContent.includes('不是爆款概率'));assert.equal(bar.querySelector('.momentum-help').open,false);assert.ok(bar.querySelector('.momentum-verdict').textContent.includes('暂无足够对比'));
     env.settings.radar=false;env.refresh();await until(()=>!d.querySelector('.qb-hot-host'));assert.equal(d.querySelector('[data-testid=User-Name] a').textContent,'Alice');
   }finally{env.close();}
 });

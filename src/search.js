@@ -48,6 +48,20 @@ export function buildSearch(input,now=new Date()){
   const q=parts.join(' ');if(!q)throw Error('先填关键词、账号或其他条件。');if(q.length>2000)throw Error('搜索条件太长，请精简后重试。');return q;
 }
 export function searchURL(input,now=new Date()) {const s=normalizeSearch(input);const u=new URL('https://x.com/search');u.search=new URLSearchParams({q:buildSearch(s,now),src:'typed_query',f:s.sort});return u.href;}
+export function describeSearch(input){
+  const s=normalizeSearch(input);
+  if(s.mode==='raw')return '使用自定义搜索语句';
+  const parts=[];
+  for(const [key,label]of[['all','包含全部'],['any','包含任意'],['phrase','完整短语'],['exclude','排除']])if(s[key])parts.push(`${label}「${s[key]}」`);
+  for(const [key,label]of[['from','作者'],['to','回复给'],['mention','提及']])if(s[key])parts.push(label+' '+handles(s[key]).map(h=>'@'+h).join('、'));
+  if(s.period!=='all')parts.push(s.period==='custom'?`${s.since||'不限开始'} 至 ${s.until||'不限结束'}`:{today:'今天','7d':'近 7 天','30d':'近 30 天','90d':'近 90 天'}[s.period]);
+  if(s.lang)parts.push(({zh:'中文',en:'英语',ja:'日语',ko:'韩语'})[s.lang]||s.lang);
+  if(s.media)parts.push(({images:'含图片',videos:'含视频',links:'含链接',media:'含图片或视频'})[s.media]);
+  if(s.replies)parts.push(s.replies==='only'?'只看回复':'只看主帖');
+  if(s.excludeReposts)parts.push('排除转帖');if(s.follows)parts.push('只看我关注的人');
+  for(const[key,label]of[['likes','点赞'],['reposts','转帖'],['repliesMin','回复']])if(s[key]>0)parts.push(`至少 ${s[key]} ${label}`);
+  return parts.length?parts.join(' · ')+' · '+(s.sort==='top'?'热门优先':'最新优先'):'填写下面任意条件即可搜索';
+}
 export const SEARCH_TEMPLATES=[
   {name:'近七天的开源项目',category:'发现',filters:{all:'开源',any:'工具 项目',period:'7d',likes:20,excludeReposts:true}},
   {name:'AI 讨论与实践',category:'发现',filters:{any:'Claude Codex DeepSeek',repliesMin:5,period:'7d',excludeReposts:true}},

@@ -217,20 +217,24 @@ function render(article, state) {
     const label=compactRate(speed);
     toolbar.append(el('span',`传播表现 · ${label}`,'label prob'));
     const details=disclosure(bar,toolbar,'传播表现详情');
-    details.append(el('p',measured.recentViewsPerHour!=null?`最近 ${Math.round(measured.windowMinutes)} 分钟 · ${label}`:`发布以来平均 · ${label}`,'section-title'));
+    details.classList.add('momentum-panel');
+    details.append(el('h3','传播表现','momentum-title'));
+    details.append(el('p',measured.percentile==null?'暂无足够对比':`同龄参考分 · ${measured.percentile}/100`,'momentum-verdict'));
+    const velocity=el('div',null,'momentum-speed');
+    velocity.append(el('strong',speed==null?'暂无法计算':label),el('span',measured.recentViewsPerHour!=null?`近 ${measured.windowMinutes} 分钟新增 ${measured.recentViews.toLocaleString()} 次浏览`:'发布以来平均浏览速度'));
+    details.append(velocity);
     const metrics=el('dl',null,'scores');
     for(const[key,name]of[['views','浏览'],['reposts','转发'],['replies','评论'],['likes','赞']]){
       const cell=el('div'),n=measured.metrics[key],rate=measured.rates[key];
-      cell.append(el('dt',name),el('dd',n==null?'未提供':n.toLocaleString()));
-      if(rate!=null)cell.append(el('small',`${(rate*100).toFixed(2)}% / 浏览`));metrics.append(cell);
+      cell.append(el('dt',name),el('dd',n==null?'—':n.toLocaleString()));
+      if(rate!=null)cell.append(el('small',`${(rate*100).toFixed(2)}%`));metrics.append(cell);
     }
     details.append(metrics);
-    details.append(detailLine(measured.percentile==null
-      ? `同龄样本 ${measured.peerCount} 条；至少 20 条且互动数据足够时，才显示相对表现。`
-      : `本次浏览同龄样本综合表现：第 ${measured.percentile} 百分位（${measured.peerCount} 条参考）。综合浏览速度及平滑后的转发、评论、点赞率。`));
-    details.append(detailLine(measured.status==='insufficient'?'发布时间不足 10 分钟、时间未知或缺少浏览数，暂不计算速度。':'单次观察显示平均速度；相隔至少 5 分钟再次看到同帖后，才显示最近增长。'));
-    details.append(detailLine('来自页面可见数据，浏览不等于独立人数。同龄样本仅限本次浏览，不能代表全站，也不是爆款概率。'));
-    details.append(button('更新当前数据',()=>processArticle(article,state,true)));
+    const explanation=el('details',null,'momentum-help');explanation.append(el('summary','数据说明'));
+    explanation.append(el('p',`本次浏览有 ${measured.peerCount} 条同龄参考；至少 20 条且互动数据足够时才比较。按速度与互动率的相对位置计算，不是爆款概率。`));
+    explanation.append(el('p',measured.status==='insufficient'?'满 10 分钟且页面提供浏览数后可计算速度。':'相隔至少 5 分钟再次观察此帖，可显示最近增长。'));
+    explanation.append(el('p','互动百分比以浏览数为分母；浏览并非人数，参考范围仅限本次浏览。'));
+    details.append(explanation,button('更新数据',()=>processArticle(article,state,true)));
     const time=[...article.querySelectorAll('time')].find(t=>t.closest('a')?.getAttribute('href')?.match(new RegExp(`/status/${item.id}(?:$|[/?])`))&&t.closest(ARTICLE)===article&&!t.closest('[data-testid="quoteTweet"]'));
     const anchor=time?.closest('a');
     // Inline timeline headers have a timestamp. Detail pages keep their native
