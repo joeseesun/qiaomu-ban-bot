@@ -1,12 +1,12 @@
 {
   "name": "qiaomu-x-helper",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "A Chrome assistant for X replies, mentions, post tracking, and bookmark export.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test test/*.test.js",
+    "test": "node --test test/*.test.js && vitest run",
     "package": "npm test && npm run build && node scripts/package.mjs",
     "preview": "node scripts/preview.mjs",
     "test:live": "python3 scripts/live.py"
@@ -14,10 +14,34 @@
   "devDependencies": {
     "esbuild": "^0.25.0",
     "fake-indexeddb": "6.2.4",
-    "jsdom": "^26.0.0"
+    "jsdom": "^26.0.0",
+    "sass": "1.105.2",
+    "vitest": "4.1.11"
   },
   "dependencies": {
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-code-block-lowlight": "3.32.0",
+    "@tiptap/extension-drag-handle": "3.32.0",
+    "@tiptap/extension-image": "3.32.0",
+    "@tiptap/extension-list": "3.32.0",
+    "@tiptap/extension-placeholder": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "dompurify": "3.4.17",
+    "fflate": "0.8.3",
+    "katex": "0.18.2",
+    "lowlight": "3.3.0",
     "lucide": "1.59.0",
-    "pinyin-pro": "3.29.5"
+    "marked": "17.0.6",
+    "mathjax-full": "3.2.1",
+    "mermaid": "11.17.2",
+    "pinyin-pro": "3.29.5",
+    "tiptap-markdown": "0.9.0",
+    "webextension-polyfill": "0.12.0"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.9.12",
+    "katex": "$katex"
   }
 }

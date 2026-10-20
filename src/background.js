@@ -7,7 +7,7 @@ import { Forecasts } from './forecasts.js';
 import { Bookmarks, bookmarkPath } from './bookmarks.js';
 import { Workspace } from './workspace.js';
 import { Features } from './features.js';
-import { importSearches } from './search.js';
+import { importSearches, normalizeSearch } from './search.js';
 import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
 const bookmarks = new Bookmarks();
@@ -30,6 +30,12 @@ async function broadcast(message = {type:'refresh'}) {
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
     const who = senderContext(sender, chrome.runtime);
+    if (who === 'admin' && message?.action === 'qiaomuWriteFocus') {
+      const tabs = await chrome.tabs.query({url:chrome.runtime.getURL('write.html')+'*'});
+      const target = tabs.find(tab=>new URL(tab.url).searchParams.get('id')===message.id);
+      if(target) await chrome.tabs.update(target.id,{active:true});
+      return {};
+    }
     if (who === 'none' || !message || typeof message.type !== 'string') throw new Error('消息来源无效');
     if (message.type === 'snapshot') return engine.snapshot(who === 'admin');
     if (message.type === 'classify') return engine.classify(message.item,message.force===true);
@@ -37,15 +43,19 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'list') { const result = await engine.listAction(message.handle, message.action); await broadcast(); return result; }
     if (message.type === 'feedback') { const result = await engine.feedback(message.item, message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return result; }
     if (message.type === 'learn') { const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'annotation-changed',id:message.item.id}); return {...result,...shared}; }
-    if (message.type === 'options') { if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/ratings','workspace/inbox','workspace/interests','workspace/review'].includes(message.page))await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page)});else await chrome.runtime.openOptionsPage(); return {}; }
+    if (message.type === 'options') {
+      if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/inbox','workspace/interests','workspace/review'].includes(message.page)){
+        const draft=message.page==='workspace/search'&&message.searchDraft?'?'+new URLSearchParams({draft:JSON.stringify(normalizeSearch(message.searchDraft))}):'';
+        await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page+draft)});
+      }else await chrome.runtime.openOptionsPage();
+      return {};
+    }
     if(message.type==='workspace-state')return workspace.profile(message.owner);
     if(message.type==='sidebar-searches')return workspace.page('searches',message.owner,{limit:20,sort:'rank'});
     if(message.type==='sidebar-search-save'){
-      const row=await workspace.saveSearch(message.owner,{name:message.name,filters:{mode:'raw',raw:message.query},pinned:true});
+      const row=await workspace.saveSearch(message.owner,{name:message.name,filters:message.filters||{mode:'raw',raw:message.query},pinned:true});
       await broadcast({type:'searches-changed',owner:message.owner});return row;
     }
-    if(message.type==='kol-analyze')return features.kol(message.owner,message.handle,message.items);
-    if(message.type==='kol-get')return workspace.get('ratings',message.owner,message.handle);
     if(message.type==='interest-analyze')return features.interest(message.owner,message.item);
     if(message.type==='interest-status'){const row=await workspace.get('feedback',message.owner,message.id);return{label:row?.label||null,reason:row?.reason||''};}
     if(message.type==='interest-label'){const r=await workspace.saveFeedback(message.owner,message.item,message.label,message.reason);await broadcast({type:'interest-changed',owner:message.owner});return r;}
@@ -62,7 +72,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const item=(await import('./core.js')).validateItem(message.item),rows=await engine.annotations.byAuthor({...item,id:''});
       return{ai:rows.filter(r=>r.label==='ai').length,human:rows.filter(r=>r.label==='human').length,sampleLimit:40,community:item.author?.userId?await community.evidence(item.author.userId).catch(()=>null):null};
     }
-    if(message.type==='profile-note'&&who==='content')return contacts.put(message.owner,{handle:message.handle,displayName:message.displayName,note:message.note});
     if(message.type==='forecast-watch'&&who==='content'){await contacts.observe(message.owner);return forecasts.watch(message.owner,message.item,message.result,message.target);}
     if(message.type==='forecast-observe'&&who==='content')return forecasts.observe(message.owner,message.items);
     if(message.type==='contacts-page')return contacts.page(message);
@@ -90,7 +99,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='search-save'){const row=await workspace.saveSearch(message.owner,message.search);await broadcast({type:'searches-changed',owner:message.owner});return row;}
     if(message.type==='search-import'){const result=await workspace.importSearches(message.owner,importSearches(message.value));await broadcast({type:'searches-changed',owner:message.owner});return result;}
     if(message.type==='workspace-remove'){
-      if(!['searches','ratings','feedback','inbox'].includes(message.store))throw Error('未知记录类型。');
+      if(!['searches','feedback','inbox'].includes(message.store))throw Error('未知记录类型。');
       const r=await workspace.remove(message.store,message.owner,message.id);
       if(message.store==='inbox')await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});
       if(message.store==='searches')await broadcast({type:'searches-changed',owner:message.owner});

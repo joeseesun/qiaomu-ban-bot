@@ -8,7 +8,7 @@ export const INTEREST_REASONS=['','话题不合适','重复信息','已经了解
 export class Workspace{
   constructor(factory=globalThis.indexedDB,ranges=globalThis.IDBKeyRange,name='qiaomu-x-helper-workspace'){
     this.ranges=ranges;this.db=new Promise((resolve,reject)=>{const r=factory.open(name,2);r.onupgradeneeded=e=>{const db=r.result;
-      if(e.oldVersion<1){db.createObjectStore('profiles',{keyPath:'owner'});db.createObjectStore('removed',{keyPath:['owner','id']});for(const name of['searches','ratings','feedback','inbox']){const s=db.createObjectStore(name,{keyPath:['owner','id']});s.createIndex('recent',['owner','at','id']);s.createIndex('rank',['owner','rank','at','id']);}}
+      if(e.oldVersion<1){db.createObjectStore('profiles',{keyPath:'owner'});db.createObjectStore('removed',{keyPath:['owner','id']});for(const name of['searches','feedback','inbox']){const s=db.createObjectStore(name,{keyPath:['owner','id']});s.createIndex('recent',['owner','at','id']);s.createIndex('rank',['owner','rank','at','id']);}}
       const inbox=r.transaction.objectStore('inbox');
       for(const[name,field]of[['queueRecent','at'],['queueOld','oldAt'],['followers','followers']])inbox.createIndex(name,['owner','pin',field,'id']);
       inbox.createIndex('status',['owner','status']);
@@ -49,9 +49,8 @@ export class Workspace{
     const savedAt=old?.at||at;
     const row={...item,author:item.author||old?.author||null,owner,id:item.id,at:savedAt,oldAt:-savedAt,updatedAt:at,status,pinned,pin:pinned?1:0,followers:item.author?.followers??old?.followers??-1,note:typeof patch.note==='string'?patch.note.slice(0,4000):old?.note||'',score,rank:(pinned?3:0)+(score??-1),source:patch.source==='manual'?'manual':old?.source||(patch.source==='mention'?'mention':'manual'),model:trim(patch.model,100)||old?.model||''};s.put(row);await end;return row;
   }
-  async rate(owner,handle,input){owner=workspaceOwner(owner);handle=handleOf(handle);if(!handle)throw Error('无法确认账号。');return this.put('ratings',{...input,owner,id:handle,handle,rank:input.overall??-1,at:Date.now()});}
   async page(store,owner,{before=null,query='',status='',sort='recent',limit=20,label='',source=''}={}){
-    if(!['searches','ratings','feedback','inbox'].includes(store))throw Error('未知记录类型。');owner=workspaceOwner(owner);limit=Math.floor(Math.min(2000,Math.max(1,Number(limit)||20)));
+    if(!['searches','feedback','inbox'].includes(store))throw Error('未知记录类型。');owner=workspaceOwner(owner);limit=Math.floor(Math.min(2000,Math.max(1,Number(limit)||20)));
     const index=store==='inbox'&&['queueRecent','queueOld','followers'].includes(sort)?sort:sort==='rank'?'rank':'recent',size=index==='recent'?3:4;
     const valid=Array.isArray(before)&&before.length===size&&before[0]===owner&&typeof before.at(-1)==='string'&&before.slice(1,-1).every(Number.isFinite);
     const low=size===4?[owner,-Number.MAX_SAFE_INTEGER,-Number.MAX_SAFE_INTEGER,'']:[owner,0,''];

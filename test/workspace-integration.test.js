@@ -25,8 +25,8 @@ test('production background validates access, model contract and isolated persis
  assert.equal((await e.dispatch({type:'workspace-state',owner:'me'},'https://x.com/home','frame')).ok,false);
  await e.dispatch({type:'workspace-configure',owner:'me',profile:{topics:'开源实际经验',enabled:true}});
  const score=await e.dispatch({type:'interest-analyze',owner:'me',item:item()},'https://x.com/home','content');assert.equal(score.ok,true);assert.equal(score.data.interest,.85);assert.equal(e.calls[0].url,'https://api.typesafe.ai/v1/systemone');assert.equal(e.calls[0].payload.messages,undefined);assert.equal(e.calls[0].payload.questions.interest.type,'noul');
- const rating=await e.dispatch({type:'kol-analyze',owner:'me',handle:'alice',items:[1,2,3,4,5].map(i=>item(i))},'https://x.com/alice','content');assert.equal(rating.ok,true);assert.equal(rating.data.dimensions.interaction,null);
- assert.equal((await e.dispatch({type:'workspace-page',owner:'other',store:'ratings'})).data.items.length,0);
+ for(const message of [{type:'kol-analyze',owner:'me',handle:'alice',items:[1,2,3,4,5].map(i=>item(i))},{type:'kol-get',owner:'me',handle:'alice'},{type:'profile-note',owner:'me',handle:'alice',note:'retired'},{type:'workspace-page',owner:'me',store:'ratings'}])assert.equal((await e.dispatch(message)).ok,false,message.type);
+ assert.equal(e.calls.length,1,'retired profile actions must never call a model');
  assert.equal((await e.dispatch({type:'inbox-add',source:'mention',owner:'me',item:item()},'https://x.com/home','content')).ok,false);
  assert.equal((await e.dispatch({type:'inbox-add',source:'mention',owner:'me',item:item()},'https://x.com/notifications/mentions','content')).ok,true);
  assert.equal(JSON.stringify(score).includes('never-expose-fixture'),false);
@@ -62,9 +62,10 @@ test('real content controls preserve native nodes, persist feedback and detect r
  article.querySelector('a[href*=status]').href='/alice/status/9';text.textContent='另一个新的 @me 问题';await until(()=>article.querySelector('.qx-interest-host')?.shadowRoot!==human.getRootNode());assert.equal(root().querySelector('.trigger').textContent,'');
  }finally{dom.window.close();}
 });
-test('KOL profile action sends only matching author evidence and requires an explicit click',async()=>{
- const e=environment(),dom=body('/alice');try{attach(dom,e);await until(()=>dom.window.document.querySelector('.qx-profile-host'));assert.equal(e.calls.length,0);const root=dom.window.document.querySelector('.qx-profile-host').shadowRoot;
- [...root.querySelectorAll('button')].find(b=>b.textContent.includes('分析值得关注')).click();await until(()=>root.textContent.includes('值得关注 79/100'));assert.equal(e.calls.length,1);assert.ok(root.textContent.includes('互动样本不足'));assert.ok(!e.calls[0].payload.state.posts.some(p=>p.handle==='me'));
+test('profile pages retain their description without injecting removed assessment or note actions',async()=>{
+ const e=environment(),dom=body('/alice');try{attach(dom,e);await until(()=>dom.window.document.querySelector('.qx-search-entry'));await delay(30);
+ assert.equal(dom.window.document.querySelector('.qx-profile-host'),null);assert.equal(e.calls.length,0);
+ assert.equal(dom.window.document.querySelector('[data-testid=UserDescription]').textContent,'具体项目与实践');
  }finally{dom.window.close();}
 });
 test('retired interest UI stays hidden even for previously enabled profiles and does not spend model calls',async()=>{
@@ -89,4 +90,12 @@ test('a late content estimate never appears after the owner changes',async()=>{
  e.dispatch=(m,...rest)=>m.type==='interest-analyze'?new Promise(r=>release=async()=>r(await dispatch(m,...rest))):dispatch(m,...rest);
  try{attach(dom,e);const d=dom.window.document;await until(()=>d.querySelector('.qx-interest-host'));const old=d.querySelector('.qx-interest-host');old.shadowRoot.querySelector('[aria-label="兴趣偏好与判断"]').click();[...old.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='重新判断').click();await until(()=>release);d.querySelector('[data-testid=AppTabBar_Profile_Link]').href='/other';await release();await delay(40);assert.equal(old.shadowRoot.querySelector('.trigger').textContent,'');assert.equal((await dispatch({type:'workspace-page',owner:'other',store:'feedback'})).data.items.length,0);
  }finally{dom.window.close();}
+});
+
+test('sidebar saves structured filters and full settings handoff keeps them editable',async()=>{
+ const e=environment();const filters={all:'开源',from:'@alice',period:'7d',likes:'50'};
+ const row=await e.dispatch({type:'sidebar-search-save',owner:'me',name:'我的资料',filters},'https://x.com/home','content');assert.equal(row.ok,true);assert.equal(row.data.filters.mode,'builder');assert.equal(row.data.filters.period,'7d');assert.equal(row.data.filters.likes,50);
+ const list=await e.dispatch({type:'sidebar-searches',owner:'me'},'https://x.com/home','content');assert.equal(list.data.items[0].filters.from,'@alice');
+ await e.dispatch({type:'options',page:'workspace/search',searchDraft:filters},'https://x.com/home','content');const draft=JSON.parse(new URLSearchParams(e.opened[0].url.split('?')[1]).get('draft'));assert.equal(draft.all,'开源');assert.equal(draft.likes,50);
+ assert.equal((await e.dispatch({type:'sidebar-search-save',owner:'me',name:'无效',filters:{likes:-1}},'https://x.com/home','content')).ok,false);
 });
