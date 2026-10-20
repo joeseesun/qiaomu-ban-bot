@@ -1,6 +1,6 @@
 # 高级功能交付进度
 
-## 2026-10-20 阅读与社区标注升级（进行中）
+## 2026-10-20 阅读与社区标注升级（实现完成，安装验收待解锁）
 
 用户已授权开发及自行配置需要的子域名。实现分支 `codex/reading-community`，设计锚点 `DESIGN.md`。
 复用现有待回复和标注数据库，升级静默阅读界面、独立收藏入口、作者证据、词汇规则、标注导出及可选社区服务。
@@ -17,7 +17,8 @@
 - 日备份 timer 已启用，备份 `PRAGMA integrity_check` 为 `ok`，线上 Python 与仓库 SHA-256 一致；数据库 `/var/lib/qiaomu-x-community/community.sqlite`，代码 `/opt/qiaomu-apps/x-community`。用户专属的一次性邀请保存在本机 `~/.config/qiaomu-x-helper/community-owner-invite.txt`（0600，未写入仓库/聊天；尚未兑换）。
 - 浏览器：Ego QA 空间 37；p1 设置预览，p2 真实 X 只读，p3 合成阅读夹具。已确认真实 X 页面公开用户 ID/关注数/关注关系字段存在。桌面、390 px 阅读夹具、资料卡及一键待回复已检查。Mac 随后锁定，用户解锁请求已发出；最终深色与已安装扩展运行验证待继续。
 - 已从 Chrome 原生扩展管理页确认安装 ID `cngkpaljmngkmbkaloepadeogcbconne`，固定目录 `../qiaomu-banbot/dist/chrome`。原 0.2.0 已备份，0.3.0 的 21 个文件均已复制并逐项核对摘要；尚未重载，未改动浏览器存储。
-- GitHub 0.3.0、商店 0.3.0 均未发布/提交；源码分支尚未提交。上一次商店 0.2.0 状态不可据此更新。
+- 实现 [PR #17](https://github.com/joeseesun/qiaomu-x-helper/pull/17)，GitHub 分发入口 [v0.3.0 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.3.0)。0.3.0 未提交商店，上一次商店 0.2.0 状态不可据此更新。
+- 续做：用户手动解锁 Mac 后重载原固定安装实例、刷新 X，核实版本 / 原有数据 / 新作者行及待回复；补查最终深色与窄屏工作台，再结束 QA 空间。不要自动开启社区或回传历史标签。
 
 更新：2026-10-19。源码目录为 `/Users/joe/Documents/ChatGPT/qiaomu-x-helper`；旧 `qiaomu-banbot/dist/chrome` 是用户已安装扩展的固定目录，开发构建不自动覆盖它。
 
