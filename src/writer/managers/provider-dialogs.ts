@@ -81,7 +81,7 @@ function newId() { return `${Date.now()}${Math.floor(Math.random() * 1000)}`; }
 // What the gallery offers: ours first, then anything the upstream list adds that we do not know.
 function galleryEntries(extra: Record<string, { id: string; name: string; baseUrl: string; apiKeyUrl?: string; apiKeyRequired?: boolean; modelsList?: string }>): CatalogEntry[] {
 	const known = new Set(CATALOG.map(e => e.id));
-	const more: CatalogEntry[] = Object.values(extra)
+	const more: CatalogEntry[] = Object.values({...extra,...Object.fromEntries(generalSettings.providers.filter(Boolean).map(p=>[p.id,p]))})
 		.filter(p => p && p.id && !known.has(p.id) && !CATALOG.some(e => e.name === p.name) && !/\{(resource-name|deployment-id)\}/.test(p.baseUrl))
 		.map(p => ({ id: p.id, name: p.name, group: 'provider' as const, sub: safeHost(p.baseUrl), baseUrl: p.baseUrl, apiKeyUrl: p.apiKeyUrl, apiKeyRequired: p.apiKeyRequired, modelsList: p.modelsList }));
 	return [...CATALOG, ...more];
@@ -93,7 +93,7 @@ export function openProviderPicker(presets: Record<string, any>, done: Done): vo
 	const dlg = openDialog('provider-modal', t('pdAddProviderTitle'));
 	dlg.modal.classList.add('pd-wide');
 	const entries = galleryEntries(presets);
-	const added = (e: CatalogEntry) => generalSettings.providers.find(p => p && (p.presetId === e.id || p.name === e.name));
+	const added = (e: CatalogEntry) => generalSettings.providers.find(p => p && (p.id === e.id || p.presetId === e.id || p.name === e.name));
 
 	const search = input('search', '', t('pdSearchProviders'));
 	search.className = 'pd-search';

@@ -1,12 +1,10 @@
-import { createElement,Search,Sparkles,ThumbsUp,ThumbsDown,MessageSquarePlus,MessageSquareCheck,X } from 'lucide';
+import { createElement,MessageSquarePlus,MessageSquareCheck,X } from 'lucide';
 import { formatFollowers } from './evidence.js';
 import { currentOwner } from './composer.js';
 import { ARTICLE,extractArticle } from './dom.js';
 import { bookmarkPath } from './bookmarks.js';
-import { INTEREST_REASONS } from './workspace.js';
 import { tip } from './tooltip.js';
 import { createSearchSidebar } from './search-sidebar.js';
-const INTEREST_UI=false;
 
 const send=async message=>{const r=await chrome.runtime.sendMessage(message);if(!r?.ok)throw Error(r?.error||'扩展连接中断，请刷新 X。');return r.data;};
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
@@ -30,10 +28,10 @@ function popover(h,trigger,title){const box=el('section',null,'pop');box.hidden=
 // buttons join it as peers right before the bookmark cluster (no extra row).
 function actionGroup(article){return[...article.querySelectorAll('[role="group"]')].find(g=>g.closest(ARTICLE)===article&&!g.closest('[data-testid="quoteTweet"]'));}
 function placeInRow(group,h){const before=[...group.children].find(n=>!n.matches('.qb-host,.qx-interest-host')&&n.querySelector('[data-testid="bookmark"],[data-testid="removeBookmark"]'))||null;if(h.parentElement!==group||h.nextElementSibling!==before)group.insertBefore(h,before);}
-function removeState(state){state.panel.destroy();state.authorPanel?.destroy();state.host.remove();state.authorHost?.remove();}
+function removeState(state){state.authorPanel?.destroy();state.host.remove();state.authorHost?.remove();}
 function itemFor(article){const item=extractArticle(article,location.href);return item&&item.kind!=='unknown'?item:item?{...item,kind:'reply'}:null;}
 function live(article,id,boundOwner){return article.isConnected&&currentOwner()===boundOwner&&itemFor(article)?.id===id;}
-function mountInterest(article,item){
+function mountQueue(article,item){
   const old=states.get(article);if(old?.id===item.id&&old.owner===owner&&old.host.isConnected&&(!old.authorHost||old.authorHost.isConnected)){old.item=item;authorWidget(old,article);return old;}
   if(old)removeState(old);const stamp=[...article.querySelectorAll('time')].find(n=>n.closest(ARTICLE)===article&&n.closest('a')?.getAttribute('href')?.includes('/status/'+item.id));if(!stamp)return null;
   const h=host('span','qx-interest-host'),state={host:h,id:item.id,owner,item,busy:false,result:null,label:null,stamp};
@@ -43,13 +41,7 @@ function mountInterest(article,item){
     await send({type:'inbox-add',owner:state.owner,item:state.item});if(live(article,item.id,state.owner))queueButton(state,'pending');
   },'trigger');state.save=save;queueButton(state,null);h.shadowRoot.append(save);
   void refreshQueue(state);
-  const trigger=button('',Sparkles,async()=>{state.panel.open();},'trigger');tip(trigger,'兴趣偏好与判断');trigger.setAttribute('aria-label','兴趣偏好与判断');trigger.setAttribute('aria-expanded','false');h.shadowRoot.insertBefore(trigger,save);state.trigger=trigger;trigger.hidden=!INTEREST_UI||!profile?.enabled;
-  const panel=popover(h,trigger,'合不合你的口味？');state.panel=panel;const score=el('p','点击判断，看看它是否符合你的阅读偏好。','hint'),status=el('p','','status'),actions=el('div',null,'actions');panel.box.append(score,actions,status);state.score=score;state.status=status;
-  const reasonLabel=el('label','补充原因（可选）','hint'),reason=el('select');reason.setAttribute('aria-label','兴趣反馈原因');reason.style.cssText='display:block;max-width:100%;margin-top:6px;padding:6px 8px;font:inherit;color:inherit;background:var(--qx-bg);border:1px solid var(--qx-line);border-radius:5px';for(const value of INTEREST_REASONS){const option=el('option',value||'不填写');option.value=value;reason.append(option);}reasonLabel.append(reason);panel.box.insertBefore(reasonLabel,actions);state.reason=reason;
-  reason.onchange=async()=>{if(!state.label)return;try{if(!live(article,item.id,state.owner))throw Error('账号或帖子已变化，请重新操作。');await send({type:'interest-label',owner:state.owner,item:state.item,label:state.label,reason:reason.value});status.textContent='原因已保存。';}catch(e){status.textContent=e.message;}};
-  for(const [label,name,icon]of[['yes','感兴趣',ThumbsUp],['no','不感兴趣',ThumbsDown]]){const control=button(name,icon,async()=>{if(!live(article,item.id,state.owner))throw Error('账号或帖子已变化，请重新操作。');const next=state.label===label?null:label;await send({type:'interest-label',owner:state.owner,item:state.item,label:next,reason:reason.value});if(!live(article,item.id,state.owner))return;state.label=next;for(const b of actions.querySelectorAll('[data-label]'))b.setAttribute('aria-pressed',String(b.dataset.label===next));status.textContent=next?'反馈已保存，后续判断会参考。':'反馈已撤销。';});control.dataset.label=label;control.setAttribute('aria-pressed','false');actions.append(control);}
-  actions.append(button('稍后回复',MessageSquarePlus,async b=>{if(!live(article,item.id,state.owner))throw Error('账号或帖子已变化。');await send({type:'inbox-add',owner:state.owner,item:state.item});b.textContent='已加入待回复';}),button('重新判断',Sparkles,()=>loadInterest(state,article,true)),button('设置兴趣',null,()=>send({type:'options',page:'workspace/interests'})),button('查看待回复',null,()=>send({type:'options',page:'workspace/inbox'})));
-  const group=actionGroup(article);if(group){h.classList.add('qx-in-row');placeInRow(group,h);}else{h.style.marginLeft='4px';const anchor=stamp.closest('a');(anchor.parentElement.querySelector('.qb-hot-host')||anchor).after(h);}states.set(article,state);authorWidget(state,article);observer.observe(article);return state;
+  const group=actionGroup(article);if(group){h.classList.add('qx-in-row');placeInRow(group,h);}else{h.style.marginLeft='4px';const anchor=stamp.closest('a');(anchor.parentElement.querySelector('.qb-hot-host')||anchor).after(h);}states.set(article,state);authorWidget(state,article);return state;
 }
 function queueButton(state,status){state.queueStatus=status;state.save.replaceChildren(glyph(status==='pending'?MessageSquareCheck:MessageSquarePlus));const label=status==='pending'?'已加入待回复 · 打开列表':status?'重新加入待回复':'加入待回复';tip(state.save,label);state.save.setAttribute('aria-label',label);state.save.setAttribute('aria-pressed',String(status==='pending'));}
 async function refreshQueue(state){try{const rows=await send({type:'inbox-status',owner:state.owner,ids:[state.id]});if(state.owner===owner)queueButton(state,rows[0]?.status);}catch{}}
@@ -76,34 +68,22 @@ function authorWidget(state,article){
   if(relationship)ah.shadowRoot.append(el('span',relationship,'badge'));
   const anchor=state.stamp.closest('a');(anchor.parentElement.querySelector('.qb-hot-host')||anchor).after(ah);
 }
-async function loadInterest(state,article,manual=false){
-  if(state.busy||!live(article,state.id,state.owner)||(!manual&&state.result))return;state.busy=true;const gen=generation;
-  try{if(manual){const saved=await send({type:'interest-status',owner:state.owner,id:state.id});if(!live(article,state.id,state.owner))return;state.label=saved.label;state.reason.value=saved.reason||'';for(const b of state.panel.box.querySelectorAll('[data-label]'))b.setAttribute('aria-pressed',String(b.dataset.label===saved.label));}
-    state.score.textContent='正在判断…';const result=await send({type:'interest-analyze',owner:state.owner,item:state.item});if(gen!==generation||!live(article,state.id,state.owner))return;state.result=result;
-    const interest=result.interest===null?'先设置兴趣，才能估计阅读偏好':`兴趣估计 ${Math.round(result.interest*100)}%`;
-    state.score.textContent=interest+` · 值得回复 ${Math.round(result.worthReply*100)}%`;
-    state.trigger.replaceChildren(glyph(Sparkles));if(result.interest!==null)state.trigger.append(document.createTextNode(Math.round(result.interest*100)+'%'));
-    state.status.textContent=`${result.model} · 模型参考，不会自动回复或改变 X 推荐。`;
-  }catch(e){if(live(article,state.id,state.owner)){state.score.textContent=e.message;state.result=null;}}
-  finally{state.busy=false;}
-}
-const observer=new IntersectionObserver(entries=>{for(const e of entries){const state=states.get(e.target);if(INTEREST_UI&&e.isIntersecting&&state&&profile?.enabled)void loadInterest(state,e.target);}}, {rootMargin:'0px',threshold:.05});
 function searchEntry(){const explore=document.querySelector('[data-testid="AppTabBar_Explore_Link"]');if(!explore||navHost?.isConnected)return;navHost=host('span','qx-search-entry');navHost.style.display='block';const css=el('style');css.textContent='.nav-button{height:50px;max-width:100%;padding:12px;gap:20px;border-radius:999px;font-size:20px;color:var(--qx-strong)}.nav-button svg{width:26px;height:26px}.nav-button span{white-space:nowrap}@media(max-width:1265px){.nav-button span{display:none}}';const inbox=button('',MessageSquarePlus,()=>send({type:'options',page:'workspace/inbox'}),'nav-button');inbox.append(el('span','待回复'));inbox.title='待回复';inbox.setAttribute('aria-label','待回复');inbox.dataset.inboxNav='';navHost.shadowRoot.append(css,inbox);explore.after(navHost);}
 function scan(){
   searchEntry();searches.mount();if(!owner||bookmarkPath(location.pathname))return;
-  for(const[a,state]of states)if(!a.isConnected){observer.unobserve(a);removeState(state);states.delete(a);}
+  for(const[a,state]of states)if(!a.isConnected){removeState(state);states.delete(a);}
   for(const article of document.querySelectorAll(ARTICLE)){
-    const item=itemFor(article);if(!item?.text)continue;const state=mountInterest(article,item);if(!state)continue;
+    const item=itemFor(article);if(!item?.text)continue;const state=mountQueue(article,item);if(!state)continue;
     const key=owner+'/'+item.id,mention=/^\/notifications(?:\/mentions)?\/?$/.test(location.pathname)&&new RegExp('@'+owner+'(?:\\b|$)','i').test(item.text);
     if(profile?.collectMentions!==false&&mention&&!mentioned.has(key)){mentioned.add(key);send({type:'inbox-add',owner,item,source:'mention'}).catch(()=>mentioned.delete(key));}
   }
 }
 function schedule(){clearTimeout(timer);timer=setTimeout(scan,150);}
-async function refresh(){const gen=++generation;owner=currentOwner();profile=null;for(const s of states.values())removeState(s);states.clear();observer.disconnect();if(owner){try{const value=await send({type:'workspace-state',owner});if(gen!==generation||currentOwner()!==owner)return;profile=value;}catch{}}if(gen===generation)scan();}
-async function refreshPreferences(){const boundOwner=owner,gen=++generation;try{const value=await send({type:'workspace-state',owner:boundOwner});if(gen!==generation||currentOwner()!==boundOwner)return;profile=value;for(const[article,state]of states){state.result=null;state.trigger.hidden=!INTEREST_UI||!profile.enabled;if(!state.panel.box.hidden){const saved=await send({type:'interest-status',owner:boundOwner,id:state.id});if(gen!==generation||!live(article,state.id,boundOwner))return;state.label=saved.label;state.reason.value=saved.reason||'';for(const b of state.panel.box.querySelectorAll('[data-label]'))b.setAttribute('aria-pressed',String(b.dataset.label===saved.label));}const r=article.getBoundingClientRect();if(INTEREST_UI&&profile.enabled&&r.bottom>0&&r.top<innerHeight)void loadInterest(state,article);}}catch{}}
+async function refresh(){const gen=++generation;owner=currentOwner();profile=null;for(const s of states.values())removeState(s);states.clear();if(owner){try{const value=await send({type:'workspace-state',owner});if(gen!==generation||currentOwner()!==owner)return;profile=value;}catch{}}if(gen===generation)scan();}
+async function refreshPreferences(){const boundOwner=owner,gen=++generation;try{const value=await send({type:'workspace-state',owner:boundOwner});if(gen!==generation||currentOwner()!==boundOwner)return;profile=value;scan();}catch{}}
 new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
 window.addEventListener('popstate',()=>{lastURL=location.href;void refresh();});
 setInterval(()=>{if(location.href!==lastURL||currentOwner()!==owner){lastURL=location.href;void refresh();}},700);
-chrome.runtime.onMessage.addListener(m=>{if(m.type==='refresh')void refresh();else if(m.type==='searches-changed'&&m.owner===owner)void searches.refresh();else if(m.type==='interest-changed'&&m.owner===owner)void refreshPreferences();else if(m.type==='inbox-changed'&&m.owner===owner){for(const s of states.values())if(s.id===m.id)void refreshQueue(s);}});
+chrome.runtime.onMessage.addListener(m=>{if(m.type==='refresh')void refresh();else if(m.type==='searches-changed'&&m.owner===owner)void searches.refresh();else if(m.type==='workspace-preferences-changed'&&m.owner===owner)void refreshPreferences();else if(m.type==='inbox-changed'&&m.owner===owner){for(const s of states.values())if(s.id===m.id)void refreshQueue(s);}});
 window.addEventListener('qx-evidence-updated',schedule);
 void refresh();

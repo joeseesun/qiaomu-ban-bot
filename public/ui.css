@@ -520,3 +520,39 @@ input[type=checkbox]:not([role=switch]){accent-color:var(--ink);width:16px;heigh
 .inbox-workbench #workspace>.contact-owner-field{gap:12px;min-width:270px}
 
 .writing-shortcuts{gap:8px;margin-top:16px}.writing-shortcuts>a{display:flex;flex:1;justify-content:center;align-items:center;margin:0;border-radius:8px;text-decoration:none}
+/* A single navigation and compact settings surfaces. */
+.side-nav{display:flex;flex-direction:column;flex:1;gap:3px;margin-top:28px}
+.side-divider{margin-top:auto;padding-top:32px}
+.side-nav a{padding:10px 12px}
+.settings-home .fine-print{margin-top:22px}
+#advanced-rules>.hint{margin:16px 0}
+#advanced-rules .group-title{margin-top:24px}
+.model-tabs,.account-tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 24px}
+.model-tabs{border-bottom:1px solid var(--line);gap:24px}
+.model-tabs button{border-radius:0;padding:10px 0;background:transparent;color:var(--muted);border-bottom:2px solid transparent}
+.model-tabs button[aria-pressed=true]{border-bottom-color:var(--ink);color:var(--ink);font-weight:600}
+.frame-slot iframe{display:block;width:100%;height:max(560px,calc(100dvh - 210px));border:0;background:var(--bg);color-scheme:light dark}
+#app>#write,#app>#model{max-width:1000px}
+#judgment-settings{max-width:760px}
+#current-accounts{font-size:12px;margin:8px 0 20px}
+#account-statistics>.page-heading{margin-bottom:0}
+.account-tools{margin-top:0}
+#annotation-dialog{inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;width:min(680px,100vw);max-width:100vw;padding:32px;border:0;border-left:1px solid var(--line);background:var(--bg);color:var(--ink);overflow:auto}
+#annotation-dialog::backdrop{background:#0005}
+.drawer-close{position:sticky;top:0;margin-left:auto;display:flex;z-index:1;font-size:24px;background:var(--bg)}
+.record-drawer-content .page-heading{margin-top:-30px;padding-right:36px}
+#settings-help{margin-top:28px}
+#overview .hero{padding:0 0 24px;background:transparent;border-radius:0;border-bottom:1px solid var(--line)}
+@media(max-width:899px){
+ body:not(.popup) .sidebar{display:block;position:sticky;top:0;z-index:5;height:auto;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line);max-width:100vw;overflow:hidden}
+ body:not(.popup) .side-nav{display:flex;flex-direction:row;overflow:auto;margin:0;gap:4px;scrollbar-width:thin;padding-bottom:3px}
+ body:not(.popup) .side-nav a{flex:none;white-space:nowrap;font-size:13px;padding:8px 10px}
+ .side-brand,.side-foot,.side-divider{display:none}
+ body:not(.popup) #app>header{display:none}
+ #workspace>.contact-owner-field{float:none;margin:0 0 20px;min-width:0}
+ .inbox-workbench #workspace>.contact-owner-field{min-width:0}
+ #annotation-dialog{padding:20px}
+ .frame-slot iframe{height:max(560px,calc(100dvh - 190px))}
+}
+#backup-preview{margin-top:20px;padding-top:4px}
+#backup-origins{overflow-wrap:anywhere}

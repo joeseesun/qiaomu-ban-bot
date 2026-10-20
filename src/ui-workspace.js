@@ -1,5 +1,4 @@
 import { SEARCH_TEMPLATES,buildSearch,searchURL,normalizeSearch,templateSearch,describeSearch } from './search.js';
-import { postReview,reviewCSV } from './review.js';
 import { formatFollowers } from './evidence.js';
 
 export function initWorkspaceUI({send,notice,glyph}){
@@ -59,49 +58,43 @@ export function initWorkspaceUI({send,notice,glyph}){
     const meta=[row.pinned?'置顶':'',row.source==='mention'?'提及我':'手动加入',date(row.at),row.note?'有草稿':''].filter(Boolean).join(' · ');
     select.append(headline(row),el('p',row.text,'annotation-text'),el('p',meta,'hint'));select.onclick=()=>showInbox(row);card.append(select);return card;
   }
-  function feedbackRow(row){const card=el('article',null,'workspace-row');card.append(headline(row),el('p',row.text,'annotation-text'),el('p',(row.label==='yes'?'感兴趣':'不感兴趣')+(row.reason?' · '+row.reason:'')+' · '+date(row.at),'hint'));const controls=el('div',null,'workspace-actions');controls.append(link('打开原帖',`https://x.com/${row.handle}/status/${row.id}`),action('改为'+(row.label==='yes'?'不感兴趣':'感兴趣'),async()=>{await send({type:'interest-label',owner:row.owner,item:row,label:row.label==='yes'?'no':'yes'});await load();}),action('移除反馈',()=>remove('feedback',row),'Trash2'));card.append(controls);return card;}
-  function reviewRow(row){const card=el('article',null,'workspace-row'),r=postReview(row);card.append(headline(row),el('p',row.text,'annotation-text'));const metrics=el('div',null,'workspace-dimensions');for(const[name,value]of[['原始概率',Math.round(row.probability*100)+'%'],['浏览增长',count(r.growth)],['互动增长',count(r.interactionGrowth)]]){const d=el('div');d.append(el('span',name),el('b',value));metrics.append(d);}card.append(metrics);
-    card.append(el('p',r.outcome==='confirmed'?'期限内已观测到达到目标':r.outcome==='open'?'仍在 24 小时预测窗口内':'缺少期限内证据，不能据后来数据倒推','hint'));
-    const detail=el('details',null,'fine-print');detail.append(el('summary',`${r.samples.length} 个观测点`));for(const s of r.samples)detail.append(el('p',`${date(s.at)} · ${count(s.metrics.views)} 浏览 · ${count(s.metrics.likes)} 赞 · ${count(s.metrics.replies)} 回复`,'bookmark-meta'));card.append(detail,link('打开原帖更新',`https://x.com/${row.handle}/status/${row.id}`));return card;}
   function queryOptions(){return{query:$('ws-list-query').value,status:view==='inbox'?$('ws-inbox-status').value:'',source:view==='inbox'?$('ws-inbox-source').value:'',sort:view==='inbox'?$('ws-inbox-sort').value:view==='search'?'rank':'recent'};}
   async function load(reset=false){
     if(reset){index=0;cursors=[null];}const generation=++epoch,selectedOwner=owner,selectedView=view,list=$('ws-list');list.setAttribute('aria-busy','true');$('ws-prev').disabled=$('ws-next').disabled=true;
-    const store={search:'searches',inbox:'inbox',interests:'feedback'}[view];
+    const store={search:'searches',inbox:'inbox'}[view];
     try{
-      const page=!owner?{items:[],next:null}:view==='review'?await send({type:'forecast-page',owner,before:cursors[index],query:$('ws-list-query').value}):await send({type:'workspace-page',store,owner,before:cursors[index],...queryOptions()});
+      const page=!owner?{items:[],next:null}:await send({type:'workspace-page',store,owner,before:cursors[index],...queryOptions()});
       if(generation!==epoch||owner!==selectedOwner||view!==selectedView)return;next=page.next;list.replaceChildren();if(!page.items.length&&index){index--;return load();}
-      const render={search:searchRow,inbox:inboxRow,interests:feedbackRow,review:reviewRow}[view];for(const row of page.items)list.append(render(row));
+      const render={search:searchRow,inbox:inboxRow}[view];for(const row of page.items)list.append(render(row));
       if(view==='inbox'){
         const row=page.items.find(r=>r.id===selectedInbox)||page.items[0];if(row)showInbox(row);else{$('ws-inbox-detail').hidden=true;selectedInbox=null;}
         if(owner){const counts=await send({type:'inbox-summary',owner:selectedOwner});if(generation!==epoch)return;$('ws-inbox-counts').textContent=`共 ${counts.pending+counts.snoozed+counts.done} 条`;for(const b of document.querySelectorAll('[data-inbox-status]'))b.querySelector('small').textContent=counts[b.dataset.inboxStatus];}
       }
-      if(!page.items.length)list.append(el('p',!owner?'添加自己的账号后，就能保存并查看记录。':$('ws-list-query').value?'没有匹配的记录，试试其他词。':({search:'保存常用条件，下次直接搜索。',inbox:'暂时没有待回复。可以从帖子图标中加入。',interests:'点帖子的兴趣图标，告诉助手你想多看什么。',review:'还没有看好记录。点帖子时间旁的火焰图标开始。'}[view]),'empty-state'));
+      if(!page.items.length)list.append(el('p',!owner?'添加自己的账号后，就能保存并查看记录。':$('ws-list-query').value?'没有匹配的记录，试试其他词。':({search:'保存常用条件，下次直接搜索。',inbox:'暂时没有待回复。可以从帖子图标中加入。'}[view]),'empty-state'));
       $('ws-page').textContent=`第 ${index+1} 页 · 每页 20 条`;$('ws-prev').disabled=index===0;$('ws-next').disabled=!next;
-      if(view==='review'&&owner){const summary=await send({type:'forecast-summary',owner});if(generation!==epoch)return;const area=$('ws-review-summary');area.replaceChildren();for(const[name,value]of[['看好记录',summary.total],['期限内观测达标',summary.confirmed],['缺少期限内证据',summary.unknown]]){const c=el('div');c.append(el('strong',value),el('span',name));area.append(c);}}
     }finally{if(generation===epoch)list.removeAttribute('aria-busy');}
   }
-  async function configure(){const expected=owner,generation=epoch,s=await send({type:'workspace-state',owner:expected});if(owner!==expected||epoch!==generation)return;$('ws-topics').value=s.topics;$('ws-avoid').value=s.avoid;$('ws-interest-enabled').checked=s.enabled;$('ws-collect-mentions').checked=s.collectMentions;}
+  async function configure(){const expected=owner,generation=epoch,s=await send({type:'workspace-state',owner:expected});if(owner!==expected||epoch!==generation)return;$('ws-collect-mentions').checked=s.collectMentions;}
   async function open(route='search',draft=''){
-    const opening=++openEpoch;view=['search','inbox','interests','review'].includes(route)?route:'search';epoch++;const state=await send({type:'contacts-state',owner});if(opening!==openEpoch)return;owner=state.owner;$('ws-owner').replaceChildren();for(const o of state.owners){const n=el('option','@'+o.handle);n.value=o.handle;$('ws-owner').append(n);}$('ws-owner').value=owner;$('ws-empty-owner').hidden=!!owner;
+    const opening=++openEpoch;view=['search','inbox'].includes(route)?route:'search';epoch++;const state=await send({type:'contacts-state',owner});if(opening!==openEpoch)return;owner=state.owner;$('ws-owner').replaceChildren();for(const o of state.owners){const n=el('option','@'+o.handle);n.value=o.handle;$('ws-owner').append(n);}$('ws-owner').value=owner;$('ws-empty-owner').hidden=!!owner;
     document.body.classList.toggle('inbox-workbench',view==='inbox');$('ws-list-layout').classList.toggle('inbox-layout',view==='inbox');$('ws-inbox-detail').hidden=true;selectedInbox=null;
-    for(const n of document.querySelectorAll('.workspace-view'))n.hidden=n.id!==`ws-${view}-view`;for(const n of document.querySelectorAll('[data-ws-view]'))n.setAttribute('aria-pressed',String(n.dataset.wsView===view));$('ws-import').hidden=view!=='search';$('ws-export').textContent=view==='review'?'导出复盘 CSV':view==='search'?'导出搜索 JSON':'导出记录 JSON';$('ws-list-query').placeholder={search:'名称、关键词或分类',inbox:'正文、账号或昵称',interests:'正文、账号或反馈',review:'正文、账号或昵称'}[view];
+    for(const n of document.querySelectorAll('.workspace-view'))n.hidden=n.id!==`ws-${view}-view`;for(const n of document.querySelectorAll('[data-ws-view]'))n.setAttribute('aria-pressed',String(n.dataset.wsView===view));$('ws-import').hidden=view!=='search';$('ws-export').textContent=view==='search'?'导出搜索 JSON':'导出记录 JSON';$('ws-list-query').placeholder={search:'名称、关键词或分类',inbox:'正文、账号或昵称'}[view];
     $('ws-library-actions').hidden=view==='inbox';
     if(draft){try{setFilters(JSON.parse(draft));}catch{notice('链接中的搜索条件无效，请重新填写。',true);}}else if(view==='search')preview(false);
     if(owner)await configure();if(opening===openEpoch)await load(true);
   }
   for(const b of document.querySelectorAll('[data-ws-view]'))b.onclick=()=>{location.hash='workspace/'+b.dataset.wsView;};
   $('ws-owner').onchange=async()=>{owner=$('ws-owner').value;editing=null;epoch++;openEpoch++;const expected=owner;try{await configure();if(owner===expected)await load(true);}catch(e){notice(e.message,true);}};
-  $('ws-interest-form').onsubmit=async e=>{e.preventDefault();try{await send({type:'workspace-configure',owner,profile:{topics:$('ws-topics').value,avoid:$('ws-avoid').value,enabled:$('ws-interest-enabled').checked}});notice('兴趣设置已保存。');}catch(error){notice(error.message,true);}};
   $('ws-collect-mentions').onchange=async()=>{try{await send({type:'workspace-configure',owner,profile:{collectMentions:$('ws-collect-mentions').checked}});}catch(e){notice(e.message,true);await configure();}};
   for(const b of document.querySelectorAll('[data-inbox-status]'))b.onclick=()=>{$('ws-inbox-status').value=b.dataset.inboxStatus;for(const t of document.querySelectorAll('[data-inbox-status]'))t.setAttribute('aria-pressed',String(t===b));void load(true).catch(e=>notice(e.message,true));};
   $('ws-inbox-status').onchange=()=>load(true).catch(e=>notice(e.message,true));$('ws-list-query').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>load(true).catch(e=>notice(e.message,true)),180);};
   for(const id of ['ws-inbox-sort','ws-inbox-source'])$(id).onchange=()=>load(true).catch(e=>notice(e.message,true));
   $('ws-refresh').onclick=()=>load(true).catch(e=>notice(e.message,true));$('ws-prev').onclick=()=>{if(index){index--;void load().catch(e=>notice(e.message,true));}};$('ws-next').onclick=()=>{if(next){cursors[++index]=next;void load().catch(e=>notice(e.message,true));}};
   $('ws-import').onclick=()=>$('ws-import-file').click();$('ws-import-file').onchange=async()=>{try{const file=$('ws-import-file').files[0];if(!file)return;if(file.size>5*1024*1024)throw Error('导入文件不能超过 5 MB。');const result=await send({type:'search-import',owner,value:JSON.parse(await file.text())});notice(`已导入 ${result.count} 条搜索，原有记录保留。`);await load(true);}catch(e){notice(e.message,true);}finally{$('ws-import-file').value='';}};
-  $('ws-export').onclick=async()=>{const expectedOwner=owner,expectedView=view,exportOptions=queryOptions(),reviewQuery=$('ws-list-query').value,button=$('ws-export');button.disabled=true;try{
-    if(!owner)throw Error('先选择自己的 X 账号。');let before=null,rows=[],bytes=0;const store={search:'searches',inbox:'inbox',interests:'feedback'}[view];
-    do{const page=view==='review'?await send({type:'forecast-page',owner:expectedOwner,before,query:reviewQuery}):await send({type:'workspace-page',store,owner:expectedOwner,before,...exportOptions});if(owner!==expectedOwner||view!==expectedView)throw Error('账号或页面已切换，请重新导出。');bytes+=JSON.stringify(page.items).length;if(bytes>20e6)throw Error('记录超过 20 MB，请先搜索缩小范围后导出。');rows.push(...page.items);before=page.next;}while(before);
-    const suffix=new Date().toISOString().slice(0,10);if(view==='review')download(`x-review-${owner}-${suffix}.csv`,reviewCSV(rows),'text/csv;charset=utf-8');else if(view==='search')download(`x-searches-${owner}-${suffix}.json`,JSON.stringify({format:'qiaomu-x-searches',version:1,items:rows.map(({name,category,pinned,filters})=>({name,category,pinned,filters}))},null,2));else download(`x-${view}-${owner}-${suffix}.json`,JSON.stringify({format:'qiaomu-x-'+view,version:1,items:rows},null,2));
+  $('ws-export').onclick=async()=>{const expectedOwner=owner,expectedView=view,exportOptions=queryOptions(),button=$('ws-export');button.disabled=true;try{
+    if(!owner)throw Error('先选择自己的 X 账号。');let before=null,rows=[],bytes=0;const store={search:'searches',inbox:'inbox'}[view];
+    do{const page=await send({type:'workspace-page',store,owner:expectedOwner,before,...exportOptions});if(owner!==expectedOwner||view!==expectedView)throw Error('账号或页面已切换，请重新导出。');bytes+=JSON.stringify(page.items).length;if(bytes>20e6)throw Error('记录超过 20 MB，请先搜索缩小范围后导出。');rows.push(...page.items);before=page.next;}while(before);
+    const suffix=new Date().toISOString().slice(0,10);if(view==='search')download(`x-searches-${owner}-${suffix}.json`,JSON.stringify({format:'qiaomu-x-searches',version:1,items:rows.map(({name,category,pinned,filters})=>({name,category,pinned,filters}))},null,2));else download(`x-${view}-${owner}-${suffix}.json`,JSON.stringify({format:'qiaomu-x-'+view,version:1,items:rows},null,2));
   }catch(e){notice(e.message,true);}finally{button.disabled=false;}};
   globalThis.chrome?.runtime?.onMessage?.addListener(m=>{if(m.type==='inbox-changed'&&m.owner===owner&&view==='inbox')void load().catch(e=>notice(e.message,true));});
   window.addEventListener('beforeunload',e=>{if(drafts.size){e.preventDefault();e.returnValue='';}});

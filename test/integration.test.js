@@ -20,13 +20,14 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     return Response.json({model:'integration-jev',answers:Object.fromEntries(Object.keys(payload.questions).map(key=>[key,{type:'noul',noul:scores[key]??.1}])),usage:{input_tokens:20}});
   }});
   const dispatch=(message,url,tab)=>new Promise(resolve=>listener(message,{id:runtime.id,url,...(tab?{tab:{id:1},frameId:0}:{})},resolve));
-  const settings=new JSDOM(await readFile('public/ui.html','utf8'),{url:runtime.getURL('ui.html')+'#model',runScripts:'outside-only',pretendToBeVisual:true});
-  settings.window.chrome={runtime:{sendMessage:m=>dispatch(m,settings.window.location.href),openOptionsPage:async()=>{}},permissions:{request:async value=>{permissions.push(value);return true;}}};
+  const settings=new JSDOM(await readFile('public/ui.html','utf8'),{url:runtime.getURL('ui.html')+'#model/judgment',runScripts:'outside-only',pretendToBeVisual:true});
+  settings.window.scrollTo=()=>{};settings.window.chrome={runtime:{sendMessage:m=>dispatch(m,settings.window.location.href),openOptionsPage:async()=>{}},permissions:{request:async value=>{permissions.push(value);return true;}}};
   const page=new JSDOM(`<style>.native-row{display:flex;flex-direction:row}.native-column{display:flex;flex-direction:column;flex:1}${await readFile('public/content.css','utf8')}</style><main data-testid="primaryColumn"><article data-testid="tweet" class="native-row"><div class="native-column"><a href="/author/status/100"><time datetime="${new Date(Date.now()-3600000).toISOString()}">1h</time></a><div data-testid="tweetText">你测试过这个工具吗？</div><div role="group" aria-label="3200 views"></div></div></article><article data-testid="tweet" id="reply" class="native-row"><div class="native-column"><a href="/reader/status/101"><time datetime="${new Date().toISOString()}">now</time></a><div data-testid="tweetText">作为一个人工智能语言模型，我无法访问你的项目。</div></div></article></main>`,{url:'https://x.com/author/status/100',runScripts:'outside-only',pretendToBeVisual:true});
   page.window.chrome={runtime:{sendMessage:m=>dispatch(m,page.window.location.href,true),onMessage:{addListener:fn=>contentListeners.push(fn)}}};
   page.window.IntersectionObserver=class{constructor(fn){this.fn=fn;}observe(target){queueMicrotask(()=>this.fn([{target,isIntersecting:true}]));}unobserve(){}disconnect(){}};
   try{
-    settings.window.eval(ui);await until(()=>settings.window.document.getElementById('model-state').textContent==='未连接模型');
+    settings.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};settings.window.HTMLDialogElement.prototype.close=function(){this.open=false;};
+    settings.window.eval(ui);await until(()=>settings.window.document.getElementById('model-state').textContent==='回复判断未连接');
     const d=settings.window.document;d.getElementById('api-key').value='fixture-secret';d.getElementById('save-model').click();
     await until(()=>d.getElementById('notice').textContent.includes('密钥已保存'));
     assert.equal(calls.length,1);assert.equal(d.getElementById('test-text').value,'');assert.equal(d.getElementById('api-key').value,'••••••••••••••••');assert.equal(d.getElementById('api-key').readOnly,true);assert.equal(saved.banbot.apiKey,'fixture-secret');
@@ -59,10 +60,10 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
     const negative=[...reply.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='标为真人');negative.click();
     await until(()=>!reply.hasAttribute('data-qb-collapsed') && reply.querySelector('.qb-host')?.shadowRoot.textContent.includes('始终显示此账号'));
     assert.equal(reply.firstElementChild,original);assert.equal(reply.querySelector('.qb-host').parentElement,original);assert.equal((await dispatch({type:'annotations'},settings.window.location.href)).data.items[0].label,'human');
-    d.querySelector('nav [data-tab="annotations"]').click();await until(()=>d.querySelector('.annotation-row [aria-pressed="true"]')?.textContent==='真人');
-    d.querySelector('nav [data-tab="accounts"]').click();await until(()=>d.querySelector('#author-list .empty-state'));
-    d.querySelector('[data-author-filter="human"]').click();await until(()=>d.querySelector('.author-row'));
-    assert.ok(d.querySelector('.author-row').textContent.includes('真人 1'));assert.equal(d.querySelector('.author-profile').href,'https://x.com/reader');
+    d.querySelector('nav [data-tab="accounts"]').click();await until(()=>d.querySelector('#allowlist button'));
+    d.querySelector('#open-annotations').click();await until(()=>d.querySelector('.annotation-row [aria-pressed="true"]')?.textContent==='真人');
+    assert.equal(d.querySelector('#annotation-dialog').open,true);d.querySelector('#close-annotations').click();
+    assert.equal(d.querySelector('#author-list'),null);
     const beforeAccountActions=calls.length;
     d.querySelector('#allowlist button[aria-label="改标为 AI @reader"]').click();
     await until(()=>d.querySelector('#blocklist button[aria-label="恢复显示 @reader"]')&&reply.hasAttribute('data-qb-collapsed'));
@@ -99,7 +100,7 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
   }finally{settings.window.close();page.window.close();}
 });
 
-test('contacts and forecast UI round-trip through background, isolated from credentials and model requests',async()=>{
+test('contacts round-trip while retired feature requests are rejected without model calls',async()=>{
   let listener;let modelCalls=0;const runtime={id:'book-test',getURL:p=>`chrome-extension://book-test/${p}`,onMessage:{addListener:f=>listener=f}};
   const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[]}};
   vm.runInNewContext(background,{indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{modelCalls++;throw Error('contacts must not call Jev');}});
@@ -107,16 +108,18 @@ test('contacts and forecast UI round-trip through background, isolated from cred
   assert.equal((await dispatch({type:'contacts-observe',owner:'me'},true)).ok,true);
   assert.equal((await dispatch({type:'contacts-reply',owner:'me',contact:{handle:'alice'}},true)).ok,false);
   assert.equal((await dispatch({type:'contacts-state'},true)).ok,false);
-  const dom=new JSDOM(await readFile('public/ui.html','utf8'),{url:runtime.getURL('ui.html')+'#contacts',runScripts:'outside-only',pretendToBeVisual:true});dom.window.chrome={runtime:{sendMessage:m=>dispatch(m)}};dom.window.confirm=()=>true;
+  const dom=new JSDOM(await readFile('public/ui.html','utf8'),{url:runtime.getURL('ui.html')+'#contacts',runScripts:'outside-only',pretendToBeVisual:true});dom.window.scrollTo=()=>{};dom.window.chrome={runtime:{sendMessage:m=>dispatch(m)}};dom.window.confirm=()=>true;
   try{dom.window.eval(ui);const d=dom.window.document;await until(()=>d.querySelector('.contact-row[data-handle="vista8"]'));assert.ok(d.querySelector('.contact-row').textContent.includes('插件作者 · 问题反馈'));assert.equal(d.querySelector('#contact-owner').value,'me');
     d.querySelector('#contact-add').click();d.querySelector('#contact-handle').value='@alice';d.querySelector('#contact-name').value='艾丽丝';d.querySelector('#contact-note').value='开源朋友';d.querySelector('#contact-save').click();await until(()=>d.querySelector('.contact-row[data-handle="alice"]'));
     assert.equal(d.querySelector('.contact-row').dataset.handle,'alice');assert.ok(d.querySelector('.contact-row').textContent.includes('开源朋友'));
     await dispatch({type:'contacts-reply',owner:'me',contact:{handle:'alice',displayName:'艾丽丝'},replyId:'100'},true);
     assert.equal((await dispatch({type:'contacts-page',owner:'me',query:'ailisi'},true)).data.items[0].replyCount,1);
     assert.equal((await dispatch({type:'contacts-page',owner:'different'},true)).data.items.length,0);
-    const watched=await dispatch({type:'forecast-watch',owner:'me',item:{id:'123',handle:'author',text:'值得追踪',metrics:{views:300},createdAt:Date.now()-10000},result:{scores:{hot:.22},model:'fixture'},target:30000},true);assert.equal(watched.ok,true);
-    d.querySelector('#open-forecasts').click();await until(()=>d.querySelector('.forecast-row'));assert.ok(d.querySelector('.forecast-row').textContent.includes('22%'));assert.ok(d.querySelector('.forecast-row').textContent.includes('值得追踪'));assert.equal(modelCalls,0);
-    await dispatch({type:'clear'});assert.equal((await dispatch({type:'contacts-page',owner:'me'})).data.items.length,2,'clearing AI history must not delete contacts');assert.equal((await dispatch({type:'forecast-page',owner:'me'})).data.items.length,1);
-    assert.equal((await dispatch({type:'forecast-page',owner:'me'},true)).ok,false);
+    for(const type of ['interest-analyze','interest-label','interest-status','forecast-watch','forecast-observe','forecast-page','forecast-summary','forecast-remove','inbox-rank','authors']){
+      for(const content of [true,false])assert.equal((await dispatch({type,owner:'me',item:{id:'123',handle:'author',kind:'post',text:'旧请求'}},content)).ok,false,type);
+    }
+    assert.equal(modelCalls,0);
+    assert.equal((await dispatch({type:'backup-export'},true)).ok,false);
+    await dispatch({type:'clear'});assert.equal((await dispatch({type:'contacts-page',owner:'me'})).data.items.length,2,'clearing AI history must not delete contacts');
   }finally{dom.window.close();}
 });

@@ -135,12 +135,13 @@ function initializeProviderList() {
 		return;
 	}
 
-	const sortedProviders = [...generalSettings.providers].filter(p => p).sort((a, b) =>
+	const sortedProviders = [...generalSettings.providers].filter(p => p && (p.apiKey || p.oauth || p.apiKeyRequired === false)).sort((a, b) =>
 		a.name.toLowerCase().localeCompare(b.name.toLowerCase())
 	);
 
 	// Clear existing providers
 	providerList.textContent = '';
+	if(!sortedProviders.length){const empty=document.createElement('p');empty.className='setting-item-description';empty.textContent='还没有配置服务，添加后即可选择写作模型。';providerList.append(empty);}
 	sortedProviders.forEach((provider, index) => {
 		const originalIndex = generalSettings.providers.findIndex(p => p.id === provider.id);
 		const providerItem = createProviderListItem(provider, originalIndex);

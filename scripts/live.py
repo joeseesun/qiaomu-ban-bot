@@ -4,6 +4,9 @@ import pathlib
 import subprocess
 import sys
 
+if any(arg in sys.argv for arg in ('--post', '--advanced')):
+    raise SystemExit('This retired feature no longer has a live test.')
+
 skill = pathlib.Path.home() / 'Nutstore Files/.agents/skills/qiaomu-llm/scripts'
 if not skill.exists():
     raise SystemExit('This optional local test requires the qiaomu-llm skill and registry.')
@@ -20,7 +23,7 @@ elif '--thread' in sys.argv:
     # Thread evaluation: pass the labelled file and an output tag through unchanged.
     script, args = 'scripts/eval-thread.mjs', sys.argv[1:]
 else:
-    script, args = 'scripts/live.mjs', [arg for arg in sys.argv[1:] if arg in ['--post','--connection','--advanced','--reading']]
+    script, args = 'scripts/live.mjs', [arg for arg in sys.argv[1:] if arg in ['--connection','--reading']]
 result = subprocess.run(['node', str(root / script), *args], input=json.dumps({'apiKey': secret, 'baseUrl': provider.get('base_url')}), text=True, cwd=root, capture_output=True)
 print(result.stdout, end='')
 if result.returncode:
