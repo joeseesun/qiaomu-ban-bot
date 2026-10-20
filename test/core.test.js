@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULTS, normalizeSettings, validateItem, buildRequest, parseResponse, decide, hotStatus, duplicateKey, cacheKey } from '../src/core.js';
+import { DEFAULTS, normalizeSettings, validateItem, buildRequest, parseResponse, decide, duplicateKey, cacheKey } from '../src/core.js';
 import { analyze } from '../src/jev.js';
 const reply = { id: '123', handle: 'alice', text: '我实际测试后发现缓存会失效，刷新后要重新连接。', kind: 'reply', parent: '如何缓存模型结果', metrics: {} };
 const result = scores => ({ scores: { ai_written: .95, low_value: .1, spam: .1, useful: .9, ...scores } });
@@ -38,15 +38,8 @@ test('semantic rule is independent of AI authorship', () => {
   assert.equal(decide(reply, result({ ai_written: .1, rule_match: .96 }), DEFAULTS).collapse, false);
   const q = buildRequest(reply, s); assert.equal(q.model, 'jev-latest'); assert.ok(q.questions.rule_match); assert.equal(q.state.text, reply.text);
 });
-test('hot forecast requires timestamp, minimum observation, views and open time window', () => {
-  const now = 1800000000000;
-  const post = { ...reply, kind: 'post', createdAt: now - 3600000, metrics: { views: 2000 } };
-  assert.equal(hotStatus(post, DEFAULTS, now).velocity, 2000);
-  assert.equal(hotStatus(post, DEFAULTS, now).status, 'forecast');
-  for (const patch of [{createdAt:null}, {createdAt:now-60000}, {createdAt:now+60000}, {createdAt:now-25*3600000}, {metrics:{views:null}}]) assert.equal(hotStatus({...post,...patch},DEFAULTS,now).status,'insufficient');
-  assert.equal(hotStatus({...post,metrics:{views:10000}},DEFAULTS,now).status,'reached');
-});
-test('cache identity includes context, rules, provider and forecast target', async () => {
+test('retired main-post predictions cannot build model requests',()=>{assert.throws(()=>buildRequest({...reply,kind:'post'},DEFAULTS),/仅支持回复/);});
+test('cache identity includes context, rules, and provider', async () => {
   const key = await cacheKey(reply, DEFAULTS, 1);
   for (const [item,s] of [[{...reply,text:'edited'},DEFAULTS],[{...reply,parent:'other'},DEFAULTS],[reply,{...DEFAULTS,customRule:'promotion'}],[reply,{...DEFAULTS,provider:'magpie'}]]) assert.notEqual(await cacheKey(item,s,1),key);
   assert.equal(await cacheKey(reply,{...DEFAULTS,threshold:.99},1),key);

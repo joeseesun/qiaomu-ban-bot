@@ -18,3 +18,7 @@ test('mention launcher joins the native icon row and follows its appearance with
     assert.equal(d.querySelector('[contenteditable]').textContent,'已有草稿');
   }finally{dom.window.close();}
 });
+test('observing posts for contacts never sends retired forecast collection requests',async()=>{
+ const dom=new JSDOM('<a data-testid="AppTabBar_Profile_Link" href="/me"></a><article data-testid="tweet"><div data-testid="User-Name"><a href="/alice">Alice</a></div><a href="/alice/status/123"><time></time></a><div data-testid="tweetText">保留可见联系人</div><div role="group" aria-label="100 views"></div></article>',{url:'https://x.com/home',runScripts:'outside-only',pretendToBeVisual:true});const calls=[];dom.window.chrome={runtime:{sendMessage:async m=>{calls.push(m);return{ok:true,data:{items:[]}};}}};
+ try{dom.window.eval(code);await pause(220);assert.ok(calls.some(m=>m.type==='contacts-refresh'));assert.equal(calls.some(m=>m.type.startsWith('forecast-')),false);}finally{dom.window.close();}
+});

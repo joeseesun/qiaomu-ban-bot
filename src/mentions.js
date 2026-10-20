@@ -12,7 +12,7 @@ const css=`
 .list{min-height:0;flex:1;padding:0 6px;overflow:auto;max-height:280px;overscroll-behavior:contain}.option{width:100%;display:flex;align-items:center;gap:10px;border:0;border-radius:6px;padding:9px 7px;text-align:left;background:transparent}.option[aria-selected=true],.option:hover{background:var(--qm-hover,#f2f2f2)}.avatar{width:32px;height:32px;border-radius:50%;background:var(--qm-hover,#f2f2f2);position:relative;overflow:hidden;display:grid;place-items:center;flex:none}.avatar img{position:absolute;width:100%;height:100%;object-fit:cover}.info{display:grid;gap:1px;min-width:0;flex:1}.info b{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.info small{font-size:11px;color:var(--qm-muted,#666);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.option>svg{width:13px;color:var(--qm-muted,#666)}
 .empty{padding:22px 15px;text-align:center;color:var(--qm-muted,#666);font-size:12px}.foot{flex:none;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--qm-line,#e5e5e5);font-size:11px;color:var(--qm-muted,#666)}.manage{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:2px;color:inherit;font-size:11px}.manage:hover{text-decoration:underline}.error{margin:0 12px 8px;font-size:11px;color:#b45325}
 `;
-const states=new Map(),receipt=new ReplyReceipt();let observedOwner='',pendingEditor=null,replyIntent=null,scheduled=false,metadata=new Map(),observations=new Map(),openState=null;
+const states=new Map(),receipt=new ReplyReceipt();let observedOwner='',pendingEditor=null,replyIntent=null,scheduled=false,metadata=new Map(),openState=null;
 const dialogTargets=new WeakMap();
 function people(){return [...document.querySelectorAll('article[data-testid="tweet"]')].map(articlePerson).filter(Boolean);}
 function toasts(owner){return [...document.querySelectorAll('[data-testid="toast"] a[href]')].map(a=>a.getAttribute('href')?.match(new RegExp(`^/${owner}/status/(\\d+)`))?.[1]).filter(Boolean);}
@@ -79,7 +79,7 @@ function setup(editor,scope){
 }
 async function scan(){
   scheduled=false;const owner=currentOwner();
-  if(owner!==observedOwner){observedOwner=owner;metadata.clear();observations.clear();receipt.pending=null;pendingEditor=null;openState?.hide();if(owner)void send({type:'contacts-observe',owner}).catch(()=>{});}
+  if(owner!==observedOwner){observedOwner=owner;metadata.clear();receipt.pending=null;pendingEditor=null;openState?.hide();if(owner)void send({type:'contacts-observe',owner}).catch(()=>{});}
   for(const [e,s] of states)if(!e.isConnected||!s.host.isConnected||!owner){s.dispose();states.delete(e);}
   if(!owner)return;
   if(replyIntent?.person&&Date.now()-replyIntent.at<8000){
@@ -95,9 +95,6 @@ async function scan(){
   for(const p of posts){const stamp=p.displayName+'|'+p.avatar;if(metadata.get(p.handle)!==stamp){metadata.set(p.handle,stamp);updates.push(p);}}
   while(metadata.size>500)metadata.delete(metadata.keys().next().value);
   for(let i=0;i<updates.length;i+=40)void send({type:'contacts-refresh',owner,items:updates.slice(i,i+40).map(({handle,displayName,avatar})=>({handle,displayName,avatar}))}).catch(()=>{});
-  const samples=posts.filter(p=>{const stamp=JSON.stringify(p.metrics)+'|'+Math.floor(Date.now()/60000);if(observations.get(p.id)===stamp)return false;observations.set(p.id,stamp);return p.metrics.views!==null;});
-  while(observations.size>500)observations.delete(observations.keys().next().value);
-  for(let i=0;i<samples.length;i+=40)void send({type:'forecast-observe',owner,items:samples.slice(i,i+40).map(({id,handle,metrics})=>({id,handle,metrics}))}).catch(()=>{});
   const cleared=pendingEditor&&(!pendingEditor.isConnected||!(pendingEditor.innerText||pendingEditor.textContent).trim());
   const confirmed=receipt.confirm({owner,cleared,posts,toastIds:toasts(owner)});
   if(confirmed){pendingEditor=null;void send({type:'contacts-reply',...confirmed}).catch(()=>{});}

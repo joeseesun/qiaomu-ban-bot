@@ -93,7 +93,7 @@ test('seeing an old labelled post backfills its stable author ID without duplica
   assert.equal((await labels.byAuthor({...item,id:'999',author:{userId:'789'}})).length,0);
   assert.deepEqual(await labels.stats(),{total:1,ai:0,human:1,revision:2});
 });
-test('v2 annotations upgrade deduplicates edits of the same post and rebuilds account counts',async()=>{
+test('v2 annotations upgrade deduplicates edits of the same post without restoring retired account counts',async()=>{
   const factory=new IDBFactory(),db=await new Promise((resolve,reject)=>{
     const r=factory.open('old-labels',2);r.onupgradeneeded=()=>{
       const rows=r.result.createObjectStore('annotations',{keyPath:'key'});rows.createIndex('time',['at','key']);rows.createIndex('labelTime',['label','at','key']);rows.createIndex('label','label');
@@ -105,7 +105,7 @@ test('v2 annotations upgrade deduplicates edits of the same post and rebuilds ac
   });db.close();
   const labels=new IndexedAnnotations(factory,IDBKeyRange,'old-labels');await labels.migrate();
   assert.deepEqual(await labels.stats(),{total:1,ai:0,human:1,revision:3});
-  assert.equal((await labels.authorPage({label:'human'})).items[0].ai,0);
+  assert.equal((await labels.stats()).ai,0);assert.equal((await labels.ready).objectStoreNames.contains('authors'),false);
   assert.equal((await labels.post('123')).key,'new');
 });
 test('MAIN world bridge only returns matched loaded public author fields and rejects foreign messages',async()=>{

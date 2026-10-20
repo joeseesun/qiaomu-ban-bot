@@ -1,9 +1,9 @@
 {
   "name": "qiaomu-x-helper",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
-  "description": "A Chrome assistant for X replies, mentions, post tracking, and bookmark export.",
+  "description": "A Chrome assistant for X replies, mentions, writing, model settings, and bookmark export.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.js && vitest run",

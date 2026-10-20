@@ -3,10 +3,9 @@ import { resolveConnection, mergeSettings } from './connection.js';
 import { senderContext } from './context.js';
 import { IndexedAnnotations } from './annotations.js';
 import { Contacts } from './contacts.js';
-import { Forecasts } from './forecasts.js';
+import { backupFile,parseBackup,backupSummary,restoreBackup,WRITING_KEY,IMAGE_KEY } from './backup.js';
 import { Bookmarks, bookmarkPath } from './bookmarks.js';
 import { Workspace } from './workspace.js';
-import { Features } from './features.js';
 import { importSearches, normalizeSearch } from './search.js';
 import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
@@ -14,14 +13,13 @@ import { handleOf, validateItem } from './core.js';
 const owners = new Map();
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
-const forecasts = new Forecasts();
 const secure = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 const engine = new Engine({
   get: async key => { await secure; return chrome.storage.local.get(key); },
   set: async value => { await secure; return chrome.storage.local.set(value); },
 }, undefined, new IndexedAnnotations());
 engine.activeOwners=owners;
-const workspace=new Workspace(),features=new Features(workspace,engine);
+const workspace=new Workspace();
 const community=new Community({get:async k=>{await secure;return chrome.storage.local.get(k);},set:async v=>{await secure;return chrome.storage.local.set(v);}});
 engine.communityEvidence=id=>community.evidence(id);
 void community.sync();
@@ -58,7 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'accounts-changed'}); return {...result,...shared};
     }
     if (message.type === 'options') {
-      if(['contacts','forecasts','bookmarks','workspace','workspace/search','workspace/inbox','workspace/interests','workspace/review'].includes(message.page)){
+      if(['contacts','bookmarks','workspace','workspace/search','workspace/inbox'].includes(message.page)){
         const draft=message.page==='workspace/search'&&message.searchDraft?'?'+new URLSearchParams({draft:JSON.stringify(normalizeSearch(message.searchDraft))}):'';
         await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page+draft)});
       }else await chrome.runtime.openOptionsPage();
@@ -70,9 +68,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const row=await workspace.saveSearch(message.owner,{name:message.name,filters:message.filters||{mode:'raw',raw:message.query},pinned:true});
       await broadcast({type:'searches-changed',owner:message.owner});return row;
     }
-    if(message.type==='interest-analyze')return features.interest(message.owner,message.item);
-    if(message.type==='interest-status'){const row=await workspace.get('feedback',message.owner,message.id);return{label:row?.label||null,reason:row?.reason||''};}
-    if(message.type==='interest-label'){const r=await workspace.saveFeedback(message.owner,message.item,message.label,message.reason);await broadcast({type:'interest-changed',owner:message.owner});return r;}
     if(message.type==='inbox-add'){
       if(message.source==='mention'){
         if(who!=='content'||!/^\/notifications(?:\/mentions)?\/?$/.test(new URL(sender.url).pathname))throw Error('自动提及仅限 X 通知页。');
@@ -86,8 +81,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const item=(await import('./core.js')).validateItem(message.item),rows=await engine.annotations.byAuthor({...item,id:''});
       return{ai:rows.filter(r=>r.label==='ai').length,human:rows.filter(r=>r.label==='human').length,sampleLimit:40,community:item.author?.userId?await community.evidence(item.author.userId).catch(()=>null):null};
     }
-    if(message.type==='forecast-watch'&&who==='content'){await contacts.observe(message.owner);return forecasts.watch(message.owner,message.item,message.result,message.target);}
-    if(message.type==='forecast-observe'&&who==='content')return forecasts.observe(message.owner,message.items);
     if(message.type==='contacts-page')return contacts.page(message);
     if(message.type==='contacts-observe'&&who==='content')return contacts.observe(message.owner);
     if(message.type==='contacts-reply'&&who==='content'){if(!/^\d{1,25}$/.test(message.replyId||''))throw Error('缺少回复成功凭据');return contacts.put(message.owner,message.contact,{replyId:message.replyId});}
@@ -108,16 +101,22 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='community-configure')return community.configure(message);
     if(message.type==='community-sync')return community.sync();
     if(message.type==='community-withdraw')return community.withdraw();
-    if(message.type==='workspace-configure'){const r=await workspace.profile(message.owner,message.profile||{});await broadcast({type:'interest-changed',owner:message.owner});return r;}
-    if(message.type==='workspace-page')return workspace.page(message.store,message.owner,message);
+    if(message.type==='workspace-configure'){const r=await workspace.profile(message.owner,{collectMentions:message.profile?.collectMentions});await broadcast({type:'workspace-preferences-changed',owner:message.owner});return r;}
+    if(message.type==='backup-export')return engine.mutate(async()=>{
+      const rows=[];let before=null;do{const page=await engine.annotations.page({before,limit:200});rows.push(...page.items);if(JSON.stringify(rows).length>20e6)throw Error('标记数据超过 20 MB，请分批导出');before=page.next;}while(before);
+      return backupFile(engine.data,await engine.storage.get([WRITING_KEY,IMAGE_KEY]),rows,message.includeKeys===true);
+    });
+    if(message.type==='backup-preview')return backupSummary(parseBackup(message.value));
+    if(message.type==='backup-restore'){const result=await restoreBackup(engine,message.value,message.restorePreferences===true);await broadcast();return result;}
+    if(message.type==='workspace-page'){if(!['searches','inbox'].includes(message.store))throw Error('未知记录类型。');return workspace.page(message.store,message.owner,message);}
     if(message.type==='search-save'){const row=await workspace.saveSearch(message.owner,message.search);await broadcast({type:'searches-changed',owner:message.owner});return row;}
     if(message.type==='search-import'){const result=await workspace.importSearches(message.owner,importSearches(message.value));await broadcast({type:'searches-changed',owner:message.owner});return result;}
     if(message.type==='workspace-remove'){
-      if(!['searches','feedback','inbox'].includes(message.store))throw Error('未知记录类型。');
+      if(!['searches','inbox'].includes(message.store))throw Error('未知记录类型。');
       const r=await workspace.remove(message.store,message.owner,message.id);
       if(message.store==='inbox')await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});
       if(message.store==='searches')await broadcast({type:'searches-changed',owner:message.owner});
-      if(message.store==='feedback'){await workspace.profile(message.owner,{});await broadcast({type:'interest-changed',owner:message.owner});}return r;
+      return r;
     }
     if(message.type==='inbox-update'){const row=await workspace.get('inbox',message.owner,message.id);if(!row)throw Error('这条记录已移除。');const updated=await workspace.queue(message.owner,row,{status:message.status,pinned:message.pinned,note:message.note});await broadcast({type:'inbox-changed',owner:message.owner,id:message.id});return updated;}
     if(message.type==='inbox-compose'){
@@ -126,19 +125,14 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       await workspace.queue(message.owner,row,{note:message.note});
       await chrome.tabs.create({url});return{opened:true};
     }
-    if(message.type==='inbox-rank')return features.rankInbox(message.owner,message.id);
     if(message.type==='bookmarks-state')return bookmarks.state();
     if(message.type==='bookmarks-page')return bookmarks.page(message);
     if(message.type==='bookmarks-edit')return bookmarks.edit(message.owner,message.id,message);
     if(message.type==='bookmarks-remove')return bookmarks.remove(message.owner,message.id);
-    if(message.type==='forecast-page')return forecasts.page(message);
-    if(message.type==='forecast-summary')return forecasts.summary(message.owner);
-    if(message.type==='forecast-remove')return forecasts.remove(message.owner,message.id);
     if(message.type==='contacts-state')return contacts.state(message.owner);
     if(message.type==='contacts-save')return contacts.put(message.owner,message.contact);
     if(message.type==='contacts-configure')return contacts.configure(message.owner,message.automatic);
     if(message.type==='contacts-remove')return contacts.remove(message.owner,message.handle);
-    if(message.type==='authors')return engine.authorPage(message);
     if(message.type==='annotations')return engine.annotationPage(message);
     if(message.type==='reveal-key'){await engine.ready;return {apiKey:engine.data.apiKey};}
     if (message.type === 'remove-example' || message.type==='edit-annotation') {

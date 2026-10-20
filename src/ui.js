@@ -1,17 +1,15 @@
 import { connectionFields, resolveConnection, sameCredentialTarget, mergeSettings } from './connection.js';
 import { DEFAULTS, PROVIDERS, handleOf } from './core.js';
 import { MemoryAnnotations } from './annotations.js';
+import { backupFile,parseBackup,backupSummary } from './backup.js';
 import { accountHandles } from './account-rules.js';
 import { Contacts } from './contacts.js';
 import { initContactsUI } from './ui-contacts.js';
-import { initForecastsUI } from './ui-forecasts.js';
-import { Forecasts } from './forecasts.js';
 import { Bookmarks } from './bookmarks.js';
 import { initBookmarksUI } from './ui-bookmarks.js';
 import { initWorkspaceUI } from './ui-workspace.js';
 import { initCommunityUI } from './ui-community.js';
 import { Workspace } from './workspace.js';
-import { Features } from './features.js';
 import { importSearches, SEARCH_TEMPLATES } from './search.js';
 import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info } from 'lucide';
 const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info};
@@ -22,36 +20,33 @@ const demo=location.protocol!=='chrome-extension:'&&params.has('demo');
 if(params.has('popup'))document.body.classList.add('popup');
 for(const node of document.querySelectorAll('[data-icon]'))node.append(glyph(node.dataset.icon));
 let snapshot,keyEditing=false,keyVisible=false,keyEpoch=0,labelFilter='all',pageIndex=0,cursors=[null],nextCursor=null,labelsEpoch=0;
-let authorFilter='ai',authorIndex=0,authorCursors=[null],authorNext=null,authorsEpoch=0;
 const MASK='••••••••••••••••';
 const demoLabels=new MemoryAnnotations();
 let exportBookmarks;
 const getBookmarks=()=>exportBookmarks??=(demo?new Bookmarks(indexedDB,'qiaomu-banbot-demo-bookmarks'):new Bookmarks());
 const demoBookmarksReady=demo?getBookmarks().capture('demo_me',Array.from({length:25},(_,n)=>({id:String(30001+n),handle:'demo_author_'+(n%3),displayName:['开源观察站','产品随记','小夏同学'][n%3],text:['一个值得反复使用的小工具：把复杂的步骤，变成一次清晰的操作。\n这是模拟书签，方便预览导出效果。','做产品时，先找到那个每天都会发生的小麻烦。','留存思考的过程，比堆积链接更重要。'][n%3],publishedAt:Date.now()-86400000,partial:n===1,links:['https://example.com'],images:[]}))):Promise.resolve();
 const demoContacts=demo?new Contacts(indexedDB,'qiaomu-banbot-demo-contacts'):null;
-const demoForecasts=demo?new Forecasts(indexedDB,'qiaomu-banbot-demo-forecasts'):null;
 const demoWorkspace=demo?new Workspace(indexedDB,IDBKeyRange,'qiaomu-x-helper-demo-workspace'):null;
-const demoFeatures=demo?new Features(demoWorkspace,{evaluate:async(state,questions)=>({scores:Object.fromEntries(Object.keys(questions).map(k=>[k,k==='originality'?.78:k==='interaction'?.83:.86])),model:'示例模型',analyzedAt:Date.now()})}):null;
 const demoWorkspaceReady=demo?(async()=>{
-  await demoWorkspace.profile('demo_me',{topics:'AI 工具、独立开发、开源项目',avoid:'空泛广告',enabled:false});
+  await demoWorkspace.profile('demo_me',{collectMentions:true});
   if(!(await demoWorkspace.page('searches','demo_me')).items.length){for(const t of SEARCH_TEMPLATES.slice(0,3))if(!t.ownerField)await demoWorkspace.saveSearch('demo_me',{name:t.name,category:t.category,filters:t.filters,pinned:true});}
   const item={id:'50001',handle:'demo_author',displayName:'开源观察站',kind:'post',text:'你在实际项目里怎样评估 AI 工具？想比较真实使用经验。',parent:'',metrics:{}};
   await demoWorkspace.queue('demo_me',item,{score:.88,pinned:true});
-  await demoWorkspace.saveFeedback('demo_me',item,'yes','具体有用');
-  await demoWorkspace.rate('demo_me','demo_author',{displayName:'开源观察站',dimensions:{content:.86,originality:.78,interaction:null},overall:83,postCount:8,replyCount:1,coverage:'partial',model:'示例模型',evidence:[{id:item.id,kind:'post',text:item.text}]});
 })():Promise.resolve();
-const demoForecastsReady=demo?demoForecasts.watch('demo_me',{id:'10001',handle:'demo_author',displayName:'开源观察站',text:'一个开源小工具，能把三个小时的重复工作缩短到几分钟。',createdAt:Date.now()-3600000,metrics:{views:320,likes:8,replies:2}}, {scores:{hot:.32},model:'演示模型'},30000):Promise.resolve();
 const demoContactsReady=demo?Promise.all(Array.from({length:26},(_,n)=>demoContacts.put('demo_me',{handle:'friend_'+(n+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],note:n<2?'一起做开源的朋友':'',pinned:n<2},{at:Date.now()-n*3600000}))):Promise.resolve();
 const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n%25+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
 let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configured:true,stats:{requests:38,cacheHits:126,inputTokens:18420},feedback:[],connection:{model:'jev-1.13.0',verifiedAt:Date.now()},lastModel:'jev-1.13.0',lastError:''};
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
+    if(message.type==='backup-export'){const rows=[];let before=null;do{const page=await demoLabels.page({before});rows.push(...page.items);before=page.next;}while(before);return backupFile(demoState,{},rows,false);}
+    if(message.type==='backup-preview')return backupSummary(parseBackup(message.value));
+    if(message.type==='backup-restore')throw Error('界面预览不写入真实扩展配置。');
     if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
     if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
     if(message.type==='inbox-compose')throw Error('当前为模拟预览；已安装扩展会打开真实的 X 回复框。');
     if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
-    if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update','inbox-rank','interest-label'].includes(message.type)){
+    if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update'].includes(message.type)){
       await demoWorkspaceReady;const w=demoWorkspace,m=message;
       if(m.type==='workspace-state')return w.profile(m.owner);
       if(m.type==='workspace-page')return w.page(m.store,m.owner,m);
@@ -59,14 +54,9 @@ async function send(message){
       if(m.type==='workspace-remove')return w.remove(m.store,m.owner,m.id);
       if(m.type==='search-save')return w.saveSearch(m.owner,m.search);
       if(m.type==='search-import')return w.importSearches(m.owner,importSearches(m.value));
-      if(m.type==='interest-label')return w.saveFeedback(m.owner,m.item,m.label,m.reason);
-      if(m.type==='inbox-rank')return demoFeatures.rankInbox(m.owner,m.id);
       if(m.type==='inbox-update')return w.queue(m.owner,await w.get('inbox',m.owner,m.id),{status:m.status,pinned:m.pinned,note:m.note});
     }
-    if(message.type==='forecast-summary'){await demoForecastsReady;return demoForecasts.summary(message.owner);}
     if(message.type.startsWith('bookmarks-')){await demoBookmarksReady;const b=getBookmarks();if(message.type==='bookmarks-state')return b.state();if(message.type==='bookmarks-page')return b.page(message);if(message.type==='bookmarks-edit')return b.edit(message.owner,message.id,message);if(message.type==='bookmarks-remove')return b.remove(message.owner,message.id);}
-    if(message.type==='forecast-page'){await demoForecastsReady;return demoForecasts.page(message);}
-    if(message.type==='forecast-remove')return demoForecasts.remove(message.owner,message.id);
     if(message.type.startsWith('contacts-')){
       await demoContactsReady;
       if(message.type==='contacts-state')return demoContacts.state(message.owner);
@@ -83,7 +73,6 @@ async function send(message){
       for(const k of ['allowlist','blocklist'])demoState.settings[k]=demoState.settings[k].filter(v=>v!==h);
       if(message.action!=='remove')demoState.settings[message.action==='allow'?'allowlist':'blocklist'].push(h);
     }
-    if(message.type==='authors')return demoLabels.authorPage(message);
     if(message.type==='annotations')return{...await demoLabels.page(message),counts:await demoLabels.stats()};
     if(message.type==='edit-annotation'){
       const entry=await demoLabels.get(message.key);
@@ -129,37 +118,66 @@ function fillConnection(settings){
 }
 async function tab(name){
   document.body.classList.remove('inbox-workbench');
+  const annotationsView=name==='annotations';
+  if(annotationsView)name='accounts';
+  if(name==='rules'){name='overview';$('advanced-rules').open=true;}
+  if(['forecasts','workspace/interests','workspace/review'].includes(name))name='about';
+  const modelView=name.startsWith('model/')?name.split('/')[1]:null;if(modelView)name='model';
   const workspaceRoute=name.startsWith('workspace')?name:null;
   if(workspaceRoute)name='workspace';
   const contactsView=name==='contacts';if(contactsView)name='accounts';
-  if(!['overview','rules','annotations','accounts','model','about','forecasts','bookmarks','workspace'].includes(name))name='overview';
+  if(!['overview','accounts','model','about','bookmarks','workspace','write'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
   // Section ids double as hash routes, so the browser also jumps to the
   // section on load. Reset after that native scroll, too.
   document.documentElement.scrollTop=0;document.body.scrollTop=0;requestAnimationFrame(()=>scrollTo(0,0));
-  for(const n of document.querySelectorAll('nav button')){n.classList.toggle('selected',n.dataset.tab===(name==='forecasts'?'overview':name));n.setAttribute('aria-current',n.dataset.tab===(name==='forecasts'?'overview':name)?'page':'false');}
-  const route=workspaceRoute||(contactsView?'contacts':name);
+  for(const n of document.querySelectorAll('nav button[data-tab]')){n.classList.toggle('selected',n.dataset.tab===name);n.setAttribute('aria-current',n.dataset.tab===name?'page':'false');}
+  const route=workspaceRoute||(contactsView?'contacts':modelView?'model/'+modelView:name);
   history.replaceState(null,'',`${location.pathname}${location.search}#${route}`);
-  for(const a of document.querySelectorAll('.side-nav a')){if(a.dataset.tab===route.split('?')[0])a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
+  for(const a of document.querySelectorAll('.side-nav a')){if(a.dataset.tab===(contactsView?'accounts':name==='model'?'model':route.split('?')[0]))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(name==='workspace'){const [route,query='']=workspaceRoute.split('?');await workspaceUI.open(route.split('/')[1]||'search',new URLSearchParams(query).get('draft')||'');}
   if(name==='bookmarks')await bookmarksUI.open();
-  if(name==='forecasts')await forecastsUI.open();
-  if(name==='annotations')await loadLabels(true);
+  if(annotationsView)await openAnnotations();
+  if(name==='model')showModel(modelView||'interpreter');
+  if(name==='write')writerFrame('writing-drafts-frame','write');
   if(name==='accounts'){
     $('contacts-view').hidden=!contactsView;$('account-statistics').hidden=contactsView;
     for(const b of document.querySelectorAll('[data-account-view]'))b.setAttribute('aria-pressed',String((b.dataset.accountView==='contacts')===contactsView));
-    if(contactsView)await contactsUI.open();else{snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);}
+    if(contactsView)await contactsUI.open();else{snapshot=await send({type:'snapshot'});renderAccounts();}
   }
 }
+function writerFrame(slot,section){
+  const container=$(slot);let frame=container.querySelector(`[data-section="${section}"]`);
+  if(!frame){frame=document.createElement('iframe');frame.dataset.section=section;frame.title=section==='write'?'文章草稿':section==='interpreter'?'写作模型':'配图模型';frame.src=`settings.html?embed=1&section=${section}`;container.append(frame);}
+  for(const other of container.children)other.hidden=other!==frame;
+  if(section==='write')frame.contentDocument?.dispatchEvent(new Event('qiaomu-write-shown'));
+}
+window.addEventListener('focus',()=>{if(!$('write').hidden)$('writing-drafts-frame').querySelector('iframe')?.contentDocument?.dispatchEvent(new Event('qiaomu-write-shown'));});
+function showModel(section){
+  const writing=section!=='judgment';$('writing-model-frame').hidden=!writing;$('judgment-settings').hidden=writing;
+  for(const b of document.querySelectorAll('[data-model-view]'))b.setAttribute('aria-pressed',String(b.dataset.modelView===section));
+  if(writing)writerFrame('writing-model-frame',section==='image-models'?'image-models':'interpreter');
+}
+for(const b of document.querySelectorAll('[data-model-view]'))b.onclick=()=>{hideKey();showModel(b.dataset.modelView);history.replaceState(null,'',location.pathname+location.search+'#model/'+b.dataset.modelView);};
+async function openAnnotations(){await loadLabels(true);if(!$('annotation-dialog').open){$('annotation-dialog').append($('notice'));$('annotation-dialog').showModal();}}
+bind('open-annotations',openAnnotations);
+$('close-annotations').onclick=()=>$('annotation-dialog').close();
+$('annotation-dialog').addEventListener('close',()=>{$('app').insertBefore($('notice'),$('overview'));void send({type:'snapshot'}).then(data=>{snapshot=data;renderAccounts();}).catch(e=>notice(e.message,true));});
+let pendingBackup=null;
+bind('backup-export',async()=>{
+ const value=await send({type:'backup-export',includeKeys:$('backup-keys').checked}),url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=`qiaomu-x-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notice('配置与标记数据已导出。');
+});
+$('backup-import').onclick=()=>$('backup-file').click();
+$('backup-file').onchange=async()=>{pendingBackup=null;$('backup-preview').hidden=true;try{const file=$('backup-file').files[0];if(!file)return;if(file.size>20e6)throw Error('备份文件不能超过 20 MB');const value=JSON.parse(await file.text()),summary=await send({type:'backup-preview',value});pendingBackup={value,summary};$('backup-summary').textContent=`${summary.services} 个写作服务 · ${summary.models} 个文字模型 · ${summary.images} 个配图服务 · ${summary.accounts} 个账号规则 · ${summary.annotations} 条标记${summary.includesKeys?' · 含 API Key':''}`;$('backup-origins').textContent=summary.origins.map(v=>v.replace('/*','')).join('、')||'无模型服务地址';$('backup-preview').hidden=false;}catch(e){notice(e.message,true);}finally{$('backup-file').value='';}};
+bind('backup-restore',async()=>{if(!pendingBackup)throw Error('请先选择配置文件');const {value,summary}=pendingBackup;if(!demo&&summary.origins.length&&!await chrome.permissions.request({origins:summary.origins}))throw Error('未允许访问备份中的模型服务，尚未恢复配置');const r=await send({type:'backup-restore',value,restorePreferences:$('backup-preferences').checked});pendingBackup=null;$('backup-preview').hidden=true;snapshot=await send({type:'snapshot'});render();for(const frame of document.querySelectorAll('.frame-slot iframe'))frame.remove();notice(`配置已恢复；新增 ${r.added} 条标记，保留 ${r.skipped} 条已有记录。`);});
+$('backup-cancel').onclick=()=>{pendingBackup=null;$('backup-preview').hidden=true;};
 const contactsUI=initContactsUI({send,notice,glyph});
 const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
-const forecastsUI=initForecastsUI({send,notice});
 const workspaceUI=initWorkspaceUI({send,notice,glyph});
 const communityUI=initCommunityUI({send,notice,demo});
-$('open-forecasts').onclick=()=>tab('forecasts').catch(e=>notice(e.message,true));
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
-for(const b of document.querySelectorAll('nav button'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
+for(const b of document.querySelectorAll('nav button[data-tab]'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
 function renderAccounts(){
   $('current-accounts').textContent=snapshot.activeOwners?.length?`当前登录：${snapshot.activeOwners.map(h=>'@'+h).join('、')} · 自动跳过判断`:'打开已登录的 X 页面后，自动识别自己的账号。';
   for(const kind of ['allowlist','blocklist']){
@@ -170,11 +188,11 @@ function renderAccounts(){
       const row=document.createElement('div');row.className='account-row';
       const name=document.createElement('span');name.textContent='@'+handle;
       const remove=document.createElement('button');remove.className='quiet';remove.textContent=kind==='blocklist'?'恢复显示':'恢复自动检测';remove.setAttribute('aria-label',`${remove.textContent} @${handle}`);
-      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:kind==='blocklist'?'allow':'remove'});renderAccounts();await loadAuthors();notice(kind==='blocklist'?'已恢复显示，以后跳过判断。':'已移除，下次重新判断。');}catch(e){notice(e.message,true);remove.disabled=false;}};
+      remove.onclick=async()=>{remove.disabled=true;try{snapshot=await send({type:'list',handle,action:kind==='blocklist'?'allow':'remove'});renderAccounts();notice(kind==='blocklist'?'已恢复显示，以后跳过判断。':'已移除，下次重新判断。');}catch(e){notice(e.message,true);remove.disabled=false;}};
       row.append(name,remove);
       if(kind==='allowlist'){
         const change=document.createElement('button');change.className='quiet';change.textContent='改标为 AI';change.setAttribute('aria-label',`改标为 AI @${handle}`);
-        change.onclick=async()=>{change.disabled=true;try{snapshot=await send({type:'list',handle,action:'block'});renderAccounts();await loadAuthors();notice('已折叠该账号，后续跳过判断。');}catch(e){notice(e.message,true);change.disabled=false;}};
+        change.onclick=async()=>{change.disabled=true;try{snapshot=await send({type:'list',handle,action:'block'});renderAccounts();notice('已折叠该账号，后续跳过判断。');}catch(e){notice(e.message,true);change.disabled=false;}};
         row.append(change);
       }
       container.append(row);
@@ -186,70 +204,33 @@ function renderAccounts(){
   }
   if(!snapshot.feedback?.length)$('feedback').textContent='还没有手动操作。';
 }
-async function loadAuthors(reset=false){
-  if(reset){authorCursors=[null];authorIndex=0;}
-  const generation=++authorsEpoch,list=$('author-list');list.setAttribute('aria-busy','true');$('authors-prev').disabled=$('authors-next').disabled=true;
-  try{
-    const page=await send({type:'authors',label:authorFilter,before:authorCursors[authorIndex]});if(generation!==authorsEpoch)return;
-    authorNext=page.next;list.replaceChildren();
-    if(!page.items.length&&authorIndex>0){authorIndex--;await loadAuthors();return;}
-    if(!page.items.length){const p=document.createElement('p');p.className='empty-state';p.textContent=`还没有${authorFilter==='ai'?' AI':'真人'}标注。你在 X 标注后，对应账号会出现在这里。`;list.append(p);}
-    for(const [index,entry] of page.items.entries()){
-      const row=document.createElement('article');row.className='author-row';row.dataset.handle=entry.handle;
-      const rank=document.createElement('span');rank.className='author-rank';rank.textContent=String(authorIndex*20+index+1).padStart(2,'0');
-      const info=document.createElement('div');info.className='author-info';const name=document.createElement('b');name.textContent=entry.displayName||'@'+entry.handle;
-      const handle=document.createElement('span');handle.className='author-handle';handle.textContent=entry.displayName?'@'+entry.handle:'昵称尚未记录';info.append(name,handle);
-      const counts=document.createElement('div');counts.className='author-counts';
-      for(const [type,title] of [['ai','AI'],['human','真人']]){const count=document.createElement('span');count.className=type===authorFilter?'active':'';count.textContent=`${title} ${entry[type]}`;counts.append(count);}
-      const head=document.createElement('div');head.className='author-head';head.append(rank,info,counts);
-      const actions=document.createElement('div');actions.className='author-actions';
-      for(const [action,title,icon,listKey] of [['block','本机屏蔽','UserRoundMinus','blocklist'],['allow','始终保留','ShieldCheck','allowlist']]){
-        const selected=accountHandles(snapshot.settings,action==='block'?'ai':'human').includes(entry.handle),b=document.createElement('button');b.className='secondary';b.append(glyph(icon),document.createTextNode(selected?title==='本机屏蔽'?'已屏蔽':'已保留':title));b.setAttribute('aria-pressed',String(selected));b.setAttribute('aria-label',`${selected?'取消':''}${title} @${entry.handle}`);
-        b.onclick=async()=>{for(const n of actions.querySelectorAll('button'))n.disabled=true;try{snapshot=await send({type:'list',handle:entry.handle,action:selected?'remove':action});renderAccounts();await loadAuthors();notice(selected?'账号设置已取消。':`${title} @${entry.handle}。`);}catch(e){notice(e.message,true);for(const n of actions.querySelectorAll('button'))n.disabled=false;}};
-        actions.append(b);
-      }
-      const link=document.createElement('a');link.className='author-profile';link.textContent=authorFilter==='human'?'去 X 关注':'主页 / 拉黑';link.append(glyph('ArrowUpRight'));link.title=authorFilter==='human'?'打开主页，在 X 选择关注':'打开主页，在 X 的更多菜单选择拉黑';link.href=`https://x.com/${entry.handle}`;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);
-      row.append(head,actions);list.append(row);
-    }
-    $('authors-page').textContent=`第 ${authorIndex+1} 页 · 每页 20 个`;$('authors-prev').disabled=authorIndex===0;$('authors-next').disabled=!authorNext;
-  }finally{if(generation===authorsEpoch)list.removeAttribute('aria-busy');}
-}
-for(const b of document.querySelectorAll('[data-author-filter]'))b.onclick=async()=>{authorFilter=b.dataset.authorFilter;for(const n of document.querySelectorAll('[data-author-filter]'))n.setAttribute('aria-pressed',String(n===b));try{await loadAuthors(true);}catch(e){notice(e.message,true);}};
-bind('refresh-authors',async()=>{snapshot=await send({type:'snapshot'});renderAccounts();await loadAuthors(true);});
-bind('authors-next',async()=>{if(!authorNext)return;authorCursors[++authorIndex]=authorNext;await loadAuthors();});
-bind('authors-prev',async()=>{if(!authorIndex)return;authorIndex--;await loadAuthors();});
 const PRESETS={70:'宽松',50:'标准',35:'严格'};
 function thresholdCopy(){
   const value=$('threshold-number').value;
-  $('threshold-value').textContent=`高于 ${value}% 隐藏，恰好 ${value}% 保留。`;
+  $('threshold-value').textContent=`超过 ${value}% 时折叠`;
 }
 function render({connection=true}={}){
   const s=snapshot.settings;
   communityUI.set(s);
-  for(const k of ['enabled','radar','duplicates','highlightUseful'])$(k).checked=s[k];
+  for(const k of ['enabled','radar','duplicates'])$(k).checked=s[k];
   $('spamGuard').checked=s.spamGuard!==false;$('hide-ai').checked=s.filterMode==='ai';
-  for(const k of ['customRule','hotViews','dailyLimit'])$(k).value=s[k];
+  for(const k of ['customRule','dailyLimit'])$(k).value=s[k];
   const pct=Math.round(s.threshold*100);$('threshold-number').value=pct;thresholdCopy();
   for(const b of document.querySelectorAll('[data-threshold]'))b.setAttribute('aria-pressed',String(+b.dataset.threshold===pct));
   $('sensitivity-custom').hidden=!!PRESETS[pct];$('sensitivity-custom').textContent=`自定义 ${pct}%`;
-  $('hide-ai-hint').textContent=s.filterMode!=='ai'?'现在只标出估计，不隐藏':({70:'宽松：只隐藏把握很大的，AI 估计高于 70%',50:'标准：AI 估计高于 50% 就隐藏',35:'严格：高于 35% 就隐藏，偶尔会误伤真人'})[pct]||`自定义：AI 估计高于 ${pct}% 就隐藏`;
+  $('hide-ai-hint').textContent=s.filterMode!=='ai'?'只显示判断结果':({70:'仅折叠把握较大的回复',50:'适合日常浏览',35:'折叠更多，可能误伤真人'})[pct]||`自定义阈值 ${pct}%`;
   document.querySelector('.sensitivity').classList.toggle('muted',s.filterMode!=='ai');
-  $('exceptions-summary').textContent=`始终显示 ${accountHandles(s,'human').length} 人 · 已折叠 ${accountHandles(s,'ai').length} 人`;
-  $('radar-hint').textContent='依据发布时间、浏览增长及互动率，不设固定爆款门槛';
-  $('annotations-summary').textContent=`${(snapshot.learningCount||0).toLocaleString()} 条，随时改标或导出`;
-  $('model-summary').textContent=`${!snapshot.configured?'未连接模型，AI 判断暂不可用':snapshot.connection?'已连接 Jev':'密钥已保存'} · 今天 ${snapshot.stats.requests.toLocaleString()} 次`;
-  $('status-title').textContent=!s.enabled?'已暂停，所有回复原样显示':'回复区正在保持安静';
-  $('status-subtitle').textContent=!s.enabled?'打开开关，随时继续。':!snapshot.configured?(s.spamGuard!==false?'本机引流过滤已开启。连接模型后可判断 AI 回复。':'连接模型后可判断 AI 回复。'):s.filterMode==='label'?'只标出 AI 估计；本机词汇规则与手动屏蔽仍生效。':`AI 估计高于 ${Math.round(s.threshold*100)}% 的回复会折成一行，点一下就能展开。`;
-  $('stat-requests').textContent=snapshot.stats.requests.toLocaleString();$('stat-labels').textContent=(snapshot.learningCount||0).toLocaleString();
-  $('model-state').textContent=!snapshot.configured?'未连接模型':snapshot.connection?'已连接 Jev':'密钥已保存';
+  $('radar-hint').textContent='帖子旁显示小火图标，查看速度、增长与互动';
+  $('status-title').textContent=!s.enabled?'回复过滤已暂停':'回复过滤已开启';
+  $('status-subtitle').textContent=!s.enabled?'打开开关继续过滤。':!snapshot.configured?'连接回复判断模型后，可折叠疑似 AI 回复。':'折叠的回复随时可以展开。';
+  $('model-state').textContent=!snapshot.configured?'回复判断未连接':snapshot.connection?'回复判断已连接':'密钥已保存';
   document.body.classList.toggle('connected',!!snapshot.configured);
   if(connection)fillConnection(s);renderAccounts();
 }
 async function save(patch,forgetKey=false){snapshot=await send({type:'save',settings:patch,forgetKey});render({connection:forgetKey});}
-for(const name of ['enabled','radar','duplicates','highlightUseful','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
-$('hide-ai').addEventListener('change',async()=>{try{await save({filterMode:$('hide-ai').checked?'ai':'label'});notice($('hide-ai').checked?'已开启隐藏 AI 回复。':'已关闭按 AI 分数隐藏。');}catch(e){render({connection:false});notice(e.message,true);}});
-for(const b of document.querySelectorAll('[data-threshold]'))b.addEventListener('click',async()=>{try{await save({threshold:Number(b.dataset.threshold)/100});notice(`敏感度：${PRESETS[b.dataset.threshold]}。新的回复按这个标准隐藏。`);}catch(e){notice(e.message,true);}});
-$('hotViews').addEventListener('change',async()=>{if(!$('hotViews').reportValidity())return;try{await save({hotViews:Number($('hotViews').value)});notice(`热帖目标：${snapshot.settings.hotViews.toLocaleString()} 浏览。`);}catch(e){notice(e.message,true);}});
+for(const name of ['enabled','radar','duplicates','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
+$('hide-ai').addEventListener('change',async()=>{try{await save({filterMode:$('hide-ai').checked?'ai':'label'});notice($('hide-ai').checked?'已开启疑似 AI 回复过滤。':'已关闭疑似 AI 回复过滤。');}catch(e){render({connection:false});notice(e.message,true);}});
+for(const b of document.querySelectorAll('[data-threshold]'))b.addEventListener('click',async()=>{try{await save({threshold:Number(b.dataset.threshold)/100});notice(`敏感度：${PRESETS[b.dataset.threshold]}。新的回复按此过滤。`);}catch(e){notice(e.message,true);}});
 $('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity())thresholdCopy();});
 $('api-key').addEventListener('input',()=>{if(!$('api-key').readOnly)keyEditing=true;});
 $('provider').addEventListener('change',()=>{keyEditing=false;$('api-key').value='';const provider=$('provider').value;fillConnection(provider===snapshot.settings.provider?snapshot.settings:{provider});$('advanced-connection').open=provider==='custom';});
@@ -278,7 +259,7 @@ bind('save-model',async()=>{
 });
 bind('forget-key',async()=>{keyEditing=false;hideKey();await save({},true);notice('密钥已移除。需要时可以重新连接。');});
 bind('clear-history',async()=>{if(!confirm('清空全部标注、手动记录和判断缓存？账号名单、密钥与今日用量会保留。'))return;snapshot=await send({type:'clear'});render();notice('本机记录与缓存已清空。');});
-$('account-form').addEventListener('submit',async event=>{event.preventDefault();const handle=handleOf($('account-handle').value);if(!handle)return notice('请填写有效的 X 用户名，不需要完整链接。',true);try{snapshot=await send({type:'list',handle,action:event.submitter.value});$('account-handle').value='';renderAccounts();await loadAuthors();notice('账号设置已保存。');}catch(e){notice(e.message,true);}});
+$('account-form').addEventListener('submit',async event=>{event.preventDefault();const handle=handleOf($('account-handle').value);if(!handle)return notice('请填写有效的 X 用户名，不需要完整链接。',true);try{snapshot=await send({type:'list',handle,action:event.submitter.value});$('account-handle').value='';renderAccounts();notice('账号设置已保存。');}catch(e){notice(e.message,true);}});
 async function loadLabels(reset=false){
   if(reset){cursors=[null];pageIndex=0;}
   const generation=++labelsEpoch;$('annotation-list').setAttribute('aria-busy','true');$('labels-prev').disabled=$('labels-next').disabled=true;
@@ -286,7 +267,6 @@ async function loadLabels(reset=false){
     const page=await send({type:'annotations',label:labelFilter,before:cursors[pageIndex]});if(generation!==labelsEpoch)return;
     nextCursor=page.next;const list=$('annotation-list');list.replaceChildren();
     for(const [id,key] of [['all','total'],['ai','ai'],['human','human']])$('count-'+id).textContent=page.counts[key].toLocaleString();
-    $('stat-labels').textContent=page.counts.total.toLocaleString();
     if(!page.items.length&&pageIndex>0){pageIndex--;await loadLabels();return;}
     if(!page.items.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent=page.counts.total?'这里还没有这类标注。':'在 X 回复下点机器人或真人图标，你的标注就会出现在这里。';list.append(empty);}
     for(const entry of page.items){
@@ -316,7 +296,7 @@ bind('test-model',async()=>{
   const text=$('test-text').value.trim();if(!text)throw Error('先粘贴一条回复。');$('test-result').hidden=false;$('test-result').textContent='正在判断…';
   try{const result=await send({type:'test',item:{id:'0',handle:'sandbox',kind:'reply',text,parent:$('test-parent').value,metrics:{}}});if(!result.scores)throw Error('设置刚刚有变化，请再试一次。');$('test-result').replaceChildren();
     for(const [key,title] of Object.entries({ai_written:'AI 概率',useful:'值得一读',spam:'引流推广',rule_match:'符合附加规则'}))if(key in result.scores){const row=document.createElement('div');row.className='score-row';const label=document.createElement('span');label.textContent=title;const value=document.createElement('b');value.textContent=`${Math.round(result.scores[key]*100)}%`;row.append(label,value);$('test-result').append(row);}
-    const p=document.createElement('p');p.className='hint';p.textContent=`${demo?'演示分数':result.cached?'复用已有结果':'已收到模型判断'} · ${result.model}`;$('test-result').append(p);snapshot=await send({type:'snapshot'});$('stat-requests').textContent=snapshot.stats.requests.toLocaleString();
+    const p=document.createElement('p');p.className='hint';p.textContent=`${demo?'演示分数':result.cached?'复用已有结果':'已收到模型判断'} · ${result.model}`;$('test-result').append(p);snapshot=await send({type:'snapshot'});
   }catch(e){$('test-result').textContent='这次没有收到判断。原设置未改变。';throw e;}
 });
 send({type:'snapshot'}).then(async data=>{snapshot=data;render();await tab(location.hash.slice(1));}).catch(e=>notice(e.message,true));
