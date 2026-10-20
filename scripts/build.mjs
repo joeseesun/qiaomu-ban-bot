@@ -9,6 +9,7 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 await cp(path.join(root, 'public'), output, { recursive: true });
+await writeFile(path.join(output, 'ui.html'), (await readFile(path.join(output, 'ui.html'), 'utf8')).replaceAll('__APP_VERSION__', pkg.version));
 await cp(path.join(root, 'LICENSE'), path.join(output, 'LICENSE'));
 await cp(path.join(root, 'node_modules/lucide/LICENSE'), path.join(output, 'LICENSE.lucide'));
 await cp(path.join(root, 'node_modules/pinyin-pro/LICENSE'), path.join(output, 'LICENSE.pinyin-pro'));
@@ -17,8 +18,8 @@ await Promise.all(['background', 'page-evidence', 'content', 'mentions', 'bookma
 await buildWriter(root, output);
 const manifest = {
   manifest_version: 3, name: '乔木 X 助手 · Qiaomu X Helper', version: pkg.version,
-  description: '整理 X 回复、快捷搜索、查看传播表现、导出书签、管理写作模型并编辑 X 长文草稿。', minimum_chrome_version: '120',
-  permissions: ['storage'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'],
+  description: '让 X 阅读与创作更顺手：整理回复、找回书签，在本机写作、查资料、配图，直接送入 X 草稿。', minimum_chrome_version: '120',
+  permissions: ['storage', 'offscreen'], optional_permissions: ['nativeMessaging'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'],
   optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
   background: { service_worker: 'background.js', type: 'module' },
   action: { default_icon: {16:'icons/icon-16.png',32:'icons/icon-32.png'}, default_popup: 'ui.html?popup=1', default_title: '乔木 X 助手' },

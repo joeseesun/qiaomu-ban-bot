@@ -8,10 +8,10 @@ const sent: { system: string; messages: { role: string; content: string; images?
 let reply = '';
 let thought = '';
 vi.mock('../../utils/chat-llm', () => ({
-	enabledChatModels: () => [{ id: 'm1', name: 'Model One', providerModelId: 'gpt-5.1' }],
+	enabledChatModels: () => [{ id: 'm1', name: 'Model One', providerId: 'p1', providerModelId: 'gpt-5.1' }],
 	streamChat: vi.fn(async (options: any) => { sent.push({ system: options.system, messages: options.messages, reasoningEffort: options.reasoningEffort }); if (thought) options.onThought?.(thought); for (const part of reply.match(/[\s\S]{1,20}/g) ?? []) options.onDelta(part); return reply; }),
 }));
-vi.mock('../../utils/storage-utils', () => ({ getLocalStorage: async () => undefined, setLocalStorage: async () => {} }));
+vi.mock('../../utils/storage-utils', () => ({ generalSettings: { providers: [{ id: 'p1', name: 'Test', baseUrl: 'https://test.example/' }] }, getLocalStorage: async () => undefined, setLocalStorage: async () => {} }));
 vi.mock('../image-models', () => ({ loadImageModels: async () => ({ models: [], defaultId: '' }), readyModels: () => [], ASPECTS: [], labelOf: () => '', generateImage: async () => new Blob() }));
 vi.mock('../../utils/browser-polyfill', () => ({ default: { tabs: { create: async () => ({}) }, runtime: { getURL: (p: string) => p } } }));
 
@@ -131,10 +131,13 @@ it('sends the chosen thinking strength and shows how long the model thought', as
 	reply = '想好了';
 	thought = '先看结构，再看措辞。';
 	await panel.toggle(true);
-	const select = document.querySelector<HTMLSelectElement>('.qw-chat-effort')!;
-	expect(select.hidden).toBe(false);
-	expect(Array.from(select.options).map(o => o.value)).toEqual(['', 'low', 'medium', 'high']);
-	select.value = 'high'; select.dispatchEvent(new Event('change'));
+	document.querySelector<HTMLButtonElement>('.clip-chat-model')!.click();
+	const effort = document.querySelector<HTMLButtonElement>('.clip-chat-effort')!;
+	expect(effort.closest<HTMLElement>('.clip-chat-picker-thinking')!.hidden).toBe(false);
+	effort.click();
+	const levels = Array.from(document.querySelectorAll<HTMLButtonElement>('[role=menuitemradio]'));
+	expect(levels.map(b => b.textContent)).toEqual(['自动', '低', '中等', '高']);
+	levels[3].click();
 	await say('认真想想');
 	expect(sent[0].reasoningEffort).toBe('high');
 	expect(document.querySelector('.qw-thought summary')!.textContent).toMatch(/已思考 \d+ 秒/);

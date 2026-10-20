@@ -28,4 +28,4 @@ SOFTWARE.
 
 ## Qiaomu Clipper
 
-The writer and model-management modules in `src/writer/` are adapted from Qiaomu Clipper commit `f3339fb` (2026-10-19 release worktree). The inherited Obsidian MIT notice is retained in `src/writer/LICENSE.clipper`. Dependency license notices are included in the built distribution.
+The writer and model-management modules in `src/writer/` are adapted from Qiaomu Clipper commit `f3339fb` with writing, provider setup, web search and image-library updates from integration commit `37cc07a3` (2026-10-21; based on public 1.18.9 at `7029136b`). The inherited Obsidian MIT notice is retained in `src/writer/LICENSE.clipper`. Dependency license notices are included in the built distribution.

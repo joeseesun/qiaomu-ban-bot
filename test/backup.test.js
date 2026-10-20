@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {IDBFactory,IDBKeyRange} from 'fake-indexeddb';
-import {backupFile,parseBackup,backupSummary,mergeBackup,restoreBackup,WRITING_KEY,IMAGE_KEY} from '../src/backup.js';
+import {backupFile,parseBackup,backupSummary,mergeBackup,restoreBackup,WRITING_KEY,IMAGE_KEY,WEB_KEY,UNSPLASH_KEY} from '../src/backup.js';
 import {IndexedAnnotations} from '../src/annotations.js';
 import {Engine} from '../src/engine.js';
 import {normalizeSettings} from '../src/core.js';
@@ -55,4 +55,20 @@ test('failed persistence rolls back added annotations while retaining existing r
 test('version 3 upgrade removes only derived rankings, preserving history and revision',async()=>{
  const factory=new IDBFactory();await new Promise((resolve,reject)=>{const r=factory.open('v3',3);r.onupgradeneeded=()=>{const db=r.result,s=db.createObjectStore('annotations',{keyPath:'key'});for(const[n,k]of[['time',['at','key']],['labelTime',['label','at','key']],['label','label'],['post','id'],['authorTime',['author.userId','at','key']],['handleTime',['handle','at','key']]])s.createIndex(n,k);s.put(row);const meta=db.createObjectStore('meta');meta.put(true,'migrated');meta.put(12,'revision');db.createObjectStore('authors',{keyPath:'handle'}).put({handle:'alice',human:1});};r.onsuccess=()=>{r.result.close();resolve();};r.onerror=()=>reject(r.error);});
  const labels=new IndexedAnnotations(factory,IDBKeyRange,'v3');assert.equal((await labels.stats()).revision,12);assert.deepEqual(await labels.get(row.key),row);assert.equal((await labels.ready).objectStoreNames.contains('authors'),false);(await labels.ready).close();
+});
+test('search, gallery and Codex image settings survive backups without crossing credential endpoints',()=>{
+ const source={...storage,
+  [WEB_KEY]:{enabled:false,provider:'brave',keys:{deepseek:'search-secret',brave:'brave-secret'}},
+  [UNSPLASH_KEY]:{key:'photo-secret',proxy:'https://pictures.example/api'},
+  [IMAGE_KEY]:{models:[{id:'codex',engine:'codex',sourceId:'codex-local',model:'imagegen',agentModel:'chosen-agent',models:['imagegen']}],defaultId:'codex'},
+ };
+ const safe=backupFile(data,source,[]);assert.ok(!JSON.stringify(safe).includes('secret'));assert.equal(safe.webSearch.enabled,false);
+ const parsed=parseBackup(backupFile(data,source,[],true));
+ assert.equal(parsed.images.models[0].agentModel,'chosen-agent');
+ assert.ok(backupSummary(parsed).origins.includes('https://*/*'));
+ const merged=mergeBackup(data,{[UNSPLASH_KEY]:{key:'',proxy:'https://different.example'}},parsed);
+ assert.equal(merged.search.keys.deepseek,'search-secret');assert.equal(merged.pictures.key,'');
+ const fresh=mergeBackup(data,{},parsed);assert.equal(fresh.pictures.key,'photo-secret');
+ const old=backupFile(data,storage,[]);delete old.webSearch;delete old.unsplash;
+ assert.doesNotThrow(()=>parseBackup(old));
 });

@@ -10,9 +10,9 @@ const [background,ui,content] = await Promise.all(['background','ui','content'].
 const until=async fn=>{for(let i=0;i<120;i++){if(await fn())return;await new Promise(r=>setTimeout(r,15));}throw new Error('Integration state did not settle');};
 test('actual UI -> background -> Jev adapter -> auto folding -> user learning',async()=>{
   let saved={},listener;const calls=[],endpoints=[],permissions=[],contentListeners=[];
-  const runtime={id:'our-extension',getURL:path=>`chrome-extension://our-extension/${path}`,onMessage:{addListener:fn=>{listener=fn;}},openOptionsPage:async()=>{}};
+  const runtime={onConnect:{addListener(){}},id:'our-extension',getURL:path=>`chrome-extension://our-extension/${path}`,onMessage:{addListener:fn=>{listener=fn;}},openOptionsPage:async()=>{}};
   const chrome={runtime,permissions:{contains:async()=>true},storage:{local:{setAccessLevel:async()=>{},get:async()=>structuredClone(saved),set:async value=>{saved=structuredClone(value);}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[{id:1}],sendMessage:async(id,message)=>{contentListeners.forEach(fn=>fn(message));}}};
-  vm.runInNewContext(background,{indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,options)=>{
+  vm.runInNewContext(background,{atob,btoa,indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async(url,options)=>{
     const payload=JSON.parse(options.body);calls.push(payload);endpoints.push(url);
     if(options.headers.Authorization==='Bearer invalid')return new Response('',{status:401});
     const ai=payload.state.text.includes('作为一个人工智能');
@@ -101,9 +101,9 @@ test('actual UI -> background -> Jev adapter -> auto folding -> user learning',a
 });
 
 test('contacts round-trip while retired feature requests are rejected without model calls',async()=>{
-  let listener;let modelCalls=0;const runtime={id:'book-test',getURL:p=>`chrome-extension://book-test/${p}`,onMessage:{addListener:f=>listener=f}};
+  let listener;let modelCalls=0;const runtime={onConnect:{addListener(){}},id:'book-test',getURL:p=>`chrome-extension://book-test/${p}`,onMessage:{addListener:f=>listener=f}};
   const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),set:async()=>{}}},tabs:{onRemoved:{addListener:()=>{}},query:async()=>[]}};
-  vm.runInNewContext(background,{indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{modelCalls++;throw Error('contacts must not call Jev');}});
+  vm.runInNewContext(background,{atob,btoa,indexedDB:new IDBFactory(),IDBKeyRange,chrome,crypto,TextEncoder,URL,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{modelCalls++;throw Error('contacts must not call Jev');}});
   const dispatch=(m,content=false)=>new Promise(resolve=>listener(m,{id:runtime.id,url:content?'https://x.com/home':runtime.getURL('ui.html'),...(content?{tab:{id:1},frameId:0}:{})},resolve));
   assert.equal((await dispatch({type:'contacts-observe',owner:'me'},true)).ok,true);
   assert.equal((await dispatch({type:'contacts-reply',owner:'me',contact:{handle:'alice'}},true)).ok,false);

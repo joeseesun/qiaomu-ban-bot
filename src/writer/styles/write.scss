@@ -1,3 +1,7 @@
+@use 'model-picker';
+@use 'chat-tools';
+@use 'chat-generated-images';
+@use 'image-library';
 @import 'write-shared';
 
 // Long-form writer (write.html). Loaded after style.css, so the app's global button / input rules are overridden by scoped selectors:
@@ -7,14 +11,15 @@
 	--qw-accent: #3370ff;
 	--qw-serif: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong", Georgia, "Times New Roman", serif;
 
-	body { background: var(--qw-paper); }
+	height: 100%; overflow: hidden;
+	body { height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--qw-paper); }
 	svg { mix-blend-mode: normal !important; }
 }
 
-.qw-app { min-height: 100vh; display: flex; flex-direction: column; }
+.qw-app { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 
 .qw-top {
-	position: sticky; top: 0; z-index: 20; height: var(--qw-top);
+	position: relative; z-index: 40; flex: 0 0 var(--qw-top); height: var(--qw-top);
 	display: flex; align-items: center; gap: 8px; padding: 0 16px;
 	background: var(--background-primary); // solid: text scrolls underneath
 	border-bottom: 1px solid var(--qw-line);
@@ -25,7 +30,7 @@
 
 // ---- the page ------------------------------------------------------------------------------------------------------------
 .qw-layout { flex: 1; display: flex; min-height: 0; }
-.qw-scroll { flex: 1; min-width: 0; }
+.qw-scroll { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .qw-doc { width: min(840px, 100%); margin: 0 auto; padding: 56px 56px 160px; }
 .qw-cover {
 	position: relative; margin: 0 0 28px; border-radius: 10px; overflow: hidden; background: var(--qw-soft);
@@ -162,7 +167,7 @@ html button.qw-handle-btn:not(.qw-x) { width: 22px; height: 26px; padding: 0; bo
 // ---- outline and footer --------------------------------------------------------------------------------------------------
 // A reading rail in the style of Feishu docs: title and headings, the current one in colour; folded, a column of ticks.
 #write-page { --qw-accent: #3370ff; }
-.qw-outline { width: 232px; flex: none; position: sticky; top: var(--qw-top); align-self: flex-start; max-height: calc(100vh - var(--qw-top)); overflow-y: auto; padding: 56px 16px 24px 0; font-size: 13px;
+.qw-outline { width: 232px; flex: none; align-self: stretch; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 56px 16px 24px 0; font-size: 13px;
 	&[hidden] { display: none; }
 	&[data-mode="tick"] { width: 44px; padding-inline-end: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 }
@@ -193,7 +198,7 @@ html button.qw-ol-fold.ghost:not(.qw-x) { opacity: 0; transition: opacity .12s; 
 	h1 { font-size: 20px; } p { color: var(--qw-muted); }
 }
 .qw-banner[hidden] { display: none; }
-.qw-banner { padding: 10px 24px; font-size: 13px; background: var(--background-modifier-warning); border-bottom: 1px solid var(--background-modifier-warning-border); display: flex; align-items: center; gap: 12px; }
+.qw-banner { flex: none; padding: 10px 24px; font-size: 13px; background: var(--background-modifier-warning); border-bottom: 1px solid var(--background-modifier-warning-border); display: flex; align-items: center; gap: 12px; }
 
 @media (max-width: 960px) { .qw-outline { display: none; } }
 @media (max-width: 640px) { .qw-doc { padding: 32px 40px 140px; } html textarea.qw-title:not(.qw-x) { font-size: 28px; } }
@@ -216,9 +221,9 @@ html button.qw-btn.is-busy:not(.qw-x) { opacity: .6; cursor: progress; }
 .qw-chat { position: fixed; z-index: 30; inset-inline-end: 0; top: var(--qw-top); bottom: 0; width: var(--qw-chat-w, 420px); max-width: 100vw; display: flex; flex-direction: column; background: var(--background-primary); border-inline-start: 1px solid var(--qw-line); box-shadow: -8px 0 24px rgba(0,0,0,.06); font-family: var(--font-default);
 	&[hidden] { display: none; }
 	.qw-spacer { flex: 1; }
-	.qw-chat-head { display: flex; align-items: center; gap: 2px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--qw-line); }
+	.qw-chat-head { flex: none; display: flex; align-items: center; gap: 2px; padding: 10px 10px 10px 16px; background: var(--background-primary); border-bottom: 1px solid var(--qw-line); }
 	.qw-chat-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
-	.qw-chat-list { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+	.qw-chat-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; > * { flex-shrink: 0; } }
 	.qw-chat-empty { margin: auto 0; color: var(--qw-muted); font-size: 13px; line-height: 1.7; }
 	.qw-chat-quick { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 	.qw-msg { font-size: 14px; line-height: 1.7; &.user { align-self: flex-end; max-width: 88%; } }
@@ -235,9 +240,9 @@ html button.qw-btn.is-busy:not(.qw-x) { opacity: .6; cursor: progress; }
 	html & button.qw-prop-all:not(.qw-x) { margin-top: 8px; height: 28px; font-size: 12px; }
 	html & button.qw-msg-copy:not(.qw-x) { display: inline-flex; width: auto; height: 22px; margin-top: 6px; padding: 0 6px; border: none; border-radius: 6px; background: transparent; box-shadow: none; color: var(--qw-muted); font-size: 12px; cursor: pointer; &:hover { background: var(--background-modifier-hover); color: var(--qw-ink); box-shadow: none; } }
 	html & button.qw-chip:not(.qw-x) { display: block; width: 100%; height: auto; padding: 8px 12px; border: none; border-radius: 10px; background: var(--qw-soft); box-shadow: none; color: var(--qw-ink); font-size: 13px; line-height: 1.5; text-align: start; white-space: normal; cursor: pointer; &:hover { background: var(--background-modifier-hover); box-shadow: none; } &:focus-visible { outline: 1px solid var(--text-muted); outline-offset: 2px; } }
-	.qw-chat-foot { padding: 10px 12px 12px; border-top: 1px solid var(--qw-line); display: flex; flex-direction: column; gap: 6px; }
-	.qw-chat-compose { display: flex; align-items: flex-end; gap: 6px; padding: 6px 6px 6px 10px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--qw-line); &:focus-within { box-shadow: var(--field-focus-ring), inset 0 0 0 1px var(--field-focus-border); } }
-	textarea.qw-chat-input { flex: 1; min-height: 76px; max-height: 220px; padding: 6px 0; border: none; background: transparent; resize: none; box-shadow: none; font-size: 14px; line-height: 1.5; &:focus, &:focus-visible { outline: none; box-shadow: none; border: none; } }
+	.qw-chat-foot { flex: none; padding: 10px 12px 12px; border-top: 1px solid var(--qw-line); background: var(--background-primary); display: flex; flex-direction: column; gap: 10px; }
+	.qw-chat-compose { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--qw-line); border-radius: 12px; &:focus-within { border-color: var(--field-focus-border); box-shadow: var(--field-focus-ring); } }
+	textarea.qw-chat-input { width: 100%; min-height: 60px; max-height: min(180px, 22vh); padding: 4px 0; border: none; background: transparent; resize: none; box-shadow: none; font-size: 14px; line-height: 1.5; &:focus, &:focus-visible { outline: none; box-shadow: none; border: none; } }
 	select.qw-chat-model { width: auto; align-self: flex-start; height: 26px; padding: 0 24px 0 8px; text-overflow: ellipsis; font-size: 12px; color: var(--qw-muted); }
 	.qw-chat-model[hidden] { display: none; }
 }
@@ -260,6 +265,8 @@ dialog.qw-image-dialog { width: min(560px, calc(100vw - 32px));
 .qw-chat {
 	.qw-chat-hint { font-size: 12px; color: var(--text-faint); }
 	.qw-chat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+	.qw-chat-quote { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 8px; border-radius: 6px; background: var(--qw-soft); color: var(--qw-muted); font-size: 12px; line-height: 1.5; > svg { flex: none; margin-top: 3px; } }
+	.qw-chat-quote-copy { flex: 1; min-width: 0; small { display: block; margin-bottom: 3px; color: var(--text-faint); } > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; } }
 	.qw-chat-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 8px; height: 24px; border-radius: 99px; background: var(--qw-soft); color: var(--qw-muted); font-size: 12px; line-height: 1; white-space: nowrap; &.on { color: var(--qw-ink); box-shadow: inset 0 0 0 1px var(--qw-line); } svg { flex: none; } }
 	.qw-chip-label { overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 	.qw-chip-thumb { width: 16px; height: 16px; border-radius: 3px; object-fit: cover; }
@@ -267,7 +274,7 @@ dialog.qw-image-dialog { width: min(560px, calc(100vw - 32px));
 	html & button.qw-chip-x:not(.qw-x) { width: 16px; height: 16px; min-width: 16px; padding: 0; border: none; border-radius: 99px; background: transparent; box-shadow: none; color: var(--qw-muted); cursor: pointer; font-size: 13px; line-height: 1; &:hover { background: var(--background-modifier-hover); color: var(--qw-ink); box-shadow: none; } }
 	.qw-chat-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; &:empty { display: none; } &::-webkit-scrollbar { display: none; } }
 	html & button.qw-strip-item:not(.qw-x) { flex: none; width: auto; height: 26px; padding: 0 10px; border: none; border-radius: 99px; background: var(--qw-soft); box-shadow: none; color: var(--qw-ink); font-size: 12px; white-space: nowrap; cursor: pointer; &:hover { background: var(--background-modifier-hover); box-shadow: none; } &:focus-visible { outline: 1px solid var(--text-muted); outline-offset: 1px; } }
-	.qw-chat-tools { display: flex; align-items: center; gap: 4px; }
+	.qw-chat-tools { display: flex; align-items: center; gap: 4px; .clip-chat-model { min-width: 32px; flex-shrink: 1; max-width: 160px; padding-inline: 4px; } .qw-chat-send { flex: none; } }
 	html & button.qw-chat-tool:not(.qw-x) { display: inline-flex; align-items: center; gap: 5px; width: auto; height: 28px; padding: 0 8px; border: none; border-radius: 8px; background: transparent; box-shadow: none; color: var(--qw-muted); font-size: 12px; cursor: pointer; &:hover { background: var(--background-modifier-hover); color: var(--qw-ink); box-shadow: none; } &:focus-visible { outline: 1px solid var(--text-muted); outline-offset: 1px; } }
 	.qw-chat-tools { min-width: 0; }
 	select.qw-chat-model { flex: 0 1 auto; min-width: 0; max-width: 170px; padding-inline-end: 24px; text-overflow: ellipsis; white-space: nowrap; }
@@ -316,6 +323,14 @@ dialog.qw-image-dialog { width: min(560px, calc(100vw - 32px));
 @media(max-width:640px) {
  #write-page {--qw-top:92px;}
  .qw-top {flex-wrap:wrap;align-content:center;padding:8px 12px;gap:4px 6px;}
- .qw-top .qw-spacer {flex:0 0 100%;height:0;}
- .qw-top .qw-btn {flex-shrink:0;}
+ .qw-top .qw-spacer {flex:0 0 100%;height:0;order:1;}
+ .qw-top .qw-btn {flex-shrink:0;order:2;}
+ .qw-top a.qw-btn,.qw-top .qw-btn-primary {order:0;}
+ .qw-top .qw-status {order:0;flex:1;min-width:0;}
+}
+html .qw-source-notice {
+	flex: none; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 16px;
+	padding: 10px 20px; background: var(--background-secondary); color: var(--text-muted); font-size: 13px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	&[hidden] { display: none; }
 }

@@ -10,7 +10,7 @@
 <a href="#write" data-tab="write"><span data-icon="Pencil"></span>写作</a>
 <div class="side-divider"></div><a href="#model" data-tab="model"><span data-icon="Cpu"></span>模型设置</a>
 <a href="#about" data-tab="about"><span data-icon="Info"></span>关于与帮助</a></nav>
-  <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">0.4.2</span></p>
+  <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">__APP_VERSION__</span></p>
 </aside>
 <main id="app">
   <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>回复区安静，X 更好用。</p></div></div></header>
@@ -149,7 +149,7 @@
     <div id="ws-library-actions" class="workspace-actions"><button id="ws-export" class="secondary"><span data-icon="Download"></span>导出</button><button id="ws-import" class="secondary">导入搜索</button><input id="ws-import-file" type="file" accept="application/json,.json" hidden=""></div>
     <div id="ws-list-layout"><div id="ws-list" aria-live="polite"></div><aside id="ws-inbox-detail" hidden="" aria-label="待回复详情"></aside></div><div id="ws-pagination" class="pagination"><button id="ws-prev" class="secondary">上一页</button><span id="ws-page">第 1 页</span><button id="ws-next" class="secondary">下一页</button></div>
   </section>
-  <section id="write" class="panel" hidden=""><div class="page-heading"><div><h2>写作</h2><p class="hint">从草稿继续，或新建一篇文章。</p></div></div><div id="writing-drafts-frame" class="frame-slot"></div></section><section id="model" class="panel" hidden=""><div class="page-heading"><div><h2>模型设置</h2><p class="hint">按用途配置服务，密钥分别保存。</p></div></div><div class="model-tabs" role="group" aria-label="模型用途"><button data-model-view="interpreter" aria-pressed="true">写作</button><button data-model-view="image-models" aria-pressed="false">配图</button><button data-model-view="judgment" aria-pressed="false">回复判断</button></div><div id="writing-model-frame" class="frame-slot"></div><div id="judgment-settings">
+  <section id="write" class="panel" hidden=""><div class="page-heading"><div><h2>写作</h2><p class="hint">从草稿继续，或新建一篇文章。</p></div></div><p><a class="secondary" href="image-library.html" target="_blank" rel="noopener noreferrer">打开图库</a></p><div id="writing-drafts-frame" class="frame-slot"></div></section><section id="model" class="panel" hidden=""><div class="page-heading"><div><h2>模型设置</h2><p class="hint">按用途配置服务，密钥分别保存。</p></div></div><div class="model-tabs" role="group" aria-label="模型用途"><button data-model-view="interpreter" aria-pressed="true">写作</button><button data-model-view="image-models" aria-pressed="false">配图</button><button data-model-view="web-search" aria-pressed="false">联网搜索</button><button data-model-view="image-sources" aria-pressed="false">图库来源</button><button data-model-view="judgment" aria-pressed="false">回复判断</button></div><div id="writing-model-frame" class="frame-slot"></div><div id="judgment-settings">
 
     <p class="hint">连接一次，之后自动判断回复。</p>
 

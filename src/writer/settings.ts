@@ -1,3 +1,6 @@
+import { initializeWebSearchSettings } from './managers/web-search-settings';
+import { openUnsplashSettings } from './utils/image-library';
+import { loadUnsplashSource } from './utils/image-library-sources';
 import { loadSettings } from './utils/storage-utils';
 import { translatePage } from './utils/i18n';
 import { initializeInterpreterSettings } from './managers/interpreter-settings';
@@ -6,7 +9,7 @@ import { initializeWriteSettings } from './managers/write-settings';
 
 async function start() {
   const section = new URLSearchParams(location.search).get('section') || 'write';
-  const route = ['write','interpreter','image-models'].includes(section) ? section : 'write';
+  const route = ['write','interpreter','image-models','web-search','image-sources'].includes(section) ? section : 'write';
   const embedded=new URLSearchParams(location.search).has('embed');
   if(!embedded){location.replace('ui.html#'+(route==='write'?'write':'model/'+route));return;}
   document.body.classList.add('embedded');
@@ -21,5 +24,11 @@ async function start() {
   if(route === 'interpreter') await initializeInterpreterSettings();
   if(route === 'image-models') await initializeImageModelSettings();
   if(route === 'write') await initializeWriteSettings();
+  if(route === 'web-search') await initializeWebSearchSettings();
+  if(route === 'image-sources') {
+    const source = await loadUnsplashSource();
+    document.getElementById('image-sources-status')!.textContent = source.key || source.proxy ? 'Unsplash 已连接' : '连接 Unsplash，在图库和写作助手中查找配图。';
+    document.getElementById('configure-unsplash')!.onclick = () => openUnsplashSettings(() => void start());
+  }
 }
 void start().catch(error => { const node=document.getElementById('writing-error')!; node.hidden=false; node.textContent='无法打开写作设置：'+error.message; });

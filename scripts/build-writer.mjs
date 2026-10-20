@@ -3,9 +3,9 @@ import {compile} from 'sass';
 import {cp,readFile,readdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 export async function buildWriter(root,output){
-  const result=await build({entryPoints:{write:path.join(root,'src/writer/core/write.ts'),settings:path.join(root,'src/writer/settings.ts')},bundle:true,format:'esm',splitting:true,outdir:path.join(output,'writer'),chunkNames:'chunks/[name]-[hash]',target:'chrome120',minify:true,metafile:true,legalComments:'eof',define:{DEBUG_MODE:'false',PACKAGE_VERSION:JSON.stringify('3.2.1')}});
+  const result=await build({entryPoints:{write:path.join(root,'src/writer/core/write.ts'),settings:path.join(root,'src/writer/settings.ts'),'image-library':path.join(root,'src/writer/core/image-library.ts'),'image-runner':path.join(root,'src/writer/core/image-runner.ts')},bundle:true,format:'esm',splitting:true,outdir:path.join(output,'writer'),chunkNames:'chunks/[name]-[hash]',target:'chrome120',minify:true,metafile:true,legalComments:'eof',define:{DEBUG_MODE:'false',PACKAGE_VERSION:JSON.stringify('3.2.1')}});
   await Promise.all([['x-publish-main','main-world.js'],['x-publish-content','x-content.ts']].map(([name,file])=>build({entryPoints:[path.join(root,'src/writer/x-publish',file)],bundle:true,format:'iife',outfile:path.join(output,name+'.js'),target:'chrome120',minify:true,legalComments:'eof'})));
-  for(const[name,file]of[['writer-base','base'],['writer-settings','writer-settings'],['write','write']])await writeFile(path.join(output,name+'.css'),compile(path.join(root,`src/writer/styles/${file}.scss`),{style:'compressed',logger:{warn(){},debug(){}}}).css);
+  for(const[name,file]of[['writer-base','base'],['writer-settings','writer-settings'],['write','write'],['image-library','image-library']])await writeFile(path.join(output,name+'.css'),compile(path.join(root,`src/writer/styles/${file}.scss`),{style:'compressed',logger:{warn(){},debug(){}}}).css);
   await cp(path.join(root,'node_modules/katex/dist/katex.min.css'),path.join(output,'katex.css'));
   await cp(path.join(root,'node_modules/katex/dist/fonts'),path.join(output,'fonts'),{recursive:true});
   await cp(path.join(root,'src/writer/LICENSE.clipper'),path.join(output,'LICENSE.clipper'));

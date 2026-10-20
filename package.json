@@ -1,12 +1,12 @@
 {
   "name": "qiaomu-x-helper",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "A Chrome assistant for X replies, mentions, writing, model settings, and bookmark export.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test test/*.test.js && vitest run",
+    "test": "node --test --test-concurrency=4 test/*.test.js && vitest run",
     "package": "npm test && npm run build && node scripts/package.mjs",
     "preview": "node scripts/preview.mjs",
     "test:live": "python3 scripts/live.py"
@@ -28,9 +28,11 @@
     "@tiptap/extension-table": "3.32.0",
     "@tiptap/pm": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
+    "defuddle": "0.19.2",
     "dompurify": "3.4.17",
     "fflate": "0.8.3",
     "katex": "0.18.2",
+    "linkedom": "0.18.12",
     "lowlight": "3.3.0",
     "lucide": "1.59.0",
     "marked": "17.0.6",

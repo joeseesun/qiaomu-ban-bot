@@ -102,7 +102,8 @@ export function mountOutline(aside: HTMLElement, getEditor: () => Editor, getTit
 		pop?.querySelectorAll('.qw-ol-item').forEach((el, i) => el.classList.toggle('active', i === active));
 	};
 	const onScroll = () => { if (!raf) raf = requestAnimationFrame(sync); };
-	window.addEventListener('scroll', onScroll, { passive: true });
+	const scrollRoot = aside.closest('.qw-layout')?.querySelector('.qw-scroll') || window;
+	scrollRoot.addEventListener('scroll', onScroll, { passive: true });
 	aside.addEventListener('mouseenter', openPop);
 	aside.addEventListener('mouseleave', () => { closeTimer = window.setTimeout(closePop, 160); });
 
@@ -121,6 +122,6 @@ export function mountOutline(aside: HTMLElement, getEditor: () => Editor, getTit
 		},
 		retitle() { const title = aside.querySelector('.qw-ol-title'); if (title) title.textContent = getTitle().trim() || t('未命名文章'); },
 		toggle,
-		destroy() { window.removeEventListener('scroll', onScroll); closePop(); },
+		destroy() { scrollRoot.removeEventListener('scroll', onScroll); window.clearTimeout(refreshTimer); cancelAnimationFrame(raf); closePop(); },
 	};
 }

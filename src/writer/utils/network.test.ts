@@ -21,3 +21,19 @@ it('denied permission can be retried without saving anything', async () => {
   vi.spyOn(browser.permissions, 'request').mockResolvedValue(false);
   await expect(authorizeServices(['https://a.example'])).rejects.toThrow('未允许');
 });
+it('offscreen requests check authorization through runtime before sending any credential', async () => {
+  const check = vi.spyOn(browser.permissions, 'contains').mockImplementation(undefined as any);
+  const message = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue({allowed:false});
+  const fetch = vi.fn().mockResolvedValue(new Response('ok')); vi.stubGlobal('fetch',fetch);
+  // MV3 offscreen pages do not expose the permissions namespace.
+  const saved = browser.permissions.contains;
+  (browser.permissions as any).contains = undefined;
+  try {
+    await expect(serviceFetch('https://images.example/v1',{headers:{Authorization:'Bearer fixture'}})).rejects.toThrow('授权');
+    expect(fetch).not.toHaveBeenCalled();
+    message.mockResolvedValue({allowed:true});
+    await serviceFetch('https://images.example/v1');
+    expect(message).toHaveBeenLastCalledWith({action:'writerServicePermission',url:'https://images.example/v1'});
+    expect(fetch).toHaveBeenCalledTimes(1);
+  } finally { browser.permissions.contains = saved; check.mockRestore(); }
+});
