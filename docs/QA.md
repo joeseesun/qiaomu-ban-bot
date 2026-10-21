@@ -2,11 +2,12 @@
 
 更新：2026-10-21（Asia/Shanghai）。在 `origin/main` 的 0.5.0 及商店送审记录基础上，合入当前工作区全部源代码、回归和图标设计资料；`.claude/launch.json` 为本机启动配置，未纳入发布。
 
-- 本次 `npm run package`：177 项 Node + 322 项 Vitest 全通过，无失败或跳过；Chrome MV3 构建和 ZIP 成功。服务端 5 项测试通过；`npm audit --omit=dev` 为 0 漏洞。
+- 本次 `npm run package`：177 项 Node + 328 项 Vitest 全通过，无失败或跳过；Chrome MV3 构建和 ZIP 成功。服务端 5 项测试通过；`npm audit --omit=dev` 为 0 漏洞。
 - 删除当前帖子后被自动保存重建、显式保存失败后后续无法重试，两项回归在旧实现均失败，修复后均通过。
 - 生产界面本地浏览器预览：发帖输入、排期、自动保存、桌面和 390px 窄屏无横向溢出；截图 `/tmp/qxh-release-051-desktop.png`、`/tmp/qxh-release-051-mobile.png`。该界面使用示例数据及本机预览存储。
 - ZIP 与当前 `dist/chrome` 所有文件逐字节一致，后台、普通发帖、X Articles、图库和后台图片页均非空并包含于包中；manifest 版本 0.5.1。新增权限与本机队列数据已披露在 PRIVACY.md 和 store/declarations.json。
-- 安装包 SHA-256：`4b925b97cc994212015e3e66bf5eea1f9be08d756c4ef3eda6b82afc8c187d5a`。固定名包为相同字节。
+- 安装包 SHA-256：`80d7a47780e7a6747401c56512f7735f71be9813978c8598d57bb9e04642b682`。固定名包为相同字节。
+- 最终独立工作树从锁文件执行 `npm ci`，合入常见图床内置权限和文章媒体按需授权；328 项 Vitest 包含权限拒绝、伪装域名及媒体失败不打开 X 的回归。发布冻结时 scripts/src/public/test 与主工作区逐文件一致。
 - 未在本轮重验真实模型、真实 X 普通发帖/定时、媒体上传转码、停止和续传，也未提交 Chrome 商店。下面旧记录保留原时间与验证边界。
 
 ---

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, cp, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { icons } from './icons.mjs';
 import { buildWriter } from './build-writer.mjs';
+import { BUILTIN_MEDIA_HOST_PERMISSIONS } from '../src/media-hosts.js';
 const root = path.resolve(import.meta.dirname, '..');
 const output = path.join(root, 'dist/chrome');
 await rm(output, { recursive: true, force: true });
@@ -19,7 +20,7 @@ await buildWriter(root, output);
 const manifest = {
   manifest_version: 3, name: '乔木 X 助手 · Qiaomu X Helper', version: pkg.version,
   description: '整理 X 回复、快捷搜索、查看传播表现、导出书签、管理写作模型并编辑 X 长文草稿。', minimum_chrome_version: '120',
-  permissions: ['storage', 'offscreen', 'alarms'], optional_permissions: ['nativeMessaging', 'notifications'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'],
+  permissions: ['storage', 'offscreen', 'alarms'], optional_permissions: ['nativeMessaging', 'notifications'], host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*', ...BUILTIN_MEDIA_HOST_PERMISSIONS],
   optional_host_permissions: ['https://*/*', 'http://*/*'],
   background: { service_worker: 'background.js', type: 'module' },
   action: { default_icon: {16:'icons/icon-16.png',32:'icons/icon-32.png'}, default_popup: 'ui.html?popup=1', default_title: '乔木 X 助手' },
