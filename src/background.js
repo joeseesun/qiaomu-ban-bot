@@ -75,7 +75,7 @@ engine.communityEvidence=id=>community.evidence(id);
 void community.sync();
 async function share(item,label){try{const result=await community.enqueue(item,label);void community.sync();return result;}catch(e){return{shared:false,reason:e.message};}}
 let navWrites=Promise.resolve();
-const navStore=fn=>navWrites=navWrites.then(async()=>{await secure;return fn();});
+const navStore=fn=>navWrites=navWrites.catch(()=>{}).then(async()=>{await secure;return fn();});
 const navState=async()=>{await secure;const v=await chrome.storage.local.get([NAV_KEY,SEEN_KEY]);return{...normalizeNav(v[NAV_KEY]||DEFAULT_NAV),seen:mergeSeen([],v[SEEN_KEY])};};
 async function broadcast(message = {type:'refresh'}) {
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'] });

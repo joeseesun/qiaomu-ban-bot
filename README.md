@@ -8,11 +8,11 @@
 
 Read with focus. Keep what matters. Turn your ideas into an X article.
 
-**[下载 Chrome 安装包](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1)** · [三步安装](#三步开始) · [使用前必读](#按需连接不用一次配完) · [商店状态](docs/store/SUBMISSION.md)
+**[下载 Chrome 安装包](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.2)** · [三步安装](#三步开始) · [使用前必读](#按需连接不用一次配完) · [商店状态](docs/store/SUBMISSION.md)
 
 ![乔木 X 助手：从收藏走向表达](docs/images/hero-050.png)
 
-MIT 开源 · 数据默认保存在本机 · 发帖由你确认 · **0.5.1 Preview**
+MIT 开源 · 数据默认保存在本机 · 发帖由你确认 · **0.5.2 Preview**
 
 ## 别让好内容，只剩一个收藏按钮
 
@@ -33,7 +33,7 @@ X Helper 把这些常用步骤放到顺手的位置。你可以只用无需密�
 
 ## 三步开始
 
-1. **下载安装包**：打开 [v0.5.1 Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1)，下载 `qiaomu-x-helper-0.5.1-chrome.zip` 并解压。
+1. **下载安装包**：打开 [v0.5.2 Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.2)，下载 `qiaomu-x-helper-0.5.2-chrome.zip` 并解压。
 2. **加载扩展**：在 Chrome 地址栏输入 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择包含 `manifest.json` 的解压目录。
 3. **先做一件有用的事**：打开 X 书签页保存已加载内容，或点扩展里的「写作」，开始写第一篇文章。
 
@@ -138,7 +138,7 @@ Qiaomu X Helper is a Chrome extension for people who read, save, reply and write
 
 ### Try it
 
-1. Download and unzip the Chrome ZIP from [v0.5.1 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1).
+1. Download and unzip the Chrome ZIP from [v0.5.2 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.2).
 2. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**. Select the folder containing `manifest.json`.
 3. Open X bookmarks or the extension’s writing workspace. These features work without an API key or native helper.
 

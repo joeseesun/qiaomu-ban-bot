@@ -100,8 +100,8 @@ test('X page: hidden entries get a style before render, plugin and custom entrie
 });
 
 test('background keeps sidebar config admin-only and merges reports from X tabs',async()=>{
-  let listener,store={};const id='nav-fixture',runtime={id,onConnect:{addListener(){}},getURL:p=>`chrome-extension://${id}/${p}`,onMessage:{addListener:f=>listener=f}},sent=[];
-  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async k=>Object.fromEntries((Array.isArray(k)?k:[k]).filter(x=>x in store).map(x=>[x,structuredClone(store[x])])),set:async v=>{Object.assign(store,structuredClone(v));}}},tabs:{onRemoved:{addListener(){}},query:async()=>[{id:1}],create:async()=>{},sendMessage:async(_t,m)=>{sent.push(m);}}};
+  let listener,store={},failNavWrite=false;const id='nav-fixture',runtime={id,onConnect:{addListener(){}},getURL:p=>`chrome-extension://${id}/${p}`,onMessage:{addListener:f=>listener=f}},sent=[];
+  const chrome={runtime,storage:{local:{setAccessLevel:async()=>{},get:async k=>Object.fromEntries((Array.isArray(k)?k:[k]).filter(x=>x in store).map(x=>[x,structuredClone(store[x])])),set:async v=>{if(failNavWrite&&('xNav' in v||'xNavSeen' in v)){failNavWrite=false;throw Error('Temporary sidebar storage failure');}Object.assign(store,structuredClone(v));}}},tabs:{onRemoved:{addListener(){}},query:async()=>[{id:1}],create:async()=>{},sendMessage:async(_t,m)=>{sent.push(m);}}};
   vm.runInNewContext(background,{atob,btoa,chrome,indexedDB:new IDBFactory(),IDBKeyRange,crypto,TextEncoder,URL,URLSearchParams,setTimeout,clearTimeout,structuredClone,AbortController,fetch:async()=>{throw Error('no network');}});
   const call=(message,who='admin')=>new Promise(resolve=>listener(message,who==='content'?{id,url:'https://x.com/home',tab:{id:1},frameId:0}:{id,url:runtime.getURL('ui.html')},resolve));
   assert.equal((await call({type:'x-nav-save',config:{hidden:['href:/i/grok']}},'content')).ok,false);
@@ -111,6 +111,13 @@ test('background keeps sidebar config admin-only and merges reports from X tabs'
   assert.deepEqual([...saved.data.custom.map(c=>c.id)],['b']);assert.deepEqual([...saved.data.seen.map(s=>s.key)],['href:/i/grok']);
   assert.deepEqual({...sent.at(-1)},{type:'x-nav-changed'});
   const forPage=(await call({type:'x-nav-state'},'content')).data;assert.equal(forPage.seen,undefined);assert.deepEqual([...forPage.hidden],['href:/i/grok']);
+  failNavWrite=true;
+  assert.equal((await call({type:'x-nav-save',config:{hidden:['href:/i/money']}})).ok,false);
+  assert.deepEqual([...(await call({type:'x-nav-state'})).data.hidden],['href:/i/grok']);
+  const retry=await call({type:'x-nav-save',config:{hidden:['href:/i/money']}});
+  assert.equal(retry.ok,true,'a temporary storage failure must not block every later save');
+  assert.deepEqual([...retry.data.hidden],['href:/i/money']);
+  assert.equal((await call({type:'x-nav-seen',items:[{key:'href:/i/money',label:'Money'}]},'content')).ok,true);
 });
 
 test('settings page toggles, reorders, adds and edits entries with focus kept on the control',async()=>{
@@ -138,4 +145,32 @@ test('settings page toggles, reorders, adds and edits entries with focus kept on
     assert.equal(state.custom.length,1);
     d.querySelector('.xnav-row:last-child [aria-label="删除「排期」"]').click();await until(()=>!state.custom.length&&!state.order.some(k=>k.startsWith('custom:')));
   }finally{dom.window.close();}
+});
+
+async function storageUI(){
+  const dom=new JSDOM(await readFile('public/ui.html','utf8'),{url:'https://fixture.test/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,d=w.document,notes=[];
+  let state={hidden:[],order:[],custom:[],seen:[{key:'testid:AppTabBar_Home_Link',label:'主页'},{key:'testid:AppTabBar_Explore_Link',label:'探索'}]},fail=false;
+  w.eval(uiCode);const ui=w.XNavUI.initXNavUI({send:async m=>{if(m.type==='x-nav-save'){if(fail){fail=false;throw Error('Temporary save failure');}state={...normalizeNav(m.config),seen:state.seen};}return state;},notice:m=>notes.push(m)});await ui.open();
+  return{dom,w,d,notes,get:()=>state,fail:()=>{fail=true;}};
+}
+test('rapid sidebar toggles preserve every user choice in the serialized save queue',async()=>{
+  const f=await storageUI();try{
+    f.d.querySelector('[data-key="testid:AppTabBar_Home_Link"] input').click();
+    f.d.querySelector('[data-key="testid:AppTabBar_Explore_Link"] input').click();
+    await until(()=>f.get().hidden.includes('testid:AppTabBar_Explore_Link'));
+    assert.deepEqual(f.get().hidden,['testid:AppTabBar_Home_Link','testid:AppTabBar_Explore_Link']);
+  }finally{f.dom.window.close();}
+});
+test('a failed custom-entry save keeps the editor draft and never reports success',async()=>{
+  const f=await storageUI();try{
+    f.d.getElementById('xnav-add').click();f.d.getElementById('xnav-name').value='Keep my draft';f.d.getElementById('xnav-url').value='/i/lists/9';f.fail();
+    f.d.getElementById('xnav-form').dispatchEvent(new f.w.Event('submit',{cancelable:true}));
+    await until(()=>f.notes.includes('Temporary save failure'));
+    await delay(10);
+    assert.equal(f.d.getElementById('xnav-editor').hidden,false);
+    assert.equal(f.d.getElementById('xnav-name').value,'Keep my draft');
+    assert.equal(f.get().custom.length,0);assert.equal(f.notes.some(n=>n.includes('已添加')),false);
+    f.d.getElementById('xnav-form').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await until(()=>f.get().custom.length===1);
+    assert.equal(f.d.getElementById('xnav-editor').hidden,true);
+  }finally{f.dom.window.close();}
 });
