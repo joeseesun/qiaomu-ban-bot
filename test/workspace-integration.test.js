@@ -69,7 +69,7 @@ test('inbox controls preserve native nodes and detect recycled articles without 
  }finally{dom.window.close();}
 });
 test('profile pages retain their description without injecting removed assessment or note actions',async()=>{
- const e=environment(),dom=body('/alice');try{attach(dom,e);await until(()=>dom.window.document.querySelector('.qx-search-entry'));await delay(30);
+ const e=environment(),dom=body('/alice');try{attach(dom,e);await delay(90);
  assert.equal(dom.window.document.querySelector('.qx-profile-host'),null);assert.equal(e.calls.length,0);
  assert.equal(dom.window.document.querySelector('[data-testid=UserDescription]').textContent,'具体项目与实践');
  }finally{dom.window.close();}
@@ -79,8 +79,6 @@ test('retired interest UI stays hidden even for previously enabled profiles and 
  try{attach(dom,e);const d=dom.window.document;await until(()=>d.querySelector('.qx-interest-host'));await delay(30);
  assert.equal(d.querySelector('.qx-interest-host').shadowRoot.querySelector('[aria-label="兴趣偏好与判断"]'),null);
  assert.equal(e.calls.length,0);
- assert.ok(d.querySelector('.qx-search-entry').shadowRoot.textContent.includes('待回复'));
- assert.equal(d.querySelector('.qx-search-entry').shadowRoot.textContent.includes('高级搜索'),false);
  }finally{dom.window.close();}
 });
 

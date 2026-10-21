@@ -9,6 +9,7 @@
 <a href="#workspace/search" data-tab="workspace/search"><span data-icon="Search"></span>搜索</a>
 <a href="#bookmarks" data-tab="bookmarks"><span data-icon="Bookmark"></span>书签</a>
 <a href="#write" data-tab="write"><span data-icon="Pencil"></span>写作</a>
+<a href="#xnav" data-tab="xnav"><span data-icon="PanelLeft"></span>X 侧栏</a>
 <div class="side-divider"></div><a href="#model" data-tab="model"><span data-icon="Cpu"></span>模型设置</a>
 <a href="#about" data-tab="about"><span data-icon="Info"></span>关于与帮助</a></nav>
   <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">__APP_VERSION__</span></p>
@@ -199,6 +200,27 @@
       <form id="post-time-form" class="post-time-form"><input id="post-time-new" type="time" required="" aria-label="新增发布时间"><button class="secondary">添加时间</button></form>
     </details>
     <details class="fine-print"><summary>怎么发出去的？</summary><p>「填入 X」会打开 X 的发帖框，填好正文和附件。排了时间的帖子，会帮你在 X 自带的定时面板里选好时间，你点「确认」和「定时」后，由 X 准时发出，电脑关机也不影响。没有提前填入的帖子，到点会提醒你。插件不会替你点发送。</p></details>
+  </section>
+  <section id="xnav" class="panel" hidden="">
+    <div class="page-heading"><div><h2>X 侧栏</h2><p class="hint">选择 X 左侧栏显示哪些入口、怎么排序，也可以加上自己的链接。保存后，打开的 X 页面立即更新。</p></div><button id="xnav-add" class="secondary" type="button"><span data-icon="Plus"></span>添加入口</button></div>
+    <div id="xnav-editor" class="contact-editor" hidden=""><h3 id="xnav-editor-title">添加入口</h3><form id="xnav-form" novalidate="">
+      <label class="field"><span>名称</span><input id="xnav-name" maxlength="20" autocomplete="off" placeholder="例如：AI 列表"></label>
+      <label class="field"><span>链接</span><input id="xnav-url" maxlength="500" autocomplete="off" spellcheck="false" placeholder="https://example.com 或 /i/lists/123"><small>X 站内链接直接切换页面，其他网站在新标签页打开。</small></label>
+      <div class="xnav-presets" id="xnav-presets"><span>或打开插件页面</span></div>
+      <fieldset class="xnav-icon-field"><legend>图标</legend>
+        <div class="xnav-icon-tabs" role="group" aria-label="图标类型"><button type="button" data-icon-type="lucide" aria-pressed="true">图标</button><button type="button" data-icon-type="emoji" aria-pressed="false">Emoji</button><button type="button" data-icon-type="image" aria-pressed="false">图片</button></div>
+        <div id="xnav-icon-grid" class="xnav-icon-grid" role="radiogroup" aria-label="选择图标"></div>
+        <label id="xnav-emoji-field" class="field" hidden=""><span class="sr-only">Emoji</span><input id="xnav-emoji" maxlength="16" autocomplete="off" placeholder="输入一个 Emoji，例如 🔖"></label>
+        <div id="xnav-image-field" class="xnav-image-field" hidden=""><span id="xnav-image-preview" class="xnav-image-preview"></span><button id="xnav-image-pick" class="secondary" type="button">选择图片</button><input id="xnav-image-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden=""><small>自动裁成 64×64 方图，只存在本机。</small></div>
+      </fieldset>
+      <label class="contact-pinned"><input id="xnav-newtab" type="checkbox">站内链接也在新标签页打开</label>
+      <p id="xnav-error" class="err" role="alert" hidden=""></p>
+      <div class="button-row"><button class="primary" type="submit">保存入口</button><button id="xnav-cancel" class="secondary" type="button">取消</button></div>
+    </form></div>
+    <p id="xnav-empty" class="empty-state" hidden="">打开一次 x.com，这里就会列出 X 侧栏现有的入口。</p>
+    <ol id="xnav-list" class="xnav-list" aria-label="侧栏入口"></ol>
+    <div class="button-row xnav-foot"><button id="xnav-reset" class="quiet" type="button">恢复默认</button></div>
+    <details class="fine-print"><summary>说明</summary><p>隐藏只是不显示入口，X 的功能和你的账号设置都不受影响。「更多」菜单始终保留，隐藏的页面仍可从那里或直接输入网址打开。</p><p>入口按 X 的页面结构识别。X 改版后某一项可能暂时失效，下次打开 X 会自动更新这里的列表。</p></details>
   </section>
   <section id="write" class="panel" hidden=""><div class="page-heading"><div><h2>写作</h2><p class="hint">从草稿继续，或新建一篇文章。</p></div></div><p><a class="secondary" href="image-library.html" target="_blank" rel="noopener noreferrer">打开图库</a></p><div id="writing-drafts-frame" class="frame-slot"></div></section><section id="model" class="panel" hidden=""><div class="page-heading"><div><h2>模型设置</h2><p class="hint">按用途配置服务，密钥分别保存。</p></div></div><div class="model-tabs" role="group" aria-label="模型用途"><button data-model-view="interpreter" aria-pressed="true">写作</button><button data-model-view="image-models" aria-pressed="false">配图</button><button data-model-view="web-search" aria-pressed="false">联网搜索</button><button data-model-view="image-sources" aria-pressed="false">图库来源</button><button data-model-view="judgment" aria-pressed="false">回复判断</button></div><div id="writing-model-frame" class="frame-slot"></div><div id="judgment-settings">
 

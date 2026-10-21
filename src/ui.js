@@ -10,10 +10,12 @@ import { initBookmarksUI } from './ui-bookmarks.js';
 import { initWorkspaceUI } from './ui-workspace.js';
 import { initPostsUI } from './ui-posts.js';
 import { initCommunityUI } from './ui-community.js';
+import { initXNavUI } from './ui-xnav.js';
+import { normalizeNav } from './x-nav.js';
 import { Workspace } from './workspace.js';
 import { importSearches, SEARCH_TEMPLATES } from './search.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info, Settings , ImagePlus, Send, Check, X } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info,Settings,ImagePlus,Send,Check,X};
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info, Settings , ImagePlus, Send, Check, X, PanelLeft } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info,Settings,ImagePlus,Send,Check,X,PanelLeft};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
@@ -37,6 +39,11 @@ const demoWorkspaceReady=demo?(async()=>{
 const demoContactsReady=demo?Promise.all(Array.from({length:26},(_,n)=>demoContacts.put('demo_me',{handle:'friend_'+(n+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],note:n<2?'一起做开源的朋友':'',pinned:n<2},{at:Date.now()-n*3600000}))):Promise.resolve();
 const demoReady=demo?demoLabels.migrate(Array.from({length:65},(_,n)=>({key:'demo-'+String(n).padStart(3,'0'),id:String(100+n),handle:'reader_'+(n%25+1),displayName:['陈一 · 工具笔记','Lin / 产品随记','开源观察站','小夏同学','独立开发日常'][n%5],kind:'reply',text:n%2?'我在自己的项目里试过，缓存清理后就恢复正常了。这里补充一个具体使用体验。':'这个观点提供了全新的思考维度，值得我们继续深入探讨。',parent:'你用过这个工具吗？',label:n%2?'human':'ai',at:Date.now()-n*3600000,modelResult:{model:'演示数据',scores:{ai_written:n%2?.28:.83}}}))):Promise.resolve();
 let demoState={settings:{...DEFAULTS,allowlist:['vista8'],blocklist:[]},configured:true,stats:{requests:38,cacheHits:126,inputTokens:18420},feedback:[],connection:{model:'jev-1.13.0',verifiedAt:Date.now()},lastModel:'jev-1.13.0',lastError:''};
+const demoIcon=d=>({viewBox:'0 0 24 24',paths:[d]});
+let demoNav={hidden:['href:/i/grok','href:/i/money'],order:[],custom:[{id:'demo1',name:'AI 列表',url:'/i/lists/123',icon:{type:'emoji',value:'🤖'},newTab:false}],seen:[
+  {key:'testid:AppTabBar_Home_Link',label:'主页',icon:demoIcon('M12 2.5 2 10v11.5h7v-7h6v7h7V10z')},{key:'testid:AppTabBar_Explore_Link',label:'探索',icon:demoIcon('M10.5 3a7.5 7.5 0 1 0 4.6 13.4l5 5 1.4-1.4-5-5A7.5 7.5 0 0 0 10.5 3zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z')},
+  {key:'testid:AppTabBar_Notifications_Link',label:'通知',icon:demoIcon('M12 2a7 7 0 0 0-7 7v4l-2 4h18l-2-4V9a7 7 0 0 0-7-7zm-3 17a3 3 0 0 0 6 0z')},{key:'testid:AppTabBar_DirectMessage_Link',label:'聊天',icon:null},
+  {key:'href:/i/grok',label:'Grok',icon:null},{key:'href:/i/premium',label:'订阅',icon:null},{key:'href:/i/money',label:'Money',icon:null},{key:'href:/i/bookmarks',label:'书签',icon:null},{key:'testid:AppTabBar_Profile_Link',label:'个人资料',icon:null}]};
 async function send(message){
   if(demo){
     await demoReady;$('demo-note').hidden=false;
@@ -46,6 +53,8 @@ async function send(message){
     if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
     if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
     if(message.type==='inbox-compose')throw Error('当前为模拟预览；已安装扩展会打开真实的 X 回复框。');
+    if(message.type==='x-nav-state')return demoNav;
+    if(message.type==='x-nav-save')return demoNav={...normalizeNav(message.config),seen:demoNav.seen};
     if(message.type==='posts-sync')return{};
     if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
     if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update'].includes(message.type)){
@@ -128,7 +137,7 @@ async function tab(name){
   const workspaceRoute=name.startsWith('workspace')?name:null;
   if(workspaceRoute)name='workspace';
   const contactsView=name==='contacts';if(contactsView)name='accounts';
-  if(!['overview','accounts','model','about','bookmarks','workspace','write','posts'].includes(name))name='overview';
+  if(!['overview','accounts','model','about','bookmarks','workspace','write','posts','xnav'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
   // Section ids double as hash routes, so the browser also jumps to the
@@ -141,6 +150,7 @@ async function tab(name){
   if(name==='workspace'){const [route,query='']=workspaceRoute.split('?');await workspaceUI.open(route.split('/')[1]||'search',new URLSearchParams(query).get('draft')||'');}
   if(name==='bookmarks')await bookmarksUI.open();
   if(name==='posts')await postsUI.open();
+  if(name==='xnav')await xnavUI.open();
   if(annotationsView)await openAnnotations();
   if(name==='model')showModel(modelView||'interpreter');
   if(name==='write')writerFrame('writing-drafts-frame','write');
@@ -179,6 +189,7 @@ const contactsUI=initContactsUI({send,notice,glyph});
 const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
 const workspaceUI=initWorkspaceUI({send,notice,glyph});
 const postsUI=initPostsUI({send,notice,glyph,demo});
+const xnavUI=initXNavUI({send,notice});
 const communityUI=initCommunityUI({send,notice,demo});
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button[data-tab]'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});

@@ -1,6 +1,6 @@
 // Shadow hosts are extension-owned. Inserting/removing them must not make
 // sibling content scripts rescan X, even when they live inside a tweet.
-const HOST = '.qb-host,.qb-hot-host,.qx-interest-host,.qx-author-host,.qx-search-entry,.qx-search-sidebar,.qm-mentions-host,.qm-bookmarks-host';
+const HOST = '.qb-host,.qb-hot-host,.qx-interest-host,.qx-author-host,.qx-nav-host,.qx-search-sidebar,.qm-mentions-host,.qm-bookmarks-host';
 export function pageMutation(records, selector) {
   return records.some(record => {
     const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
