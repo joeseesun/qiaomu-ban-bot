@@ -1,4 +1,4 @@
-Qiaomu X Helper 0.5.0 — reviewer notes
+Qiaomu X Helper 0.5.2 — reviewer notes
 
 Purpose: assist the user's X reading and expression workflow: reversible reply filtering, bookmarks/search, reply drafts, and a local article editor with optional AI research and images. All final X publication/replies are user-confirmed.
 
@@ -15,11 +15,13 @@ No developer credentials are embedded or required for basic features. Do not use
 9. Add a post to the reply inbox, write a local draft, then choose Fill X reply box. The extension does not click Send. Contacts and local reply records are account-separated.
 10. If the test account has X Articles, choose Publish to X in a nonempty writing draft. It opens X and fills a draft with text/media. There is no platform menu and no final Publish click. X account feature restrictions still apply.
 11. Optional reply classification may be tested with your own supported Jev service. Unknown/invalid responses fail open. Human/AI reports are uncertain content judgments, not identity verification; account blocking is never automatic.
-12. Configuration backup excludes API keys by default and always excludes OAuth sessions. Web/image source settings are included; articles/images/bookmarks have separate export paths. Community subscription and contribution are off by default, require an invitation and are not needed for the extension.
+12. Open sidebar customization, reorder or hide X navigation items, add a non-sensitive HTTPS link and save. Reload X to verify. Custom icon uploads are resized to a local 64×64 PNG. Failed saves retain edits for retry.
+13. Open Posts, create a local post with a future reminder. alarms updates a badge only. Enable optional notifications to receive a local reminder (may show the first 90 characters); clicking it opens the composer. Fill X copies a draft/media but never clicks Send or X's final schedule confirmation. Posts and attachments are shared by accounts within this extension, stored in a separate IndexedDB and excluded from configuration backup.
+14. Configuration backup excludes API keys by default and always excludes OAuth sessions. Web/image source settings are included; articles/images/bookmarks have separate export paths. Community subscription and contribution are off by default, require an invitation and are not needed for the extension.
 
 Data: extension storage.local and IndexedDB, no Chrome Sync. Optional AI/search requests send relevant user-provided content to the chosen service. No analytics, advertising, private-message access or Chrome browsing-history collection. Store categories and policy disclose local data as well.
 
-Verification: automated tests, production UI fixtures and a real Flash text call passed. Installed extension pages were blocked by tooling; real X article transfer and every external search/image/login service were not revalidated in this release. Screenshots are actual production UI with synthetic demonstration content; promotional artwork is conceptual AI art, not fabricated UI.
+Verification: 519 automated tests, the main-branch CI and release package integrity checks passed for 0.5.2. Production UI fixtures were inspected; prior live model checks do not establish new external service coverage. Installation/reload, real X article transfer, real media upload/resume, and every external search/image/login service were not revalidated in this release. Screenshots are actual production UI with synthetic demonstration content; promotional artwork is conceptual AI art, not fabricated UI.
 
 Privacy: https://github.com/joeseesun/qiaomu-x-helper/blob/main/PRIVACY.md
 Support: https://github.com/joeseesun/qiaomu-x-helper/issues

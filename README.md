@@ -39,7 +39,7 @@ X Helper 把这些常用步骤放到顺手的位置。你可以只用无需密�
 
 **不需要先装 PKG，也不需要先填 API Key。** AI 与外部图库是按需连接的可选功能。升级时保留原目录、替换文件后重新加载；先导出重要文章与配置。
 
-截至 2026-10-21，[Chrome 商店](https://chromewebstore.google.com/detail/npbekbjlplpiopckedfiggpdkgaaflll)公开版为 0.2.0；0.5.0 已送审，审核通过后自动发布。现在体验本文的新版写作功能，请安装上方 GitHub Preview 包。详见[提交记录](docs/store/SUBMISSION.md)。
+截至 2026-10-21，[Chrome 商店](https://chromewebstore.google.com/detail/npbekbjlplpiopckedfiggpdkgaaflll)公开版为 0.2.0；0.5.2 已送审，审核通过后自动发布。现在体验本文的新版写作功能，请安装上方 GitHub Preview 包。详见[提交记录](docs/store/SUBMISSION.md)。
 
 ## 从想法，到文章
 
