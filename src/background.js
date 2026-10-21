@@ -12,6 +12,7 @@ import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
 import { handleOf, validateItem } from './core.js';
 import { registerWriterBackground, writerMessage } from './writer/background';
+import { NAV_KEY, SEEN_KEY, DEFAULT_NAV, normalizeNav, mergeSeen } from './x-nav.js';
 registerWriterBackground();
 const owners = new Map();
 const bookmarks = new Bookmarks();
@@ -73,6 +74,9 @@ const community=new Community({get:async k=>{await secure;return chrome.storage.
 engine.communityEvidence=id=>community.evidence(id);
 void community.sync();
 async function share(item,label){try{const result=await community.enqueue(item,label);void community.sync();return result;}catch(e){return{shared:false,reason:e.message};}}
+let navWrites=Promise.resolve();
+const navStore=fn=>navWrites=navWrites.then(async()=>{await secure;return fn();});
+const navState=async()=>{await secure;const v=await chrome.storage.local.get([NAV_KEY,SEEN_KEY]);return{...normalizeNav(v[NAV_KEY]||DEFAULT_NAV),seen:mergeSeen([],v[SEEN_KEY])};};
 async function broadcast(message = {type:'refresh'}) {
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*', 'https://www.x.com/*', 'https://www.twitter.com/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.tabs.sendMessage(tab.id, message)));
@@ -106,12 +110,15 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const result = await engine.learn(message.item, message.label); const shared=await share(message.item,message.label); await broadcast({type:'accounts-changed'}); return {...result,...shared};
     }
     if (message.type === 'options') {
-      if(['contacts','bookmarks','workspace','workspace/search','workspace/inbox'].includes(message.page)){
+      if(['contacts','bookmarks','workspace','workspace/search','workspace/inbox','posts','write'].includes(message.page)){
         const draft=message.page==='workspace/search'&&message.searchDraft?'?'+new URLSearchParams({draft:JSON.stringify(normalizeSearch(message.searchDraft))}):'';
         await chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+message.page+draft)});
       }else await chrome.runtime.openOptionsPage();
       return {};
     }
+    if(message.type==='x-nav-state'){const state=await navState();return who==='admin'?state:{hidden:state.hidden,order:state.order,custom:state.custom};}
+    if(message.type==='x-nav-seen'&&who==='content')return navStore(async()=>{const v=await chrome.storage.local.get(SEEN_KEY);await chrome.storage.local.set({[SEEN_KEY]:mergeSeen(v[SEEN_KEY],message.items)});return{};});
+    if(message.type==='x-nav-save'&&who==='admin'){const config=normalizeNav(message.config);await navStore(()=>chrome.storage.local.set({[NAV_KEY]:config}));await broadcast({type:'x-nav-changed'});return navState();}
     if(message.type==='workspace-state')return workspace.profile(message.owner);
     if(message.type==='sidebar-searches')return workspace.page('searches',message.owner,{limit:20,sort:'rank'});
     if(message.type==='sidebar-search-save'){
