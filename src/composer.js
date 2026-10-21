@@ -44,7 +44,7 @@ export async function insertMention(editor,saved,handle,displayName=''){
   const doc=editor.ownerDocument,selection=doc.getSelection(),range=saved.range.cloneRange();range.collapse(false);
   const block=(range.startContainer.nodeType===1?range.startContainer:range.startContainer.parentElement).closest('[data-block="true"]')||editor;
   const prefix=doc.createRange();prefix.selectNodeContents(block);prefix.setEnd(range.startContainer,range.startOffset);
-  const text=prefix.toString(),partial=text.match(/(?:^|\s)(@[a-zA-Z0-9_]{0,15})$/);
+  const text=prefix.toString(),partial=text.match(/(?:^|\s)(@@?[a-zA-Z0-9_]{0,15})$/);
   if(partial){
     let offset=text.length-partial[1].length;const walker=doc.createTreeWalker(block,4);let n;
     while((n=walker.nextNode())){if(offset<=n.textContent.length){range.setStart(n,offset);break;}offset-=n.textContent.length;}
@@ -90,6 +90,16 @@ export async function insertMention(editor,saved,handle,displayName=''){
   if(editor.textContent!==expected)throw Error('未能完成插入，请检查正文，或在联系人页复制 @账号后粘贴。');
   if(nextIsSpace)selection.modify?.('move','forward','character');
   return value;
+}
+// A like/repost click is an attempt; X flipping the button to its undo state
+// (unlike / unretweet) on that same post is the receipt.
+export async function awaitFlip(article,selector,{tries=20,step=150}={}){
+  for(let i=0;i<tries;i++){
+    await new Promise(r=>setTimeout(r,step));
+    if(!article.isConnected)return false;
+    if([...article.querySelectorAll(selector)].some(n=>n.closest('article')===article))return true;
+  }
+  return false;
 }
 // A send click is an attempt, never a receipt. No draft text is persisted.
 export class ReplyReceipt {

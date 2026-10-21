@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-10-20T16:11:23.092Z",
+  "prompt": "A minimal app icon, square 1:1, flat vector. Pure black rounded-square tile filling the canvas. The Chinese character 木 is formed entirely by negative space: the black tile is cut by thin white gaps — one horizontal gap, one vertical gap, and two diagonal gaps running from the crossing point to the two bottom corners — so the lower half forms an X-like crossing. Like a modern carved seal stamp (白文印), crisp and architectural, the gaps meet the tile edge cleanly. Optionally one diagonal gap is wider and hollow like a double line. No gradients, no shadows, no texture, no other symbols, no text. Must stay legible at 16 pixels. 避免：渐变、阴影、3D、多余装饰、文字、蓝色、印泥红。\n画面要求：背景不透明，纸面或底色铺满整个画面，不要透明、镂空或黑色边角区域。",
+  "aspect_ratio": "1:1",
+  "reference_images": [],
+  "dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "flattened_transparency": false,
+  "revised_prompt": "Generate a single minimal app icon, square 1:1, flat vector design. Opaque white background extending to all canvas edges; no transparency. A pure black rounded-square tile fills almost the entire canvas, centered with only tiny white corner areas outside its rounded corners, no frame or additional padding. The Chinese character 木 is expressed exclusively as white negative-space cuts through the black tile, not as printed lettering. Precise geometric architecture: a thin straight horizontal white gap spans left to right at about 40 percent height; a thin straight vertical white gap spans from top edge to bottom edge through the center; two straight diagonal white gaps branch from the central crossing point down to the bottom-left and bottom-right corners, reaching the tile boundary cleanly. This creates the unmistakable carved-seal structure of 木 with an X-like meeting of cuts in the lower region. Balance the stroke widths to remain clear at 16 pixels, about 6 percent of tile width, mathematically crisp edges, optical balance, highly simplified silhouette. All white cuts are filled opaque white, not transparent holes. White-carved Chinese seal aesthetic, modern architectural app mark. Use only pure black and pure white. No gradients, shadows, texture, 3D, extra symbols, decorative elements, labels, surrounding text, blue, red, or black outer corner areas. The 木 structure itself is the only symbol. Prefer simple single-line diagonal cuts over optional double lines. Deliver the finished icon alone, no mockup or presentation sheet.",
+  "route": "raw_prompt"
+}

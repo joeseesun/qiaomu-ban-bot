@@ -155,15 +155,12 @@ test('a recycled article rejects the previous delayed judgment',async()=>{
     assert.ok(!a.querySelector('.qb-host').shadowRoot.textContent.includes('95%'));
   }finally{env.close();}
 });
-test('manual keep overrides duplicate folding without another model request',async()=>{
+test('identical reply text is no longer folded as a duplicate',async()=>{
   const text='This repeated reply has enough characters for the duplicate filter.';
   const env=mount(markup(1,text)+markup(2,text),async()=>result(.1));
   try{
-    const a=env.dom.window.document.getElementById('a2');await until(()=>a.hasAttribute('data-qb-collapsed'));await pause(20);
-    assert.deepEqual(env.calls,['1']);
-    [...a.querySelector('.qb-host').shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='只保留此条').click();
-    await until(()=>a.querySelector('.qb-host')?.shadowRoot.textContent.includes('你已保留此条'));
-    assert.equal(a.hasAttribute('data-qb-collapsed'),false);assert.ok(!env.calls.includes('2'));
+    await until(()=>env.calls.includes('1')&&env.calls.includes('2'));await pause(20);
+    assert.equal(env.dom.window.document.getElementById('a2').hasAttribute('data-qb-collapsed'),false);
   }finally{env.close();}
 });
 test('X block helper opens the native confirmation without confirming a block',async()=>{

@@ -71,8 +71,26 @@ export class Contacts {
     if(replyId&&(profile?.automatic===false||receipt||excluded)){await done;return{recorded:false};}
     if(replyId)r.put({owner,id:replyId});else removed.delete([owner,handle]);
     const next={...old,owner,handle,displayName:clean(input.displayName,80)||old?.displayName||'',avatar:avatarURL(input.avatar)||old?.avatar||'',note:replyId?old?.note||'':clean(input.note??old?.note,160),pinned:replyId?!!old?.pinned:typeof input.pinned==='boolean'?input.pinned:!!old?.pinned,replyCount:(old?.replyCount||0)+(replyId?1:0),lastReplyAt:replyId?at:old?.lastReplyAt||0,activity:at};
+    if(replyId){next.lastKind='reply';next.lastInteractionAt=at;}
     next.pinnedOrder=next.pinned?1:0;next.search=searchText(next);s.put(next);
     o.put({...profile,handle:owner,automatic:profile?.automatic!==false,seenAt:profile?.seenAt||at});await done;return{recorded:true,contact:next};
+  }
+  // A confirmed like or repost of someone else's post. Same opt-out and removal
+  // rules as replies; one receipt per post and kind, so re-liking never inflates.
+  async interact(owner,input,{kind,postId,at=Date.now()}={}){
+    owner=ownerOf(owner);const handle=contactHandle(input?.handle);
+    if(!['like','repost'].includes(kind))throw Error('互动类型无效');
+    if(!/^\d{1,25}$/.test(postId||''))throw Error('帖子编号无效');
+    if(!handle||handle===owner)return{recorded:false};
+    const db=await this.db,tx=db.transaction(['contacts','owners','receipts','removed'],'readwrite'),done=finished(tx);
+    const s=tx.objectStore('contacts'),o=tx.objectStore('owners'),r=tx.objectStore('receipts'),key=[owner,kind+':'+postId];
+    const [old,profile,receipt,excluded]=await Promise.all([request(s.get([owner,handle])),request(o.get(owner)),request(r.get(key)),request(tx.objectStore('removed').get([owner,handle]))]);
+    if(profile?.automatic===false||receipt||excluded){await done;return{recorded:false};}
+    r.put({owner,id:kind+':'+postId});
+    const count=kind==='like'?'likeCount':'repostCount';
+    const next={...old,owner,handle,displayName:clean(input.displayName,80)||old?.displayName||'',avatar:avatarURL(input.avatar)||old?.avatar||'',note:old?.note||'',pinned:!!old?.pinned,replyCount:old?.replyCount||0,lastReplyAt:old?.lastReplyAt||0,[count]:(old?.[count]||0)+1,lastKind:kind,lastInteractionAt:at,activity:at};
+    next.pinnedOrder=next.pinned?1:0;next.search=searchText(next);s.put(next);
+    o.put({...profile,handle:owner,automatic:true,seenAt:profile?.seenAt||at});await done;return{recorded:true,contact:next};
   }
   async refresh(owner,items){
     owner=ownerOf(owner);const db=await this.db,tx=db.transaction('contacts','readwrite'),done=finished(tx),s=tx.objectStore('contacts');

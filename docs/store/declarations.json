@@ -1,9 +1,9 @@
 {
   "name": "乔木 X 助手 · Qiaomu X Helper",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "singlePurpose": "帮助用户在 X 阅读、整理与表达：可撤销地整理回复、保存与检索书签、准备回复，以及通过本机写作工作台查资料、配图并写入 X 文章草稿。最终社交操作由用户确认。",
-  "storage": "保存本机设置、独立服务凭据、人工标注、账号名单、联系人、待回复、书签、文章、图片、聊天、图库与任务记录；使用 storage.local 和 IndexedDB，不使用 Chrome Sync。目录访问仅由用户主动选择。删除聊天不自动删除图库图片；可在各自页面删除或导出。",
-  "hosts": "必需的 X/Twitter 站点用于当前已加载帖子和原生编辑器。可选 HTTPS / localhost 仅在用户连接服务时申请。文字与图片服务按所填域名授权；DeepSeek 搜索申请 API 域名，Brave 因读取公开网页会申请 HTTPS 站点权限；图库申请 API / 自定义代理与图片 CDN。公共网页访问验证 URL、拒绝本地网络和重定向，且不附带登录 Cookie。",
+  "storage": "保存本机设置、独立服务凭据、人工标注、账号名单、联系人、待回复、书签、文章、图片、聊天、图库与任务记录；使用 storage.local 和 IndexedDB，不使用 Chrome Sync。目录访问仅由用户主动选择。删除聊天不自动删除图库图片；可在各自页面删除或导出。 普通帖子、时间安排和附件也保存在独立 IndexedDB，由同一扩展下的账号共用，不在配置备份里。",
+  "hosts": "必需的 X/Twitter 站点用于当前已加载帖子和原生编辑器；内置 src/media-hosts.js 列出的公共媒体 CDN，用于读取文章引用的图片和视频，CDN 不注入页面脚本。可选 HTTPS / HTTP 仅按用户连接服务或读取文章媒体时的具体域名申请。文字与图片服务仍限 HTTPS / 本机 HTTP；DeepSeek 搜索申请 API 域名，Brave 因读取公开网页会申请 HTTPS 站点权限；图库申请 API / 自定义代理与图片 CDN。公共网页访问验证 URL、拒绝本地网络和重定向；远程媒体读取也不附带登录 Cookie。",
   "remoteCode": false,
   "remoteCodeExplanation": "所有可执行 JavaScript / CSS 与解析器随包分发，不加载远程代码。模型只返回文本、图片或受限结构化编辑/检索指令；字段经校验，文本清洗后显示，不 eval 模型内容。数学与图表渲染代码本地打包。",
   "privacyURL": "https://github.com/joeseesun/qiaomu-x-helper/blob/main/PRIVACY.md",
@@ -14,7 +14,7 @@
   "dataNotes": {
     "personallyIdentifiableInformation": "可见的 X 用户名、昵称、头像 URL 与账号相关的本机记录；正文中可能包含个人信息。",
     "authenticationInformation": "用户主动提供的独立服务 API Key、支持的账号 OAuth 令牌与可选社区令牌，仅发给对应服务；不读取 X 登录 Cookie。",
-    "userActivity": "人工标签、账号名单、联系人插入与回复成功后的互动计数、书签备注和标签、保存的搜索、待回复状态，以及用户发起的写作/图片任务；不采集通用点击轨迹或完整键盘日志。",
+    "userActivity": "人工标签、账号名单、联系人插入与回复成功后的互动计数、书签备注和标签、保存的搜索、待回复状态，以及用户发起的写作/图片任务；不采集通用点击轨迹或完整键盘日志。 点赞/转帖仅在X显示撤销状态后记录对象，按帖子及类型去重。",
     "websiteContent": "已加载 X 帖子及上下文、用户文章/选区/指令、上传图片、主动读取的公开网页与搜索结果；按功能需要保存在本机或发送给所选服务。",
     "webHistoryScope": "保存的 X 链接与采样时间、主动搜索词及公开网页地址；不读取 Chrome 浏览历史或通用跨站浏览记录。",
     "personalCommunications": "用户主动发起的 AI 写作对话、提示与附件；为完成请求发送给所选服务。不读取 X 私信、邮箱或短信。"
@@ -28,5 +28,7 @@
     "网站内容"
   ],
   "offscreen": "在扩展后台页面处理和保存生成的图片 Blob，持有长请求，避免用户关闭侧栏后图片任务中断；不用于隐藏采集。",
-  "nativeMessaging": "可选。仅当用户配置本机 Codex 生图时申请，连接已安装的乔木助手 ai.qiaomu.clipper；仅允许图片状态、启动、轮询、读取和取消，不接受任意命令或路径。普通写作和云端配图无需此权限。"
+  "nativeMessaging": "可选。仅当用户配置本机 Codex 生图时申请，连接已安装的乔木助手 ai.qiaomu.clipper；仅允许图片状态、启动、轮询、读取和取消，不接受任意命令或路径。普通写作和云端配图无需此权限。",
+  "alarms": "为用户本机帖子排期设置到点提醒、更新扩展角标，不自动发送。",
+  "notifications": "可选。用户主动允许后显示本机排期提醒，可能包含正文前90字；用户点击后才打开X发帖框。"
 }

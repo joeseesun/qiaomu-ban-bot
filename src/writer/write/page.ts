@@ -18,7 +18,7 @@ import { imageIdFromUrl, saveImage } from './images';
 import { imageUrls, insertImageFiles, localizeRemoteImages, pickImageFiles } from './images-ui';
 import { mountOutline } from './outline';
 import { editorMarkdown, exportArticle, exportArticleZip, parseFrontMatter, safeFileName } from './markdown-io';
-import { publishToX } from './publish/x';
+import { authorizeXMedia, publishToX } from './publish/x';
 import type { Article } from './types';
 import type { ClipPreview } from '../utils/clip-preview';
 import { completeSourceImport, openSourcePage } from './source-import';
@@ -328,6 +328,7 @@ function mountEditor(root: HTMLElement, initial: Article): void {
 	publishButton.addEventListener('click', () => {
 		if (publishButton.disabled) return;
 		void busy(publishButton, async () => {
+			await authorizeXMedia({ ...article, ...snapshot() });
 			await saveNow();
 			if (conflict || state === 'error') throw new Error(t('请先解决保存问题，再发布到 X'));
 			const current = { ...article, ...snapshot() };

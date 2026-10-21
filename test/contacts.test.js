@@ -60,3 +60,16 @@ test('existing address books seed once, preserve custom author data and respect 
   const reopened=new Contacts(factory,'upgrade');await reopened.observe('fresh');assert.equal((await reopened.page({owner:'fresh'})).items.length,0);
   await reopened.put('fresh',{handle:'vista8',displayName:'手动恢复',note:'新的备注'});assert.equal((await reopened.page({owner:'fresh'})).items[0].note,'新的备注');(await reopened.db).close();
 });
+test('confirmed likes and reposts are recorded once per post and honour opt-out and removal',async()=>{
+  const store=new Contacts(new IDBFactory(),'interact');await store.observe('me');
+  await Promise.all([store.interact('me',{handle:'alice',displayName:'Alice'},{kind:'like',postId:'1'}),store.interact('me',{handle:'alice'},{kind:'like',postId:'1'})]);
+  await store.interact('me',{handle:'alice'},{kind:'repost',postId:'1'});await store.interact('me',{handle:'alice'},{kind:'like',postId:'2'});
+  let c=(await store.page({owner:'me'})).items[0];assert.equal(c.likeCount,2);assert.equal(c.repostCount,1);assert.equal(c.lastKind,'like');assert.equal(c.replyCount,0);
+  assert.equal((await store.interact('me',{handle:'me'},{kind:'like',postId:'3'})).recorded,false,'own posts never become contacts');
+  await assert.rejects(store.interact('me',{handle:'bob'},{kind:'follow',postId:'3'}),/互动类型/);
+  await assert.rejects(store.interact('me',{handle:'bob'},{kind:'like',postId:'x'}),/帖子编号/);
+  await store.remove('me','alice');assert.equal((await store.interact('me',{handle:'alice'},{kind:'like',postId:'9'})).recorded,false);
+  await store.configure('me',false);assert.equal((await store.interact('me',{handle:'carol'},{kind:'like',postId:'4'})).recorded,false);
+  await store.configure('me',true);await store.put('me',{handle:'dave'},{replyId:'5'});
+  c=(await store.page({owner:'me',query:'dave'})).items[0];assert.equal(c.lastKind,'reply');assert.ok(c.lastInteractionAt>0);
+});

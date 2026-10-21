@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-10-20T16:10:23.492Z",
+  "prompt": "A minimal app icon, square 1:1, flat vector, pure black rounded-square tile filling the canvas. A single white mark: a bold geometric letter X whose top is capped by a short horizontal bar and whose centre is pierced by a vertical stem extending above, so the X reads at the same time as the Chinese character 木 (tree). Use contrasting stroke weights: one diagonal thick and drawn as a hollow outline, the other diagonal thin and solid, the bar and stem thin and solid. Precise, elegant negative space, balanced optical centre, generous margin. No gradients, no shadows, no texture, no other symbols, no text. Must stay legible at 16 pixels. 避免：渐变、阴影、3D、多余装饰、文字、蓝色、对话气泡。\n画面要求：背景不透明，纸面或底色铺满整个画面，不要透明、镂空或黑色边角区域。",
+  "aspect_ratio": "1:1",
+  "reference_images": [],
+  "dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "flattened_transparency": false,
+  "revised_prompt": "Create one minimal app icon, square 1:1 canvas, flat vector aesthetic with extremely precise clean edges. Opaque background: a pure black rounded-square app tile filling nearly the entire canvas, with only the tiny outer rounded-corner cutouts filled with solid white, never transparency. The black tile is the intended icon background, not an extra frame. Center a single unified white geometric monogram combining the Latin letter X and the Chinese character 木 (tree). The mark consists of: one bold diagonal from upper left to lower right constructed as a thick hollow outlined diagonal stroke (white outline with the same black as the tile inside); a contrasting slender solid white diagonal from upper right to lower left; a short thin solid white horizontal bar across the upper part of the mark; and a thin solid white vertical central stem that pierces the center of the X and extends upward beyond the horizontal bar, making the complete symbol read simultaneously as X and 木. Use carefully resolved intersections, elegant negative space, balanced optical centering, and generous margins. Make the design simple and bold enough to remain recognizable at 16 pixels, with the hollow diagonal's outline and gap sufficiently wide. The hollow outline is black-filled negative space, NOT transparent. No other symbols, no written text or labels, no additional elements. Strictly two colors: pure black and pure white. No gradients, shadows, texture, 3D, blue, speech bubbles, decorative motifs, mockup, border, or presentation sheet. Output just the finished icon filling the square image. 背景完全不透明，底色覆盖整个画面，不留透明区域。单一白色图形，X 与木巧妙融合，粗细笔画对比，一条斜线粗而空心轮廓，另一条斜线细而实心，横与竖细而实心。",
+  "route": "raw_prompt"
+}

@@ -60,18 +60,36 @@ export function describeSearch(input){
   if(s.replies)parts.push(s.replies==='only'?'只看回复':'只看主帖');
   if(s.excludeReposts)parts.push('排除转帖');if(s.follows)parts.push('只看我关注的人');
   for(const[key,label]of[['likes','点赞'],['reposts','转帖'],['repliesMin','回复']])if(s[key]>0)parts.push(`至少 ${s[key]} ${label}`);
-  return parts.length?parts.join(' · ')+' · '+(s.sort==='top'?'热门优先':'最新优先'):'填写下面任意条件即可搜索';
+  return parts.length?parts.join(' · ')+' · '+(s.sort==='top'?'热门优先':'最新优先'):'填写任意条件即可搜索';
 }
+// `focus` is the one field the user is expected to edit; `sample` fills its
+// placeholder. Everything else in `filters` is preset and stays editable.
 export const SEARCH_TEMPLATES=[
-  {name:'近七天的开源项目',category:'发现',filters:{all:'开源',any:'工具 项目',period:'7d',likes:20,excludeReposts:true}},
-  {name:'AI 讨论与实践',category:'发现',filters:{any:'Claude Codex DeepSeek',repliesMin:5,period:'7d',excludeReposts:true}},
-  {name:'我发过的高赞帖子',category:'我的账号',ownerField:'from',filters:{likes:50,excludeReposts:true}},
-  {name:'别人提到我',category:'我的账号',ownerField:'mention',filters:{period:'7d'}},
-  {name:'我收到的回复',category:'我的账号',ownerField:'to',filters:{replies:'only',period:'7d'}},
-  {name:'关注的人分享的链接',category:'资料',filters:{follows:true,media:'links',period:'7d',excludeReposts:true}},
-  {name:'产品与独立开发',category:'发现',filters:{any:'产品 独立开发',likes:30,period:'30d',excludeReposts:true}},
+  {id:'topic-today',name:'话题今天的热门',category:'找话题',desc:'今天热门、20 赞以上',focus:'all',sample:'AI Agent',filters:{period:'today',sort:'top',likes:20,excludeReposts:true}},
+  {id:'topic-zh',name:'中文圈高赞讨论',category:'找话题',desc:'近 7 天中文、100 赞以上',focus:'all',sample:'大模型',filters:{lang:'zh',period:'7d',likes:100,sort:'top',excludeReposts:true}},
+  {id:'topic-en',name:'英文圈怎么说',category:'找话题',desc:'近 7 天英文、200 赞以上',focus:'all',sample:'Claude Code',filters:{lang:'en',period:'7d',likes:200,sort:'top',excludeReposts:true}},
+  {id:'topic-media',name:'带图或视频的帖子',category:'找话题',desc:'近 7 天含图片或视频',focus:'all',sample:'产品发布',filters:{media:'media',period:'7d',likes:20,excludeReposts:true}},
+  {id:'topic-debate',name:'讨论最热烈的',category:'找话题',desc:'近 30 天主帖、20 条回复以上',focus:'all',sample:'开源 商业化',filters:{repliesMin:20,period:'30d',sort:'top',replies:'exclude',excludeReposts:true}},
+  {id:'ask-recommend',name:'有人在求推荐',category:'找机会',desc:'近 7 天的提问，适合给出答案',focus:'all',sample:'笔记软件',filters:{any:'求推荐 有没有 推荐一下 哪个好 怎么选',period:'7d',replies:'exclude',excludeReposts:true}},
+  {id:'pain-points',name:'吐槽与痛点',category:'找机会',desc:'近 30 天的抱怨和求助',focus:'all',sample:'剪辑',filters:{any:'难用 吐槽 求助 踩坑 太贵',period:'30d',excludeReposts:true}},
+  {id:'fresh-follows',name:'关注的人刚发的',category:'找机会',desc:'今天、我关注的人、最新在前，适合早回复',focus:'all',sample:'',filters:{period:'today',sort:'live',follows:true,replies:'exclude',excludeReposts:true}},
+  {id:'person-top',name:'某人的高赞帖子',category:'跟人',desc:'这个人 100 赞以上的主帖',focus:'from',sample:'@vista8',filters:{likes:100,sort:'top',replies:'exclude',excludeReposts:true}},
+  {id:'person-replies',name:'某人最近的回复',category:'跟人',desc:'这个人近 7 天回复了谁、说了什么',focus:'from',sample:'@vista8',filters:{replies:'only',period:'7d'}},
+  {id:'person-links',name:'某人分享的链接',category:'跟人',desc:'这个人发过的链接和资料',focus:'from',sample:'@vista8',filters:{media:'links',excludeReposts:true}},
+  {id:'person-about',name:'大家怎么说某人',category:'跟人',desc:'近 30 天提到这个人的主帖',focus:'mention',sample:'@vista8',filters:{period:'30d',replies:'exclude',excludeReposts:true}},
+  {id:'me-to-person',name:'我回复某人的',category:'跟人',desc:'我和这个人之间的对话',ownerField:'from',focus:'to',sample:'@vista8',filters:{}},
+  {id:'my-top',name:'我发过的高赞帖子',category:'我的账号',desc:'我自己发的、50 赞以上的帖子',ownerField:'from',filters:{likes:50,excludeReposts:true}},
+  {id:'my-hits',name:'我的爆款',category:'我的账号',desc:'我自己发的、500 赞以上，热门在前',ownerField:'from',filters:{likes:500,sort:'top',excludeReposts:true}},
+  {id:'mentions-me',name:'别人提到我',category:'我的账号',desc:'近 7 天 @ 我的帖子',ownerField:'mention',filters:{period:'7d'}},
+  {id:'replies-to-me',name:'我收到的回复',category:'我的账号',desc:'近 7 天别人回复我的内容',ownerField:'to',filters:{replies:'only',period:'7d'}},
+  {id:'open-source',name:'近七天的开源项目',category:'资料',desc:'近 7 天聊开源工具和项目、20 赞以上',filters:{all:'开源',any:'工具 项目',period:'7d',likes:20,excludeReposts:true}},
+  {id:'ai-practice',name:'AI 讨论与实践',category:'资料',desc:'聊 Claude、Codex、DeepSeek 且有人回复',filters:{any:'Claude Codex DeepSeek',repliesMin:5,period:'7d',excludeReposts:true}},
+  {id:'follows-links',name:'关注的人分享的链接',category:'资料',desc:'我关注的人近 7 天分享的链接',filters:{follows:true,media:'links',period:'7d',excludeReposts:true}},
+  {id:'indie',name:'产品与独立开发',category:'资料',desc:'近 30 天聊产品与独立开发、30 赞以上',filters:{any:'产品 独立开发',likes:30,period:'30d',excludeReposts:true}},
 ];
-export function templateSearch(index,owner){const t=SEARCH_TEMPLATES[index];if(!t)throw Error('找不到这个模板。');if(t.ownerField&&!handleOf(owner))throw Error('先在「账号 → 常用 @」添加你的 X 账号。');return normalizeSearch({...t.filters,...(t.ownerField?{[t.ownerField]:owner}:{})});}
+export const SEARCH_TEMPLATE_CATEGORIES=[...new Set(SEARCH_TEMPLATES.map(t=>t.category))];
+export function findTemplate(key){const t=typeof key==='number'?SEARCH_TEMPLATES[key]:SEARCH_TEMPLATES.find(t=>t.id===key);if(!t)throw Error('找不到这个模板。');return t;}
+export function templateSearch(key,owner){const t=findTemplate(key);if(t.ownerField&&!handleOf(owner))throw Error('先在「账号 → 常用 @」添加你的 X 账号。');return normalizeSearch({...t.filters,...(t.ownerField?{[t.ownerField]:owner}:{})});}
 export function importSearches(value){
   if(!value||value.format!=='qiaomu-x-searches'||value.version!==1||!Array.isArray(value.items)||value.items.length>2000)throw Error('请选择乔木 X 助手导出的搜索文件，最多 2,000 条。');
   return value.items.map(row=>{if(!row||!text(row.name,80))throw Error('搜索名称不能为空。');const filters=normalizeSearch(row.filters);buildSearch(filters);return{name:text(row.name,80),category:text(row.category,40),pinned:row.pinned===true,filters};});

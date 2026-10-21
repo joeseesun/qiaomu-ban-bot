@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-10-20T16:12:20.359Z",
+  "prompt": "A minimal app icon, square 1:1, flat vector, pure black rounded-square tile filling the canvas. One white mark: a stylised tall tree reduced to pure geometry — a straight vertical trunk, and the branches formed by two crossing diagonal strokes like a modern X letterform (one thick hollow-outlined stroke, one thin solid stroke), so the crown of the tree is an X and the whole mark also echoes the Chinese character 木. Elegant, precise, high-end brand mark, strong silhouette, generous margin. No gradients, no shadows, no texture, no leaves, no other symbols, no text. Must stay legible at 16 pixels. 避免：渐变、阴影、3D、写实树叶、多余装饰、文字、蓝色。\n画面要求：背景不透明，纸面或底色铺满整个画面，不要透明、镂空或黑色边角区域。",
+  "aspect_ratio": "1:1",
+  "reference_images": [],
+  "dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "flattened_transparency": false,
+  "revised_prompt": "Generate a single finished minimal app icon, square 1:1. Flat vector design, exceptionally precise high-end brand identity. An opaque pure-black rounded-square tile occupies essentially the full canvas, with only tiny opaque white corner areas outside the rounded tile; no transparency or extra outer frame. Center one unified white geometric tree mark with generous margins. A straight tall vertical white trunk forms the central axis. Its crown is exactly two crossing diagonal strokes forming a modern X letterform and joining the trunk so the overall mark also subtly echoes the Chinese character 木. One diagonal is a thick hollow-outlined geometric stroke (white border enclosing the same opaque black as the tile, never a transparent cutout); the crossing diagonal is a thinner solid white stroke. Make the outlined diagonal bold and simple enough to retain its identity at small sizes; make the solid diagonal and trunk sufficiently substantial for 16-pixel legibility. Carefully resolve the intersection into a clean unified symbol. Upright, balanced, confident, elegant, strong silhouette, crisp straight vector edges. The symbol occupies about 60–65% of the tile height. Strictly black and white only. No gradients, shadows, texture, bevel, 3D, realistic leaves, leaves of any kind, additional symbols, text, letters as separate elements, blue, decorative details, mockups, grids, labels, or multiple alternatives. 背景完全不透明，底色铺满整个画面；白色轮廓内部为实心黑色背景，不使用透明镂空。整体是一枚黑色圆角方形底的极简白色几何树形图标，树冠由粗空心轮廓斜线与细实心斜线交叉成为X，同时呼应汉字木。",
+  "route": "raw_prompt"
+}

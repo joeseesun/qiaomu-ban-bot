@@ -3,6 +3,7 @@ import { resolveConnection, mergeSettings } from './connection.js';
 import { senderContext } from './context.js';
 import { IndexedAnnotations } from './annotations.js';
 import { Contacts } from './contacts.js';
+import { Posts, blobChunk } from './posts.js';
 import { backupFile,parseBackup,backupSummary,restoreBackup,BACKUP_KEYS } from './backup.js';
 import { Bookmarks, bookmarkPath } from './bookmarks.js';
 import { Workspace } from './workspace.js';
@@ -15,6 +16,52 @@ registerWriterBackground();
 const owners = new Map();
 const bookmarks = new Bookmarks();
 const contacts = new Contacts();
+const posts = new Posts();
+// A fill job binds one queued post to the X tab this extension opened for it.
+const fillJobs = new Map();
+const FILL_TTL = 30 * 60000;
+const excerpt = text => (text || '').replace(/\s+/g, ' ').trim().slice(0, 90) || '（只有附件）';
+async function notifyPages(){ try { await chrome.runtime.sendMessage({ type: 'posts-changed' }); } catch {} }
+async function syncPosts(){
+  const rows = await posts.all(), now = Date.now();
+  if (!chrome.alarms) return;
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(alarms.filter(a => a.name.startsWith('post:')).map(a => chrome.alarms.clear(a.name)));
+  for (const p of rows) if (p.status === 'queued' && p.remind && p.scheduledAt > now) await chrome.alarms.create('post:' + p.id, { when: p.scheduledAt });
+  const due = rows.filter(p => p.status === 'queued' && p.scheduledAt && p.scheduledAt <= now).length;
+  await chrome.action?.setBadgeBackgroundColor?.({ color: '#1d9bf0' });
+  await chrome.action?.setBadgeText?.({ text: due ? String(Math.min(due, 99)) : '' });
+}
+async function openFill(id){
+  const post = await posts.get(id); if (!post) throw Error('这条帖子已删除。');
+  const tab = await chrome.tabs.create({ url: 'https://x.com/compose/post' });
+  fillJobs.set(tab.id, { postId: post.id, mediaIds: new Set(post.mediaIds), pending: true, at: Date.now() });
+  return { opened: true };
+}
+function jobFor(sender, postId){
+  const job = fillJobs.get(sender.tab?.id);
+  if (!job || Date.now() - job.at > FILL_TTL || (postId && job.postId !== postId)) throw Error('这次填入已过期，请回到发帖页重新点「填入 X」。');
+  return job;
+}
+let notificationsBound = false;
+function bindNotifications(){
+  if (notificationsBound || !chrome.notifications) return; notificationsBound = true;
+  const open = id => { if (id.startsWith('post:')) { void openFill(id.slice(5)).catch(() => {}); chrome.notifications.clear(id); } };
+  chrome.notifications.onClicked.addListener(open);
+  chrome.notifications.onButtonClicked.addListener(id => open(id));
+}
+bindNotifications();
+chrome.permissions?.onAdded?.addListener(bindNotifications);
+chrome.alarms?.onAlarm.addListener(async alarm => {
+  if (!alarm.name.startsWith('post:')) return;
+  const post = await posts.get(alarm.name.slice(5));
+  await syncPosts();
+  if (!post || post.status !== 'queued') return;
+  bindNotifications();
+  chrome.notifications?.create(alarm.name, { type: 'basic', iconUrl: 'icons/icon-128.png', title: '到时间发帖了', message: excerpt(post.text), buttons: [{ title: '填入 X' }], requireInteraction: true });
+});
+chrome.runtime.onStartup?.addListener(() => void syncPosts().catch(() => {}));
+chrome.runtime.onInstalled?.addListener(() => void syncPosts().catch(() => {}));
 const secure = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 const engine = new Engine({
   get: async key => { await secure; return chrome.storage.local.get(key); },
@@ -87,6 +134,24 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if(message.type==='contacts-page')return contacts.page(message);
     if(message.type==='contacts-observe'&&who==='content')return contacts.observe(message.owner);
     if(message.type==='contacts-reply'&&who==='content'){if(!/^\d{1,25}$/.test(message.replyId||''))throw Error('缺少回复成功凭据');return contacts.put(message.owner,message.contact,{replyId:message.replyId});}
+    if(message.type==='contacts-interact'&&who==='content')return contacts.interact(message.owner,message.contact,{kind:message.kind,postId:message.postId});
+    if(who==='content'&&message.type==='posts-fill-pending'){
+      const job=fillJobs.get(sender.tab.id);if(!job?.pending||Date.now()-job.at>120000)return null;job.pending=false;
+      const post=await posts.get(job.postId);if(!post)return null;
+      const media=(await Promise.all(post.mediaIds.map(id=>posts.media(id)))).filter(Boolean).map(({id,name,type,size})=>({id,name,type,size}));
+      return{post:{id:post.id,text:post.text,scheduledAt:post.scheduledAt,nativeSchedule:post.nativeSchedule},media};
+    }
+    if(who==='content'&&message.type==='posts-media-chunk'){
+      const job=jobFor(sender,message.postId);if(!job.mediaIds.has(message.mediaId)||!Number.isSafeInteger(message.offset)||message.offset<0)throw Error('附件请求无效。');
+      const row=await posts.media(message.mediaId);if(!row)throw Error('附件已丢失，请重新添加。');return blobChunk(row.blob,message.offset);
+    }
+    if(who==='content'&&message.type==='posts-filled'){
+      const job=jobFor(sender,message.id);if(!message.error)await posts.update(job.postId,{status:'filled',filledAt:Date.now()});await syncPosts();await notifyPages();return{};
+    }
+    if(who==='content'&&message.type==='posts-posted'){
+      const job=jobFor(sender,message.id);if(!/^https:\/\/x\.com\/\w{1,15}\/status\/\d{1,25}$/.test(message.url||''))throw Error('帖子链接无效。');
+      await posts.update(job.postId,{status:'posted',postedAt:Date.now(),postedUrl:message.url});fillJobs.delete(sender.tab.id);await syncPosts();await notifyPages();return{};
+    }
     if(message.type==='contacts-refresh'&&who==='content')return contacts.refresh(message.owner,message.items);
     if(message.type==='contacts-use')return contacts.use(message.owner,message.handle);
     if(['bookmarks-status','bookmarks-configure','bookmarks-capture'].includes(message.type)&&who==='content'){
@@ -96,6 +161,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return bookmarks.capture(message.owner,message.items);
     }
     if (who !== 'admin') throw new Error('只能在扩展设置中执行此操作');
+    if(message.type==='posts-fill')return openFill(message.id);
+    if(message.type==='posts-sync'){await syncPosts();return{};}
     if(message.type==='community-state')return community.snapshot();
     if(message.type==='community-connect'){
       if(!await chrome.permissions.contains({origins:[COMMUNITY_ORIGIN+'/*']}))throw Error('尚未授予社区服务访问权限。');
@@ -159,4 +226,4 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   })().then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message || '操作失败，请重试' }));
   return true;
 });
-chrome.tabs.onRemoved.addListener(id=>owners.delete(id));
+chrome.tabs.onRemoved.addListener(id=>{owners.delete(id);fillJobs.delete(id);});

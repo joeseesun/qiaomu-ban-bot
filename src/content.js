@@ -1,6 +1,6 @@
-import { DEFAULTS, decide, duplicateKey, aiScore } from './core.js';
+import { DEFAULTS, decide, aiScore } from './core.js';
 import { threadCues, farmPrior } from './thread.js';
-import { ARTICLE, extractArticle } from './dom.js';
+import { ARTICLE, extractArticle, articleExtractor } from './dom.js';
 import { CSS, icons, icon } from './content-ui.js';
 import { tip } from './tooltip.js';
 import { skeleton } from './spam.js';
@@ -9,11 +9,14 @@ import { bookmarkPath } from './bookmarks.js';
 import { ruleMatches } from './rules.js';
 import { currentOwner } from './composer.js';
 import { accountRule } from './account-rules.js';
+import { pageMutation } from './page-mutations.js';
+import { scanPageItems } from './page-scan.js';
 const send = async message => { const r = await chrome.runtime.sendMessage({...message,owner:currentOwner()}); if (!r?.ok) throw new Error(r?.error || '扩展连接中断，请刷新 X 页面'); return r.data; };
 let settings = DEFAULTS, configured = false, epoch = 0, lastUrl = location.href, scheduled = false;
 let owner=currentOwner();
+let scanning=false,scanAgain=false,domRevision=0;
 let conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map(), texts: new Map() };
-const states = new Map(), shown = new Set(), seenText = new Map();
+const states = new Map(), shown = new Set();
 const momentum = new MomentumTracker();
 // Reply skeleton (text without emoji) -> authors. Lure accounts post one
 // template and rotate the emoji, so exact duplicate detection misses them.
@@ -293,7 +296,6 @@ function render(article, state) {
   if (item.kind === 'reply' && item.author?.youFollow === true && !result?.override && !result?.annotation && !isLocal) { host.remove(); return; }
   let decision = decide(item, result, settings);
   if (result?.override && !policy) decision = { collapse: result.override === 'hide', label: result.learned ? result.override === 'hide' ? '已标注 AI' : '已标注真人' : result.override === 'hide' ? '你已选择折叠此条' : '你已保留此条' };
-  if (!decision.collapse && !result?.override && state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !settings.allowlist.includes(item.handle)) decision = { collapse: true, label: '与已读回复文字重复' };
   const expanded = shown.has(item.id);
   const collapsed = decision.collapse && !expanded;
   const reopened = expanded && decision.collapse;
@@ -393,8 +395,7 @@ async function processArticle(article, state, manual = false) {
   state.started = true; state.error = ''; render(article, state);
   const generation = epoch, fingerprint = state.fingerprint, version=state.version;
   try {
-    const duplicateOnly = state.duplicate && settings.duplicates && settings.filterMode !== 'label' && !manual;
-    const result = await send({ type: duplicateOnly ? 'local-decision' : 'classify', item: state.item, force:manual });
+    const result = await send({ type: 'classify', item: state.item, force:manual });
     const current = extractArticle(article, location.href, conversation);
     if (generation !== epoch || states.get(article) !== state || state.version!==version || state.fingerprint !== fingerprint || current?.id !== state.item.id || current.text !== state.item.text || current.parent !== state.item.parent) return;
     if(result?.skipped==='changed') { state.started=false; intersection.unobserve(article); intersection.observe(article); return; }
@@ -418,14 +419,20 @@ function recheckThread(article, state) {
 const intersection = new IntersectionObserver(entries => {
   for (const entry of entries) if (entry.isIntersecting) { const state = states.get(entry.target); if (state) void processArticle(entry.target, state); }
 }, { rootMargin: '40px', threshold: 0.05 });
-function scan() {
+async function scan() {
   scheduled = false;
+  if(scanning){scanAgain=true;return;}
+  scanning=true;
+  try {
   if(currentOwner()!==owner){owner=currentOwner();void refresh();return;}
-  if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } seenText.clear(); shown.clear(); templates.clear(); conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map(), texts: new Map() }; }
+  if (location.href !== lastUrl) { lastUrl = location.href; epoch++; for (const a of states.keys()) { intersection.unobserve(a); resetArticle(a); } shown.clear(); templates.clear(); conversation = { replyIds: new Set(), otherIds: new Set(), parents: new Map(), texts: new Map() }; }
   for (const [article] of states) if (!article.isConnected) { intersection.unobserve(article); resetArticle(article); }
   if (!settings.enabled || bookmarkPath(location.pathname)) return;
-  for (const article of document.querySelectorAll(ARTICLE)) {
-    const item = extractArticle(article, location.href, conversation); if (!item) continue;
+  const extract = articleExtractor(location.href,conversation);
+  const generation=epoch,url=location.href,revision=domRevision;
+  await scanPageItems(document.querySelectorAll(ARTICLE),article=>{
+    if(!article.isConnected)return;
+    const item = extract(article); if (!item) return;
     const sk = item.kind === 'reply' ? skeleton(item.text) : '';
     if (sk.length >= 8) {
       const authors = templates.get(sk) || new Set(); authors.add(item.handle); templates.set(sk, authors);
@@ -448,17 +455,15 @@ function scan() {
       const changed=JSON.stringify(existing.item.metrics)!==JSON.stringify(item.metrics);
       existing.item={...existing.item,...item};
       if (changed&&item.kind==='post'||(existing.host&&!existing.host.isConnected)||(existing.hotHost&&!existing.hotHost.isConnected)) render(article,existing);
-      recheckThread(article,existing);continue;
+      recheckThread(article,existing);return;
     }
     if (existing) { intersection.unobserve(article); resetArticle(article); }
-    const key = item.kind === 'reply' ? duplicateKey(item.text) : '';
-    const first = key && seenText.get(key);
-    const state = { item, fingerprint, duplicate: Boolean(first && first !== item.id), started: false, result: null };
-    if (key && !first) { seenText.set(key, item.id); if (seenText.size > 1000) seenText.delete(seenText.keys().next().value); }
+    const state = { item, fingerprint, started: false, result: null };
     states.set(article, state); intersection.observe(article);
-  }
+  },()=>generation===epoch&&revision===domRevision&&location.href===url&&currentOwner()===owner);
+  } finally {scanning=false;if(scanAgain){scanAgain=false;schedule();}}
 }
-function schedule() { if (!scheduled) { scheduled = true; setTimeout(scan, 120); } }
+function schedule() { if(scanning){scanAgain=true;return;} if (!scheduled) { scheduled = true; setTimeout(()=>void scan(), 120); } }
 async function refresh() {
   try {
     const data = await send({ type: 'snapshot' }); settings = data.settings; configured = data.configured; epoch++;
@@ -467,13 +472,7 @@ async function refresh() {
   } catch { /* An unloaded extension must not disturb X. */ }
 }
 const observer = new MutationObserver(records => {
-  if (records.some(r => {
-    const target=r.target.nodeType===1 ? r.target : r.target.parentElement;
-    if (target?.closest('.qb-host, .qb-hot-host')) return false;
-    if (r.type==='characterData') return Boolean(target?.closest('[data-testid="tweetText"], [data-testid="User-Name"]'));
-    if (r.type==='attributes') return Boolean(target?.matches('[data-testid="AppTabBar_Profile_Link"]') || target?.closest(ARTICLE) && (target.matches('a[href*="/status/"]') || target.matches('time')));
-    return [...r.addedNodes,...r.removedNodes].some(n=>!(n instanceof Element && n.matches('.qb-host, .qb-hot-host')));
-  })) schedule();
+  if (pageMutation(records, `${ARTICLE},[data-testid="AppTabBar_Profile_Link"],[data-testid="primaryColumn"] h2`)) {domRevision++;schedule();}
 });
 observer.observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['href','datetime'] });
 async function refreshAnnotation(id) {
