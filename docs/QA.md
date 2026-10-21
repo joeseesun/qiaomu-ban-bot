@@ -485,3 +485,26 @@
 本机原扩展 `bbhkkihipkdeakcbhpheclgkpdhamdfl` 已重新加载。真实私信最终布局：原生搜索与待回复外层均为 52×58.25px，图标均为 26.25px、左边界均为 348.375px；文字计算样式 `display:none`。私信布局会先呈现宽导航再收窄，因此以最终导航边界确认，不仅等待链接出现。仅验证新开的私信列表页，没有进入会话、输入或发送；截图只包含搜索、待回复、通知三个导航图标。
 
 当前 `workspace-content.js` SHA-256：`c7d34be7c3c16a01d850bf6ef2542a9315d4e588ec524b1e3f45a99a8dc38808`。临时夹具与截图：`/tmp/qxh-dm-nav-20261021/`。未发布 GitHub 或商店版本。
+
+## 2026-10-21 远程文章媒体权限补齐与常见源内置
+
+用户原文 25 项媒体均报 `Failed to fetch`。读取该写作页真实 Chrome 控制台，25 项全部指向 `mmbiz.qpic.cn`，明确为缺少 Access-Control-Allow-Origin 的 CORS 拦截。Clipper 清单默认有 HTTP/HTTPS 全站 host 权限；本项目之前只给 X/Twitter 必需权限，其余是可选声明，迁移下载函数时漏了实际授权链路。先前媒体测试使用 fetch 替身，没有覆盖这个浏览器边界。
+
+按用户要求，`src/media-hosts.js` 提供 19 个有限公共 CDN 匹配项，构建为必需 host 权限，并与写作端共用来源识别；微信文章、X、知乎、微博、B 站、小红书与常见公共图床的 HTTPS 媒体不逐站申请。其他 HTTP/HTTPS 媒体源自动从解析后的文章识别，去重后在发布点击中、等待 IndexedDB 保存前申请具体域名；不向用户索取域名。手动保存网络图片沿用同一授权。未知源拒绝授权不会打开 X，任何媒体下载/转换失败也先停在本地。来源属于本地图片、数据地址、公式或图表时不请求网络权限；普通正文链接不申请。模型接口仍保持 HTTPS/本机 HTTP 的独立限制。
+
+实际运行证据：在向阳资料的原扩展 `bbhkkihipkdeakcbhpheclgkpdhamdfl` 中，用临时内部 QA 页面调用生产 `authorizeRemoteMedia`、`fetchRemoteMedia`、`toXFile`，输入原始失败的 25 个源地址。用户在 Chrome 批准一次原 qpic 可选授权后，25/25 下载与转换成功；其中 GIF 为 `image/gif`、207,870 字节。随后加载内置列表的新构建，Chrome 显示 0.5.1、必需 mmbiz 权限开启并回执“已重新加载”；再次运行 25 项：全部成功，下载 Blob 与转换后 base64 解码的 SHA-256 全部一致，包含 GIF，可选权限 request 调用 0 次。
+
+自动验证：`npm test` 177 项 Node + 328 项 Vitest（51 文件）通过；`npm run build` 与 `git diff --check` 通过。新增回归覆盖点击保存前同步发起授权、已知源不申请/未知源自动申请、域名边界欺骗、权限拒绝、25 项下载失败不打开 X、缓存任务重试。构建检查 19 项媒体权限全部写入，全部内容脚本仍仅匹配 X/Twitter，不在 CDN 注入脚本或增加页面扫描。
+
+证据边界：已验证原始媒体在真实安装扩展中的下载、转换和免重复授权；没有重试用户的 X 写入、创建草稿或公开发布。原写作标签未强制刷新；保存后刷新才能加载新的点击授权流程。临时 QA 页面与 bundle 在验收后从发行目录移除，证据在 `/tmp/qxh-media-access-20261021/`。商店资料中的权限声明已同步源码，未提交新的商店包。
+
+参考：[Chrome 跨源请求与 host 权限](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)、[permissions.request 的用户手势要求](https://developer.chrome.com/docs/extensions/reference/api/permissions)。
+
+
+## 2026-10-21 常用 @ 弹窗说明优化（待统一发布）
+
+仅修改 `src/mentions.js`：底部说明拆为「回车 / 插入联系人」「Shift+回车 / 插入后继续选人」，使用两行对齐；「管理联系人」保持单行，图标不收缩。移除同一行混排的 @@ 快捷入口说明；@@ 本身的功能保留。扩展上下文失效时改为「插件已更新，请保存草稿后刷新页面。」，其他错误仍保留原始原因。
+
+现有 `test/mentions.test.js` 4 项通过，`npm run build` 和 `git diff --check` 通过。本地浏览器加载实际内容脚本、使用模拟联系人/消息，检查 320px 正常状态及 390px 上下文失效状态；底部无溢出，管理按钮单行，已查看截图。原生视口调整后立即读取的坐标仍可能是上一帧，因此边界以随后截图为准；没有据此误报产品越界。截图 `/tmp/qxh-mentions-normal-320.png`、`/tmp/qxh-mentions-error-390.png` 中错误说明为最终缩短前的较长版本。
+
+没有重新发布 GitHub 或商店；等待其他开发完成后一并发布。原生 Chrome 检查工具超时，本轮未验证已安装实例重载，不刷新用户正在编辑的 X 页面。当前磁盘 `mentions.js` SHA-256：`9cf3939afb855cc3f85a6e208544f1629d30e24a67dc00bd72a0b7791d6e7f18`。

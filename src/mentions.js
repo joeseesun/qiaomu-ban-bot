@@ -3,6 +3,7 @@ import { EDITOR, currentOwner, articlePerson, composerScope, saveCaret, insertMe
 import { pageMutation } from './page-mutations.js';
 import { renderGroups, mergeRelated } from './contact-picker.js';
 const send=async m=>{const r=await chrome.runtime.sendMessage(m);if(!r?.ok)throw Error(r?.error||'扩展已更新，请刷新 X 页面');return r.data;};
+const errorText=error=>/Extension context invalidated/i.test(error?.message||'')?'插件已更新，请保存草稿后刷新页面。':error?.message||'没有加载成功，请稍后重试。';
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;};
 const icon=i=>createElement(i,{width:16,height:16,'stroke-width':1.7,'aria-hidden':'true'});
 const css=`
@@ -12,7 +13,7 @@ const css=`
 .picker{display:flex;flex-direction:column;position:fixed;inset:auto;margin:0;width:min(330px,calc(100vw - 24px));max-height:440px;overflow:hidden;padding:0;background:var(--qm-bg,#fff);color:var(--qm-ink,#171717);border:1px solid var(--qm-line,#e5e5e5);border-radius:10px;box-shadow:0 8px 30px #0002;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
 .head{flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 12px 2px;font-weight:600}.search{flex:none;display:flex;align-items:center;gap:8px;border:1px solid var(--qm-line,#e5e5e5);border-radius:6px;margin:8px 12px;padding:8px 10px;color:var(--qm-muted,#666)}.search:focus-within{border-color:#888}.search input{background:transparent;border:0;outline:0!important;width:100%;min-width:0;padding:0;font-size:12px;color:var(--qm-ink,#171717)}
 .list{min-height:0;flex:1;padding:0 6px;overflow:auto;max-height:280px;overscroll-behavior:contain}.option{width:100%;display:flex;align-items:center;gap:10px;border:0;border-radius:6px;padding:9px 7px;text-align:left;background:transparent}.option[aria-selected=true],.option:hover{background:var(--qm-hover,#f2f2f2)}.avatar{width:32px;height:32px;border-radius:50%;background:var(--qm-hover,#f2f2f2);position:relative;overflow:hidden;display:grid;place-items:center;flex:none}.avatar img{position:absolute;width:100%;height:100%;object-fit:cover}.info{display:grid;gap:1px;min-width:0;flex:1}.info b{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.info small{font-size:11px;color:var(--qm-muted,#666);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.option>svg{width:13px;color:var(--qm-muted,#666)}
-.group{margin:8px 7px 2px;font-size:11px;color:var(--qm-muted,#666)}.badge{font-size:10px;color:var(--qm-muted,#666);flex:none}.empty{padding:22px 15px;text-align:center;color:var(--qm-muted,#666);font-size:12px}.foot{flex:none;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--qm-line,#e5e5e5);font-size:11px;color:var(--qm-muted,#666)}.manage{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;padding:2px;color:inherit;font-size:11px}.manage:hover{text-decoration:underline}.error{margin:0 12px 8px;font-size:11px;color:#b45325}
+.group{margin:8px 7px 2px;font-size:11px;color:var(--qm-muted,#666)}.badge{font-size:10px;color:var(--qm-muted,#666);flex:none}.empty{padding:22px 15px;text-align:center;color:var(--qm-muted,#666);font-size:12px}.foot{flex:none;padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;border-top:1px solid var(--qm-line,#e5e5e5);font-size:11px;color:var(--qm-muted,#666)}.tips{display:grid;gap:5px;min-width:0}.tip{display:flex;align-items:baseline;gap:6px}.tip kbd{flex:none;min-width:68px;font:inherit;color:var(--qm-ink,#171717);white-space:nowrap}.manage{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;border:0;padding:2px 0;color:inherit;font-size:11px}.manage svg{flex:none;width:14px;height:14px}.manage:hover{text-decoration:underline}.error{margin:0 12px 8px;font-size:11px;color:#b45325}
 `;
 const states=new Map(),receipt=new ReplyReceipt();let observedOwner='',pendingEditor=null,replyIntent=null,scheduled=false,metadata=new Map(),openState=null;
 const dialogTargets=new WeakMap();
@@ -47,7 +48,9 @@ function setup(editor,scope){
   const search=el('div','search'),input=el('input');input.placeholder='昵称、拼音、账号或备注';input.setAttribute('aria-label','搜索常用联系人');input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','true');input.setAttribute('aria-controls','qm-options');input.maxLength=160;search.append(icon(Search),input);
   const list=el('div','list');list.id='qm-options';list.setAttribute('role','listbox');list.setAttribute('aria-label','常用联系人');
   const error=el('p','error');error.setAttribute('role','status');error.hidden=true;
-  const foot=el('div','foot'),hint=el('span',null,'Shift+回车 连续添加 · 正文里输入 @@ 也能打开'),manage=el('button','manage','管理联系人');manage.type='button';manage.append(icon(ArrowUpRight));foot.append(hint,manage);pop.append(head,search,list,error,foot);root.append(launcher,pop);
+  const foot=el('div','foot'),tips=el('div','tips'),manage=el('button','manage','管理联系人');
+  for(const[key,description]of[['回车','插入联系人'],['Shift+回车','插入后继续选人']]){const tip=el('div','tip');tip.append(el('kbd',null,key),el('span',null,description));tips.append(tip);}
+  manage.type='button';manage.append(icon(ArrowUpRight));foot.append(tips,manage);pop.append(head,search,list,error,foot);root.append(launcher,pop);
   const syncAppearance=()=>{
     const row=toolbar.querySelector('[data-testid="ScrollSnap-List"],[role="tablist"]')||toolbar.querySelector('nav');
     if(row){if(host.parentElement!==row)row.append(host);}else if(host.parentElement!==toolbar)toolbar.insertBefore(host,toolbar.lastElementChild);
@@ -67,7 +70,7 @@ function setup(editor,scope){
   const selected=()=>{[...list.querySelectorAll('.option')].forEach((b,i)=>b.setAttribute('aria-selected',String(i===state.index)));const b=list.querySelectorAll('.option')[state.index];if(b){input.setAttribute('aria-activedescendant',b.id);b.scrollIntoView?.({block:'nearest'});}else input.removeAttribute('aria-activedescendant');};
   const hide=(restore=false)=>{if(pop.hidden)return;pop.hidePopover();pop.hidden=true;state.generation++;clearTimeout(state.timer);launcher.setAttribute('aria-expanded','false');if(openState===state)openState=null;if(restore&&editor.isConnected){editor.focus({preventScroll:true});if(state.saved&&editor.contains(state.saved.range.commonAncestorContainer)){const s=document.getSelection();s.removeAllRanges();s.addRange(state.saved.range);}}};state.hide=hide;
   const position=()=>{const r=state.anchor||launcher.getBoundingClientRect(),w=pop.getBoundingClientRect().width;pop.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+'px';pop.style.maxHeight=Math.max(170,Math.min(440,innerHeight-24))+'px';const h=pop.getBoundingClientRect().height;pop.style.top=Math.max(12,Math.min(r.bottom+8+h<innerHeight-12?r.bottom+8:r.top-h-8,innerHeight-h-12))+'px';};state.position=position;
-  const choose=async(c,keep=false)=>{if(!c||state.inserting)return;state.inserting=true;try{if(currentOwner()!==state.owner)throw Error('登录账号已切换，请重新打开常用 @。');await insertMention(editor,state.saved,c.handle,c.displayName);if(keep){remember();state.added.add(c.handle);input.value='';input.focus({preventScroll:true});void searchNow();}else hide();void send({type:'contacts-use',owner:state.owner,handle:c.handle}).catch(()=>{});}catch(e){error.textContent=e.message;error.hidden=false;position();}finally{state.inserting=false;}};
+  const choose=async(c,keep=false)=>{if(!c||state.inserting)return;state.inserting=true;try{if(currentOwner()!==state.owner)throw Error('登录账号已切换，请重新打开常用 @。');await insertMention(editor,state.saved,c.handle,c.displayName);if(keep){remember();state.added.add(c.handle);input.value='';input.focus({preventScroll:true});void searchNow();}else hide();void send({type:'contacts-use',owner:state.owner,handle:c.handle}).catch(()=>{});}catch(e){error.textContent=errorText(e);error.hidden=false;position();}finally{state.inserting=false;}};
   async function searchNow(){
     const gen=++state.generation;list.setAttribute('aria-busy','true');input.removeAttribute('aria-activedescendant');state.items=[];
     try{const page=await send({type:'contacts-page',owner:state.owner,query:input.value,limit:8});if(gen!==state.generation||pop.hidden)return;
@@ -76,7 +79,7 @@ function setup(editor,scope){
       if(!items.length)list.replaceChildren(el('p','empty',input.value?'没有找到，换个关键词试试。':'还没有常用联系人。回复、点赞或转帖后会自动收录，也可以点「管理联系人」添加。'));
       else renderGroups(list,items).forEach((b,i)=>{b.onmousedown=e=>e.preventDefault();b.onclick=e=>choose(items[i],e.shiftKey);});
       selected();position();
-    }catch(e){if(gen===state.generation){list.replaceChildren(el('p','empty',e.message));}}finally{if(gen===state.generation)list.removeAttribute('aria-busy');}
+    }catch(e){if(gen===state.generation){list.replaceChildren(el('p','empty',errorText(e)));position();}}finally{if(gen===state.generation)list.removeAttribute('aria-busy');}
   }
   launcher.onmousedown=e=>{e.preventDefault();remember();};launcher.onclick=e=>{e.preventDefault();e.stopPropagation();if(!pop.hidden){hide(true);return;}open(null);};
   function open(anchor){if(openState)openState.hide();
@@ -86,7 +89,7 @@ function setup(editor,scope){
     for(const [k,v] of Object.entries(dark?{bg:'#111',ink:'#ededed',line:'#333',muted:'#a1a1a1',hover:'#222'}:{bg:'#fff',ink:'#171717',line:'#e5e5e5',muted:'#666',hover:'#f2f2f2'}))host.style.setProperty('--qm-'+k,v);
     input.value='';error.hidden=true;list.replaceChildren(el('p','empty','正在读取…'));pop.hidden=false;pop.showPopover();openState=state;launcher.setAttribute('aria-expanded','true');position();input.focus({preventScroll:true});void searchNow();}
   state.open=open;
-  close.onclick=()=>hide(true);manage.onclick=()=>{void send({type:'options',page:'contacts'}).then(()=>hide(true)).catch(e=>{error.textContent=e.message;error.hidden=false;});};
+  close.onclick=()=>hide(true);manage.onclick=()=>{void send({type:'options',page:'contacts'}).then(()=>hide(true)).catch(e=>{error.textContent=errorText(e);error.hidden=false;});};
   input.oninput=()=>{state.generation++;state.items=[];list.replaceChildren(el('p','empty','正在查找…'));input.removeAttribute('aria-activedescendant');clearTimeout(state.timer);state.timer=setTimeout(searchNow,150);};
   pop.onkeydown=e=>{if(e.isComposing)return;if(e.key==='Escape'||(e.target===input&&['ArrowDown','ArrowUp','Enter'].includes(e.key))){e.preventDefault();e.stopPropagation();if(e.key==='Escape')hide(true);else if(e.key==='Enter')choose(state.items[state.index],e.shiftKey);else if(e.key.startsWith('Arrow')&&state.items.length){state.index=(state.index+(e.key==='ArrowDown'?1:-1)+state.items.length)%state.items.length;selected();}}};
   // Typing "@@" opens the picker at the caret; X's own @ typeahead stays untouched.
