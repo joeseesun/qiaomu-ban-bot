@@ -1,5 +1,17 @@
 import { authorEvidence,numericID,contextEvidence } from './evidence.js';
 const facts=new Map(),posts=new Map(),pending=new Map(),attempts=new Map();
+const queued=new Map();
+let evidenceTimer=null;
+function flushEvidence(){
+  evidenceTimer=null;
+  const rows=[...queued];queued.clear();
+  for(let i=0;i<rows.length;i+=50){
+    const batch=new Map(rows.slice(i,i+50)),request=crypto.randomUUID();
+    pending.set(request,batch);
+    window.postMessage({channel:'qx-evidence-request',request,ids:[...batch.keys()]},location.origin);
+    setTimeout(()=>pending.delete(request),2500);
+  }
+}
 let active=false;
 function listen(){
   if(active||typeof window==='undefined')return;active=true;
@@ -35,9 +47,8 @@ export function enrichItem(item){
   posts.set(item.id,item);while(posts.size>500)posts.delete(posts.keys().next().value);
   if((!row||Date.now()-(row.author.observedAt||0)>60000)&&typeof window!=='undefined'&&Date.now()-(attempts.get(item.id)||0)>3000){
     attempts.set(item.id,Date.now());while(attempts.size>500)attempts.delete(attempts.keys().next().value);
-    const request=crypto.randomUUID();pending.set(request,new Map([[item.id,item.handle]]));
-    window.postMessage({channel:'qx-evidence-request',request,ids:[item.id]},location.origin);
-    setTimeout(()=>pending.delete(request),2500);
+    queued.set(item.id,item.handle);
+    if(evidenceTimer===null)evidenceTimer=setTimeout(flushEvidence,0);
   }
   return item;
 }

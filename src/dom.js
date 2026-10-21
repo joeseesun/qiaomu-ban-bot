@@ -9,7 +9,24 @@ export function parseCount(text) {
   const n = Number(match[1]) * ({ k: 1e3, m: 1e6, b: 1e9, 万: 1e4, 萬: 1e4, 千: 1e3, 亿: 1e8, 億: 1e8 }[match[2]?.toLowerCase()] || 1);
   return Number.isFinite(n) ? Math.round(n) : null;
 }
-export function extractArticle(article, href = location.href, conversation = {}) {
+// Cache structure only for this scan. Callers cancel if the host DOM changes.
+// A later scan must rebuild it
+// because X recycles articles and removes ancestors while scrolling.
+export function articleExtractor(href, conversation = {}) {
+  const timelines = new WeakMap();
+  return article => extractArticle(article, href, conversation, timelines);
+}
+function timelineIndex(timeline, rootID, cache) {
+  if (cache?.has(timeline)) return cache.get(timeline);
+  const all = [...timeline.querySelectorAll(`${ARTICLE}, h2`)].filter(n => n.matches(ARTICLE) || !n.closest(ARTICLE));
+  const ids = new Map(all.map(node => [node, node.matches(ARTICLE) ? ownElements(node, 'time').map(t => t.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)(?:$|[/?])/)?.[1]).filter(Boolean) : []]));
+  const rootIndex = all.findIndex(node => ids.get(node).includes(rootID));
+  const chainStart = rootIndex >= 0 ? all.slice(0, rootIndex).findLastIndex(n => n.matches('h2')) + 1 : 0;
+  const index = { all, ids, rootIndex, chainStart, positions: new Map(all.map((node,i) => [node,i])) };
+  cache?.set(timeline, index);
+  return index;
+}
+export function extractArticle(article, href = location.href, conversation = {}, timelines) {
   if (article.closest('[data-testid="placementTracking"]')) return null;
   const times = ownElements(article, 'time');
   const timestamp = times.find(t => /\/status\/\d+/.test(t.closest('a')?.getAttribute('href') || ''));
@@ -32,10 +49,8 @@ export function extractArticle(article, href = location.href, conversation = {})
   if (rootID) {
     const timeline = article.closest('[aria-label][role="region"]') || article.closest('[data-testid="primaryColumn"]') || article.parentElement;
     if (timeline) {
-      const all = [...timeline.querySelectorAll(`${ARTICLE}, h2`)].filter(n => n.matches(ARTICLE) || !n.closest(ARTICLE));
-      const rootIndex = all.findIndex(n => n.matches(ARTICLE) && ownElements(n, 'time').some(t => new RegExp(`/status/${rootID}(?:$|[/?])`).test(t.closest('a')?.getAttribute('href') || '')));
-      const rootPresent = rootIndex >= 0, index = all.indexOf(article);
-      const chainStart = rootPresent ? all.slice(0, rootIndex).findLastIndex(n => n.matches('h2')) + 1 : 0;
+      const {all,ids,rootIndex,chainStart,positions} = timelineIndex(timeline,rootID,timelines);
+      const rootPresent = rootIndex >= 0, index = positions.get(article) ?? -1;
       if (rootPresent && index >= chainStart && index <= rootIndex) {
         kind = explicitReply || index > chainStart ? 'reply' : 'post';
         if (index > chainStart) parentArticle = all[index - 1];
@@ -44,11 +59,10 @@ export function extractArticle(article, href = location.href, conversation = {})
       for (const node of all) {
         if (node === article) { if (afterRoot && !conversation.otherIds?.has(id)) { kind = 'reply'; parentArticle = all[rootIndex] || null; } break; }
         if (node.matches('h2')) { afterRoot = false; continue; }
-        const links = ownElements(node, 'time').map(t => t.closest('a')?.getAttribute('href') || '');
-        const nodeId=links.map(h=>h.match(/\/status\/(\d+)/)?.[1]).find(Boolean);
+        const nodeIds = ids.get(node), nodeId = nodeIds[0];
         if (conversation.otherIds?.has(nodeId)) afterRoot=false;
         if (conversation.replyIds?.has(nodeId)) afterRoot=true;
-        if (links.some(h => new RegExp(`/status/${rootID}(?:$|[/?])`).test(h))) afterRoot = true;
+        if (nodeIds.includes(rootID)) afterRoot = true;
       }
       if (conversation.rootId === rootID && conversation.replyIds?.has(id)) kind = 'reply';
     }

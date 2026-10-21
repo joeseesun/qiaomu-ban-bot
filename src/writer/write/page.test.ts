@@ -3,8 +3,8 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-const { publish, saveFailure } = vi.hoisted(() => ({ publish: vi.fn(), saveFailure: { value: false } }));
-vi.mock('./publish/x', () => ({ publishToX: publish }));
+const { publish, authorize, saveFailure } = vi.hoisted(() => ({ publish: vi.fn(), authorize: vi.fn(), saveFailure: { value: false } }));
+vi.mock('./publish/x', () => ({ publishToX: publish, authorizeXMedia: authorize }));
 vi.mock('./articles', async original => {
 	const actual = await original<typeof import('./articles')>();
 	return { ...actual, saveArticle: (...args: Parameters<typeof actual.saveArticle>) => {
@@ -23,7 +23,7 @@ import { startWritePage } from './page';
 
 beforeEach(() => {
 	globalThis.indexedDB = new IDBFactory(); resetDbConnection();
-	publish.mockReset(); saveFailure.value = false;
+	publish.mockReset(); authorize.mockReset(); saveFailure.value = false;
 	document.body.innerHTML = '<main id="root"></main>';
 	history.replaceState(null, '', '/write.html');
 	HTMLElement.prototype.scrollIntoView = () => {};
@@ -66,4 +66,15 @@ it('keeps the article here if saving fails, then allows retry', async () => {
 	saveFailure.value = false;
 	send.click();
 	await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+});
+
+it('starts media permission in the click before awaiting a save, and does not publish if denied', async () => {
+	const send = await prepare();
+	authorize.mockRejectedValueOnce(new Error('尚未允许读取文章图片'));
+	send.click();
+	// A real Chrome permission request must start in this gesture, not after saveNow().
+	expect(authorize).toHaveBeenCalledWith(expect.objectContaining({ title: '最新标题', markdown: '刚改好的正文。' }));
+	await vi.waitFor(() => expect(document.querySelector('.qw-toast')?.textContent).toContain('尚未允许'));
+	expect(publish).not.toHaveBeenCalled();
+	expect(send.disabled).toBe(false);
 });

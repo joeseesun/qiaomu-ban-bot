@@ -8,11 +8,11 @@
 
 Read with focus. Keep what matters. Turn your ideas into an X article.
 
-**[下载 Chrome 安装包](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0)** · [三步安装](#三步开始) · [使用前必读](#按需连接不用一次配完) · [商店状态](docs/store/SUBMISSION.md)
+**[下载 Chrome 安装包](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1)** · [三步安装](#三步开始) · [使用前必读](#按需连接不用一次配完) · [商店状态](docs/store/SUBMISSION.md)
 
 ![乔木 X 助手：从收藏走向表达](docs/images/hero-050.png)
 
-MIT 开源 · 数据默认保存在本机 · 发帖由你确认 · **0.5.0 Preview**
+MIT 开源 · 数据默认保存在本机 · 发帖由你确认 · **0.5.1 Preview**
 
 ## 别让好内容，只剩一个收藏按钮
 
@@ -33,7 +33,7 @@ X Helper 把这些常用步骤放到顺手的位置。你可以只用无需密�
 
 ## 三步开始
 
-1. **下载安装包**：打开 [v0.5.0 Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0)，下载 `qiaomu-x-helper-0.5.0-chrome.zip` 并解压。
+1. **下载安装包**：打开 [v0.5.1 Release](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1)，下载 `qiaomu-x-helper-0.5.1-chrome.zip` 并解压。
 2. **加载扩展**：在 Chrome 地址栏输入 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择包含 `manifest.json` 的解压目录。
 3. **先做一件有用的事**：打开 X 书签页保存已加载内容，或点扩展里的「写作」，开始写第一篇文章。
 
@@ -136,7 +136,7 @@ Qiaomu X Helper is a Chrome extension for people who read, save, reply and write
 
 ### Try it
 
-1. Download and unzip the Chrome ZIP from [v0.5.0 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.0).
+1. Download and unzip the Chrome ZIP from [v0.5.1 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.1).
 2. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**. Select the folder containing `manifest.json`.
 3. Open X bookmarks or the extension’s writing workspace. These features work without an API key or native helper.
 
@@ -157,3 +157,25 @@ Data is stored locally by default. Requested AI/search operations send relevant 
 This release passed 159 Node and 269 Vitest tests, production build and browser fixtures. A real DeepSeek Flash request returned streamed text. Installed extension pages were blocked by browser tooling; live X article insertion and all search/image/OAuth providers were not revalidated. Product screenshots use real UI with synthetic demonstration data; campaign artwork is AI-generated. See [QA](docs/QA.md), [Privacy](PRIVACY.md) and the independent [store submission status](docs/store/SUBMISSION.md).
 
 MIT licensed. Maintained by [Qiaomu](https://github.com/joeseesun). [Report a bug](https://github.com/joeseesun/qiaomu-x-helper/issues).
+
+
+## 常用 @ 与发帖排期（0.5.1 Preview）
+
+- 在 X 编辑器点 **@**，搜索昵称、拼音（如 `qiaomu`）、首字母（如 `qm`）、@账号或备注。↑↓ 选择、Enter 插入，Escape 返回编辑器。按置顶与最近互动排序，插入「昵称 @账号」（无昵称时只插入 @账号），保留草稿和原生撤销。按钮与原生工具栏同色、同尺寸，跟随主题；私人备注只用于搜索，不进入正文。
+- 正文里输入 `@@` 也会在光标处打开同一面板（不影响 X 自己的 @ 联想）。回复时，主帖作者和对话里的人排在「本帖相关」最前面；Shift+Enter 或 Shift+点击可以一次插入多人。
+- 在 **账号 → 常用 @** 手动添加、备注、置顶、复制或移除。首次打开 X 后自动识别登录账号；也可手动填自己的账号，各账号联系人相互独立。
+- **自动记录从启用后开始**。只有已知回复对象、观察到成功帖子 / 回执且草稿已清空时才计入，失败、取消、自我回复不计入。无法确认时宁可漏记，不会仅凭“点了回复”收录。点赞 / 转帖只在 X 把按钮变成「取消点赞 / 撤销转帖」后计入，同一帖子只算一次。没有扫描历史回复；头像或昵称缺失时，读到对应帖子后补齐。
+- 移除联系人后不再自动收录该账号，手动添加可恢复。联系人不用 API Key、不发送给 Jev，不改变 AI / 真人判断。头像来自页面已有的 X 图片地址，不抓取资料页。
+
+<img src="docs/images/contacts.png" alt="常用联系人页面，支持头像、备注、拼音搜索与手动添加，全部为模拟账号" width="360">
+
+常用 @ 默认提供 **向阳乔木 @vista8**，备注为「插件作者 · 问题反馈」。可搜索账号、昵称、拼音或“反馈”，选择后沿用「昵称 @账号」插入。已有自定义资料保持不变，可编辑或移除；移除后不会自动恢复。登录 @vista8 本人时不重复添加自己。
+
+## 发帖排期
+
+- 在 **发帖** 页写正文，拖入、粘贴或选择图片 / GIF / 视频。规则与 X 一致：最多 4 张图，或 1 个 GIF / 视频。字数按 X 的方式计算（中文 2、链接 23），超过 280 会提示需要 Premium。
+- 「发布时间」可以先存草稿、排进「下一个空档」（在「每周发布时间」里设置哪几天、几点）或指定时间。正文边写边自动保存，正文里输入 `@` 可以选常用联系人。
+- **填入 X**：打开 X 发帖框，填好正文和附件。排了时间的帖子会在 X 自带的定时面板里预选好时间；你点「确认」和「定时」后由 X 准时发出，关机也不影响。插件不会替你点发送或确认。
+- 没有提前填入的帖子，到点会提醒（扩展图标显示数字；允许通知后弹出系统通知，点它直接填入）。X 回执出现后自动标为已发出，也可以手动标记。
+- 草稿、时间和附件只存在扩展本机的 IndexedDB，不上传、不进 Chrome 同步，也不在配置备份里。
+- 普通发帖、定时选择器、通知、真实媒体上传和续传尚未在真实 X 上完整验收；当前为 Preview，发送前请检查 X 原生编辑器。

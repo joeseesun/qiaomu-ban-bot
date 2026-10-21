@@ -8,11 +8,12 @@ import { initContactsUI } from './ui-contacts.js';
 import { Bookmarks } from './bookmarks.js';
 import { initBookmarksUI } from './ui-bookmarks.js';
 import { initWorkspaceUI } from './ui-workspace.js';
+import { initPostsUI } from './ui-posts.js';
 import { initCommunityUI } from './ui-community.js';
 import { Workspace } from './workspace.js';
 import { importSearches, SEARCH_TEMPLATES } from './search.js';
-import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info } from 'lucide';
-const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info};
+import { createElement, Bot, UserRoundCheck, RefreshCw, Eye, EyeOff, Trash2, MessageSquare, CodeXml, ArrowUpRight, History, ShieldCheck, UserRoundMinus, Plus, Pin, Copy, Pencil, Download, Search, SlidersHorizontal, MessageSquarePlus, AtSign, Bookmark, Flame, Sparkles, UsersRound, Tag, Cpu, Info, Settings , ImagePlus, Send, Check, X } from 'lucide';
+const glyphs={Bot,UserRoundCheck,RefreshCw,Eye,EyeOff,Trash2,MessageSquare,CodeXml,ArrowUpRight,History,ShieldCheck,UserRoundMinus,Plus,Pin,Copy,Pencil,Download,Search,SlidersHorizontal,MessageSquarePlus,AtSign,Bookmark,Flame,Sparkles,UsersRound,Tag,Cpu,Info,Settings,ImagePlus,Send,Check,X};
 const glyph=name=>createElement(glyphs[name],{width:17,height:17,'stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
@@ -45,6 +46,7 @@ async function send(message){
     if(message.type==='community-state')return{connected:false,subscribe:false,contribute:false,pending:0};
     if(message.type.startsWith('community-'))throw Error('预览不会连接社区，请在已安装扩展中使用。');
     if(message.type==='inbox-compose')throw Error('当前为模拟预览；已安装扩展会打开真实的 X 回复框。');
+    if(message.type==='posts-sync')return{};
     if(message.type==='inbox-summary'){await demoWorkspaceReady;return demoWorkspace.inboxSummary(message.owner);}
     if(['workspace-state','workspace-page','workspace-configure','workspace-remove','search-save','search-import','inbox-update'].includes(message.type)){
       await demoWorkspaceReady;const w=demoWorkspace,m=message;
@@ -126,7 +128,7 @@ async function tab(name){
   const workspaceRoute=name.startsWith('workspace')?name:null;
   if(workspaceRoute)name='workspace';
   const contactsView=name==='contacts';if(contactsView)name='accounts';
-  if(!['overview','accounts','model','about','bookmarks','workspace','write'].includes(name))name='overview';
+  if(!['overview','accounts','model','about','bookmarks','workspace','write','posts'].includes(name))name='overview';
   if(name!=='model')hideKey();
   for(const n of document.querySelectorAll('.panel'))n.hidden=n.id!==name;
   // Section ids double as hash routes, so the browser also jumps to the
@@ -138,6 +140,7 @@ async function tab(name){
   for(const a of document.querySelectorAll('.side-nav a')){if(a.dataset.tab===(contactsView?'accounts':name==='model'?'model':route.split('?')[0]))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}
   if(name==='workspace'){const [route,query='']=workspaceRoute.split('?');await workspaceUI.open(route.split('/')[1]||'search',new URLSearchParams(query).get('draft')||'');}
   if(name==='bookmarks')await bookmarksUI.open();
+  if(name==='posts')await postsUI.open();
   if(annotationsView)await openAnnotations();
   if(name==='model')showModel(modelView||'interpreter');
   if(name==='write')writerFrame('writing-drafts-frame','write');
@@ -175,6 +178,7 @@ $('backup-cancel').onclick=()=>{pendingBackup=null;$('backup-preview').hidden=tr
 const contactsUI=initContactsUI({send,notice,glyph});
 const bookmarksUI=initBookmarksUI({send,notice,glyph,getStore:getBookmarks});
 const workspaceUI=initWorkspaceUI({send,notice,glyph});
+const postsUI=initPostsUI({send,notice,glyph,demo});
 const communityUI=initCommunityUI({send,notice,demo});
 for(const b of document.querySelectorAll('[data-account-view]'))b.onclick=()=>{notice('');void tab(b.dataset.accountView).catch(e=>notice(e.message,true));};
 for(const b of document.querySelectorAll('nav button[data-tab]'))b.addEventListener('click',()=>{notice('');void tab(b.dataset.tab).catch(e=>notice(e.message,true));});
@@ -212,7 +216,7 @@ function thresholdCopy(){
 function render({connection=true}={}){
   const s=snapshot.settings;
   communityUI.set(s);
-  for(const k of ['enabled','radar','duplicates'])$(k).checked=s[k];
+  for(const k of ['enabled','radar'])$(k).checked=s[k];
   $('spamGuard').checked=s.spamGuard!==false;$('hide-ai').checked=s.filterMode==='ai';
   for(const k of ['customRule','dailyLimit'])$(k).value=s[k];
   const pct=Math.round(s.threshold*100);$('threshold-number').value=pct;thresholdCopy();
@@ -228,7 +232,7 @@ function render({connection=true}={}){
   if(connection)fillConnection(s);renderAccounts();
 }
 async function save(patch,forgetKey=false){snapshot=await send({type:'save',settings:patch,forgetKey});render({connection:forgetKey});}
-for(const name of ['enabled','radar','duplicates','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
+for(const name of ['enabled','radar','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
 $('hide-ai').addEventListener('change',async()=>{try{await save({filterMode:$('hide-ai').checked?'ai':'label'});notice($('hide-ai').checked?'已开启疑似 AI 回复过滤。':'已关闭疑似 AI 回复过滤。');}catch(e){render({connection:false});notice(e.message,true);}});
 for(const b of document.querySelectorAll('[data-threshold]'))b.addEventListener('click',async()=>{try{await save({threshold:Number(b.dataset.threshold)/100});notice(`敏感度：${PRESETS[b.dataset.threshold]}。新的回复按此过滤。`);}catch(e){notice(e.message,true);}});
 $('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity())thresholdCopy();});
@@ -243,6 +247,13 @@ bind('toggle-key',async()=>{
   $('api-key').type='text';keyVisible=true;updateKeyButton();
 });
 bind('open-options',()=>{if(demo){document.body.classList.remove('popup');return tab('overview');}return chrome.runtime.openOptionsPage();});
+// Popup shortcuts open the full settings page on the matching screen; on the settings page they just switch screens.
+document.addEventListener('click',e=>{
+  const link=e.target.closest('[data-open]');if(!link||e.metaKey||e.ctrlKey||e.shiftKey)return;e.preventDefault();notice('');
+  const route=link.dataset.open;
+  if(document.body.classList.contains('popup')&&!demo){void chrome.tabs.create({url:chrome.runtime.getURL('ui.html#'+route)}).then(()=>window.close());return;}
+  document.body.classList.remove('popup');void tab(route).catch(err=>notice(err.message,true));
+});
 bind('save-rules',async()=>{
   if(!$('threshold-number').reportValidity())return;
   await save({...communityUI.get(),threshold:Number($('threshold-number').value)/100,customRule:$('customRule').value});notice('规则已保存。新的回复会按你的设置整理。');

@@ -1,10 +1,11 @@
 <!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>乔木 X 助手</title><link rel="stylesheet" href="ui.css"></head>
 <body><div class="shell">
 <aside class="sidebar" aria-label="设置导航">
-  <div class="side-brand"><img src="icons/icon-48.png" alt="" width="28" height="28"><b>乔木 X 助手</b></div>
+  <div class="side-brand"><img src="brand.svg" alt="" width="28" height="28"><b>乔木 X 助手</b></div>
   <nav class="side-nav"><a href="#overview" data-tab="overview"><span data-icon="EyeOff"></span>回复过滤</a>
 <a href="#accounts" data-tab="accounts"><span data-icon="ShieldCheck"></span>账号名单</a>
 <a href="#workspace/inbox" data-tab="workspace/inbox"><span data-icon="MessageSquarePlus"></span>待回复</a>
+<a href="#posts" data-tab="posts"><span data-icon="Send"></span>发帖</a>
 <a href="#workspace/search" data-tab="workspace/search"><span data-icon="Search"></span>搜索</a>
 <a href="#bookmarks" data-tab="bookmarks"><span data-icon="Bookmark"></span>书签</a>
 <a href="#write" data-tab="write"><span data-icon="Pencil"></span>写作</a>
@@ -13,26 +14,29 @@
   <p class="side-foot"><span class="dot-state" aria-hidden="true"></span><span id="model-state">尚未连接</span><span class="version">__APP_VERSION__</span></p>
 </aside>
 <main id="app">
-  <header><div class="identity"><img class="brand-icon" src="icons/icon-48.png" alt="" width="40" height="40"><div><h1>乔木 X 助手</h1><p>回复区安静，X 更好用。</p></div></div></header>
+  <header><div class="identity"><img class="brand-icon" src="brand.svg" alt="" width="36" height="36"><h1>乔木 X 助手</h1></div><button id="open-options" class="icon-control popup-only" type="button" aria-label="打开全部设置" title="全部设置" data-icon="Settings"></button></header>
   <div id="demo-note" hidden="">界面预览 · 以下为示例数据</div>
   <div id="notice" role="status" aria-live="polite" hidden=""></div>
   <section id="overview" class="panel">
-    <div class="hero"><div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch large"><input id="enabled" type="checkbox" role="switch" aria-label="回复过滤"><span></span></label></div>
+    <div class="hero"><div class="status-row"><div><h2 id="status-title">正在准备</h2><p id="status-subtitle">读取你的设置…</p></div><label class="switch small"><input id="enabled" type="checkbox" role="switch" aria-label="回复过滤"><span></span></label></div>
     </div>
 
     <nav class="settings-home" aria-label="设置">
     <h3 class="group-title">折叠哪些回复</h3>
     <div class="group">
       <div class="row row-stack"><label class="row-main"><span class="row-text"><b>疑似 AI 回复</b><small id="hide-ai-hint">AI 估计高于 50% 时折成一行</small></span><span class="switch small"><input id="hide-ai" type="checkbox" role="switch"><span></span></span></label>
-        <div class="sensitivity" role="group" aria-label="隐藏敏感度"><button type="button" data-threshold="70" aria-pressed="false">宽松</button><button type="button" data-threshold="50" aria-pressed="true">标准</button><button type="button" data-threshold="35" aria-pressed="false">严格</button><a id="sensitivity-custom" href="#rules" hidden=""></a></div></div>
+        <div class="sensitivity" role="group" aria-label="隐藏敏感度"><button type="button" data-threshold="70" aria-pressed="false">宽松</button><button type="button" data-threshold="50" aria-pressed="true">标准</button><button type="button" data-threshold="35" aria-pressed="false">严格</button><a id="sensitivity-custom" href="#rules" data-open="rules" hidden=""></a></div></div>
       <label class="row"><span class="row-text"><b>引流回复</b><small>本机识别广告与引流话术</small></span><span class="switch small"><input id="spamGuard" type="checkbox" role="switch"><span></span></span></label>
-      <label class="row"><span class="row-text"><b>重复回复</b><small>同一句话只留第一条</small></span><span class="switch small"><input id="duplicates" type="checkbox" role="switch"><span></span></span></label>
 
     </div>
 
-    <details class="fine-print"><summary>浏览显示</summary><div class="group">
+    <h3 class="group-title">显示与规则</h3>
+    <div class="group">
       <label class="row"><span class="row-text"><b>传播表现</b><small id="radar-hint">查看浏览速度、转发和评论表现</small></span><span class="switch small"><input id="radar" type="checkbox" role="switch"><span></span></span></label>
-    </div></details><details id="advanced-rules" class="fine-print"><summary>高级选项</summary>
+      <a class="row popup-only" href="#rules" data-open="rules"><span class="row-text"><b>屏蔽词与高级规则</b></span><span class="chev" aria-hidden="true">›</span></a>
+    </div>
+    <nav class="quick-grid popup-only" aria-label="更多功能"><a href="#posts" data-open="posts"><span data-icon="Send"></span>发帖</a><a href="#workspace/search" data-open="workspace/search"><span data-icon="Search"></span>搜索</a><a href="#bookmarks" data-open="bookmarks"><span data-icon="Bookmark"></span>书签</a><a href="#workspace/inbox" data-open="workspace/inbox"><span data-icon="MessageSquarePlus"></span>待回复</a><a href="#write" data-open="write"><span data-icon="Pencil"></span>写作</a></nav>
+    <details id="advanced-rules" class="fine-print popup-hide"><summary>高级选项</summary>
 
     <p class="hint">人工标记和账号名单优先于自动判断。</p>
     <h3 class="group-title">AI 回复</h3>
@@ -60,13 +64,12 @@
       <div class="button-row"><button id="community-sync" class="secondary">立即同步</button><button id="community-withdraw" class="quiet">撤回我共享的全部标注</button></div>
       <p class="hint">关闭贡献会暂停同步，已共享记录继续保留；需要移除时使用“撤回”。社区报告可能有分歧，不能证明账号身份。</p>
     </details></details></nav>
-    <button id="open-options" class="secondary full popup-only">打开全部设置</button>
   </section>
 
   <section id="accounts" class="panel" hidden="">
 
     <div id="contacts-view" hidden=""><button data-account-view="accounts" class="quiet">‹ 账号名单</button>
-      <div class="page-heading"><div><h2>常用 @</h2><p class="hint">写帖子或回复时，点编辑器里的 @ 图标就能找到他们。</p></div><button id="contact-add" class="secondary"><span data-icon="Plus"></span>添加</button></div>
+      <div class="page-heading"><div><h2>常用 @</h2><p class="hint">写帖子或回复时，点编辑器里的 @ 图标或输入 @@ 就能找到他们；搜索的账号栏也能直接选。</p></div><button id="contact-add" class="secondary"><span data-icon="Plus"></span>添加</button></div>
       <label class="field contact-owner-field"><span>这份联系人属于</span><select id="contact-owner" aria-label="我的 X 账号"></select></label>
       <div class="contact-tools"><label class="field"><span class="sr-only">搜索联系人</span><input id="contact-search" type="search" placeholder="昵称、拼音、@账号或备注" maxlength="160"></label><label class="contact-pinned"><input id="contacts-pinned" type="checkbox">只看置顶</label></div>
       <div id="contact-editor" class="contact-editor" hidden=""><h3 id="contact-form-title">添加常用账号</h3><form id="contact-form">
@@ -78,8 +81,8 @@
       </form></div>
       <div id="contact-list" aria-live="polite"></div>
       <div class="pagination"><button id="contacts-prev" class="secondary">上一页</button><span id="contacts-page">第 1 页</span><button id="contacts-next" class="secondary">下一页</button></div>
-      <label class="toggle-row"><span>自动记下回复对象<small>确认发送成功后记录；取消或失败不计入</small></span><span class="switch small"><input id="contact-auto" type="checkbox" role="switch"><span></span></span></label>
-      <p class="hint">从启用后开始记录，不扫描历史回复。未记录的头像和昵称，会在你读到对方帖子时补上。联系人只存本机，不参与 AI 判断。</p>
+      <label class="toggle-row"><span>自动记下互动对象<small>回复确认发送成功、点赞或转帖确认生效后记录；取消或失败不计入</small></span><span class="switch small"><input id="contact-auto" type="checkbox" role="switch"><span></span></span></label>
+      <p class="hint">从启用后开始记录，不扫描历史回复和点赞。未记录的头像和昵称，会在你读到对方帖子时补上。联系人只存本机，不参与 AI 判断。</p>
       <p class="hint">预置 @vista8，方便向作者反馈问题。可编辑或移除；移除后不会自动加回。</p>
       <details id="contact-owner-setup" class="fine-print"><summary>手动添加我的 X 账号</summary><form id="contact-owner-form"><label class="field"><span>你用于发帖的 @用户名</span><input id="contact-owner-input" maxlength="16" placeholder="@my_account" required=""></label><button class="secondary">添加账号</button></form></details>
     </div>
@@ -94,42 +97,59 @@
     </div>
   </section>
   <section id="bookmarks" class="panel" hidden="">
+    <div class="page-heading"><div><h2>书签</h2><p class="hint">在 X 收藏的帖子，这里存一份本机副本：能搜索、写备注，也能导出 Markdown。</p></div><label class="field contact-owner-field owner-chip"><span>账号</span><select id="bookmark-owner" aria-label="书签所属账号"></select></label></div>
 
-    <div class="page-heading"><div><h2>书签</h2><p class="hint">浏览 X 书签页时保存到本机，可搜索、备注和导出。</p></div><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
-    <div class="bookmark-toolbar"><a class="secondary" href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer"><span data-icon="ArrowUpRight"></span>打开 X 书签</a><button id="bookmarks-export" class="primary" disabled=""><span data-icon="Download"></span><span id="bookmarks-export-label">导出 Markdown</span></button></div>
+    <div id="bookmark-onboard" class="onboard" hidden="">
+      <h3>三步把 X 书签存到这里</h3>
+      <ol><li><b>打开 X 书签页</b><span>用下面的按钮，或在 X 左侧栏点「书签」。</span></li><li><b>向下滚动浏览</b><span>看到的书签会自动保存，页面顶部会显示已保存数量。</span></li><li><b>回到这里</b><span>搜索、加备注和标签，或一键导出 Markdown。</span></li></ol>
+      <a class="primary" href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer"><span data-icon="ArrowUpRight"></span>打开 X 书签页</a>
+      <p class="hint">只保存在这台电脑的浏览器里，不上传、不调用模型。</p>
+    </div>
 
-    <label class="field contact-owner-field"><span>我的 X 账号</span><select id="bookmark-owner" aria-label="书签所属账号"></select></label>
-    <label class="field"><span class="sr-only">搜索书签</span><input id="bookmark-search" type="search" maxlength="160" placeholder="搜索正文、作者、标签或备注"></label>
-    <div class="bookmark-count" id="bookmarks-count" role="status">已保存 0 条</div>
-    <div id="bookmark-editor" class="contact-editor" hidden=""><h3>留一点想法，下次更好找。</h3><form id="bookmark-edit-form"><label class="field"><span>备注</span><textarea id="bookmark-note" maxlength="2000" rows="3" placeholder="为什么收藏这条？"></textarea></label><label class="field"><span>标签</span><input id="bookmark-tags" maxlength="400" placeholder="用逗号分隔，例如：开源，产品"></label><div class="button-row"><button id="bookmark-edit-save" class="primary">保存</button><button id="bookmark-edit-cancel" type="button" class="secondary">取消</button></div></form></div>
-    <div id="bookmark-list" aria-live="polite"></div><div class="pagination"><button id="bookmarks-prev" class="secondary">上一页</button><span id="bookmarks-page">第 1 页</span><button id="bookmarks-next" class="secondary">下一页</button></div>
-
+    <div id="bookmark-library">
+      <div class="library-bar">
+        <label class="search-box"><span data-icon="Search" aria-hidden="true"></span><span class="sr-only">搜索书签</span><input id="bookmark-search" type="search" maxlength="160" placeholder="搜索正文、作者、标签或备注"></label>
+        <button id="bookmarks-export" class="secondary" disabled=""><span data-icon="Download"></span><span id="bookmarks-export-label">导出 Markdown</span></button>
+      </div>
+      <div class="library-meta"><span class="bookmark-count" id="bookmarks-count" role="status">已保存 0 条</span><span class="library-sync">去 <a href="https://x.com/i/bookmarks" target="_blank" rel="noopener noreferrer">X 书签页</a> 继续浏览，就能保存更多</span><button id="bookmarks-refresh" class="icon-control" aria-label="刷新书签" title="刷新书签" data-icon="RefreshCw"></button></div>
+      <div id="bookmark-editor" class="contact-editor" hidden=""><h3>留一点想法，下次更好找。</h3><form id="bookmark-edit-form"><label class="field"><span>备注</span><textarea id="bookmark-note" maxlength="2000" rows="3" placeholder="为什么收藏这条？"></textarea></label><label class="field"><span>标签</span><input id="bookmark-tags" maxlength="400" placeholder="用逗号分隔，例如：开源，产品"></label><div class="button-row"><button id="bookmark-edit-save" class="primary">保存</button><button id="bookmark-edit-cancel" type="button" class="secondary">取消</button></div></form></div>
+      <div id="bookmark-list" aria-live="polite"></div><div class="pagination"><button id="bookmarks-prev" class="secondary">上一页</button><span id="bookmarks-page">第 1 页</span><button id="bookmarks-next" class="secondary">下一页</button></div>
+    </div>
   </section>
   <section id="workspace" class="panel" hidden="">
 
-        <label class="field contact-owner-field"><span>我的 X 账号</span><select id="ws-owner" aria-label="工作台所属账号"></select></label>
+    <label class="field contact-owner-field owner-chip"><span>账号</span><select id="ws-owner" aria-label="工作台所属账号"></select></label>
 
     <div id="ws-empty-owner" class="empty-state" hidden="">先登录 X，或在「账号 → 常用 @」添加自己的账号。搜索仍可直接使用。</div>
     <div id="ws-search-view" class="workspace-view">
-      <h3>高级搜索</h3><p class="hint">填条件就能搜索，不用记语法。也可以先选一个模板，再调整。</p>
-      <div id="ws-templates" class="workspace-templates" aria-label="搜索模板"></div>
-      <form id="ws-search-form"><div class="workspace-grid">
-        <label class="field"><span>关键词</span><input id="ws-all" maxlength="400" placeholder="都要包含，例如：开源 工具"></label>
-        <label class="field"><span>发布账号</span><input id="ws-from" maxlength="160" placeholder="@用户名，可填多个"></label>
-        <label class="field"><span>时间范围</span><select id="ws-period"><option value="all">不限时间</option><option value="today">今天</option><option value="7d">近 7 天</option><option value="30d">近 30 天</option><option value="90d">近 90 天</option><option value="custom">指定日期</option></select></label>
-        <label class="field"><span>结果排序</span><select id="ws-sort"><option value="live">最新</option><option value="top">热门</option></select></label>
-      </div><div id="ws-date-fields" class="workspace-grid" hidden=""><label class="field"><span>开始日期</span><input id="ws-since" type="date"></label><label class="field"><span>截止日期（含当天）</span><input id="ws-until" type="date"></label></div>
-      <details class="fine-print"><summary>更多搜索条件</summary><div class="workspace-grid">
-        <label class="field"><span>包含完整短语</span><input id="ws-phrase" maxlength="400" placeholder="词序完全一致"></label><label class="field"><span>包含其中任意词</span><input id="ws-any" maxlength="400" placeholder="用空格分开"></label><label class="field"><span>排除词语</span><input id="ws-exclude" maxlength="400"></label><label class="field"><span>回复给谁</span><input id="ws-to" maxlength="160" placeholder="@用户名"></label><label class="field"><span>提及谁</span><input id="ws-mention" maxlength="160" placeholder="@用户名"></label>
-        <label class="field"><span>语言</span><select id="ws-lang"><option value="">不限</option><option value="zh">中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option></select></label><label class="field"><span>内容类型</span><select id="ws-media"><option value="">不限</option><option value="links">含链接</option><option value="images">含图片</option><option value="videos">含视频</option><option value="media">含图片或视频</option></select></label><label class="field"><span>回复</span><select id="ws-replies"><option value="">全部</option><option value="exclude">只看主帖</option><option value="only">只看回复</option></select></label>
-        <label class="field"><span>至少点赞</span><input id="ws-likes" type="number" min="0" max="1000000000" step="1"></label><label class="field"><span>至少转帖</span><input id="ws-reposts" type="number" min="0" max="1000000000" step="1"></label><label class="field"><span>至少回复</span><input id="ws-repliesMin" type="number" min="0" max="1000000000" step="1"></label>
-      </div><div class="workspace-checks"><label><input id="ws-excludeReposts" type="checkbox">排除转帖</label><label><input id="ws-follows" type="checkbox">只看我关注的人</label></div></details>
-      <details class="fine-print"><summary>直接编辑搜索语句</summary><label class="contact-pinned"><input id="ws-raw-mode" type="checkbox">使用下面的自定义语句</label><label class="field"><span class="sr-only">自定义搜索语句</span><textarea id="ws-raw" maxlength="2000" rows="3" placeholder="例如：from:vista8 min_faves:100"></textarea></label></details>
-      <div class="workspace-preview"><span>你要找的帖子</span><p id="ws-search-summary" aria-live="polite">填写下面任意条件即可搜索</p><details class="fine-print"><summary>查看生成的语句</summary><code id="ws-query-preview">填写条件后在这里预览</code></details><p id="ws-search-error" class="err" role="alert" hidden=""></p></div>
-      <div class="workspace-actions"><button class="primary" type="submit"><span data-icon="Search"></span>在 X 搜索</button><button id="ws-copy-query" class="secondary" type="button"><span data-icon="Copy"></span>复制语句</button><button id="ws-reset" class="quiet" type="button">清空条件</button></div>
+      <div class="page-heading"><div><h2>搜索</h2><p class="hint">写下想找什么，点「在 X 搜索」就行。其他条件都可以不填。</p></div></div>
+      <form id="ws-search-form" class="search-card">
+        <label class="search-hero"><span data-icon="Search" aria-hidden="true"></span><span class="sr-only">关键词</span><input id="ws-all" maxlength="400" placeholder="想找什么？例如：开源 工具" autocomplete="off"></label>
+        <div class="search-filters">
+          <label class="field"><span>谁发的</span><input id="ws-from" maxlength="160" placeholder="@用户名，可不填"></label>
+          <label class="field"><span>时间</span><select id="ws-period"><option value="all">不限时间</option><option value="today">今天</option><option value="7d">近 7 天</option><option value="30d">近 30 天</option><option value="90d">近 90 天</option><option value="custom">指定日期…</option></select></label>
+          <label class="field"><span>排序</span><select id="ws-sort"><option value="live">最新在前</option><option value="top">热门在前</option></select></label>
+        </div>
+        <div id="ws-date-fields" class="workspace-grid" hidden=""><label class="field"><span>开始日期</span><input id="ws-since" type="date"></label><label class="field"><span>截止日期（含当天）</span><input id="ws-until" type="date"></label></div>
+        <details class="search-more"><summary>更多条件<small>短语、排除词、语言、点赞数…</small></summary>
+          <div class="workspace-grid">
+            <label class="field"><span>包含完整短语</span><input id="ws-phrase" maxlength="400" placeholder="词序完全一致"></label><label class="field"><span>包含其中任意词</span><input id="ws-any" maxlength="400" placeholder="用空格分开"></label><label class="field"><span>不要包含</span><input id="ws-exclude" maxlength="400" placeholder="用空格分开"></label><label class="field"><span>回复给谁</span><input id="ws-to" maxlength="160" placeholder="@用户名"></label><label class="field"><span>提到了谁</span><input id="ws-mention" maxlength="160" placeholder="@用户名"></label>
+            <label class="field"><span>语言</span><select id="ws-lang"><option value="">不限</option><option value="zh">中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option></select></label><label class="field"><span>内容类型</span><select id="ws-media"><option value="">不限</option><option value="links">含链接</option><option value="images">含图片</option><option value="videos">含视频</option><option value="media">含图片或视频</option></select></label><label class="field"><span>主帖还是回复</span><select id="ws-replies"><option value="">都要</option><option value="exclude">只看主帖</option><option value="only">只看回复</option></select></label>
+            <label class="field"><span>至少点赞</span><input id="ws-likes" type="number" min="0" max="1000000000" step="1" placeholder="不限"></label><label class="field"><span>至少转帖</span><input id="ws-reposts" type="number" min="0" max="1000000000" step="1" placeholder="不限"></label><label class="field"><span>至少回复</span><input id="ws-repliesMin" type="number" min="0" max="1000000000" step="1" placeholder="不限"></label>
+          </div>
+          <div class="workspace-checks"><label><input id="ws-excludeReposts" type="checkbox">排除转帖</label><label><input id="ws-follows" type="checkbox">只看我关注的人</label></div>
+          <div class="raw-block"><label class="contact-pinned"><input id="ws-raw-mode" type="checkbox">我熟悉 X 搜索语法，直接写语句</label><label class="field"><span class="sr-only">自定义搜索语句</span><textarea id="ws-raw" maxlength="2000" rows="2" placeholder="例如：from:vista8 min_faves:100"></textarea></label></div>
+        </details>
+        <div class="search-footer">
+          <div class="workspace-preview" aria-live="polite"><span>将要搜索</span><p id="ws-search-summary">填写任意条件即可搜索</p><code id="ws-query-preview" title="X 搜索语句">填写条件后在这里预览</code><p id="ws-search-error" class="err" role="alert" hidden=""></p></div>
+          <div class="workspace-actions"><button class="primary" type="submit"><span data-icon="Search"></span>在 X 搜索</button><button id="ws-save-toggle" class="secondary" type="button" aria-expanded="false" aria-controls="ws-save-details"><span data-icon="Bookmark"></span>存为常用</button><button id="ws-copy-query" class="icon-control" type="button" aria-label="复制搜索语句" title="复制搜索语句" data-icon="Copy"></button><button id="ws-reset" class="quiet" type="button">清空</button></div>
+        </div>
       </form>
-      <details class="fine-print" id="ws-save-details"><summary>保存这次搜索</summary><form id="ws-save-form"><div class="workspace-grid"><label class="field"><span>名称</span><input id="ws-search-name" maxlength="80" required=""></label><label class="field"><span>分类（选填）</span><input id="ws-search-category" maxlength="40" placeholder="例如：选题、资料、我的账号"></label></div><label class="contact-pinned"><input id="ws-search-pinned" type="checkbox">置顶</label><div class="workspace-actions"><button id="ws-save-search" class="secondary">保存搜索</button><button id="ws-save-new" type="button" class="quiet" hidden="">另存为新搜索</button></div></form></details>
-      <p class="hint">搜索在 X 原生页面打开。相对日期每次执行时重新计算；结果和操作符支持由 X 决定。</p>
+      <details class="save-panel" id="ws-save-details"><summary class="sr-only">保存这次搜索</summary><form id="ws-save-form"><div class="workspace-grid"><label class="field"><span>起个名字</span><input id="ws-search-name" maxlength="80" required="" placeholder="例如：每周开源新品"></label><label class="field"><span>分类 <small>选填</small></span><input id="ws-search-category" maxlength="40" placeholder="例如：选题、资料"></label></div><div class="save-panel-foot"><label class="contact-pinned"><input id="ws-search-pinned" type="checkbox">置顶</label><div class="workspace-actions"><button id="ws-save-search" class="primary">保存</button><button id="ws-save-new" type="button" class="secondary" hidden="">另存为新搜索</button></div></div></form></details>
+
+      <h3 class="section-title">不知道搜什么？从模板开始</h3>
+      <div id="ws-templates" class="workspace-templates" aria-label="搜索模板"></div>
+      <p class="hint search-note">结果在 X 原生搜索页打开。「近 7 天」这类时间，每次搜索时按当天重新计算。</p>
     </div>
 
     <div id="ws-inbox-view" class="workspace-view" hidden="">
@@ -145,9 +165,40 @@
       <a class="secondary" href="https://x.com/notifications/mentions" target="_blank" rel="noopener noreferrer">打开我的提及 ↗</a></details>
     </div>
 
-    <div class="workspace-list-tools"><label class="field"><span class="sr-only">筛选工作台记录</span><input id="ws-list-query" type="search" maxlength="160" placeholder="搜索记录"></label><button id="ws-refresh" class="icon-control" aria-label="刷新工作台记录" data-icon="RefreshCw"></button></div>
-    <div id="ws-library-actions" class="workspace-actions"><button id="ws-export" class="secondary"><span data-icon="Download"></span>导出</button><button id="ws-import" class="secondary">导入搜索</button><input id="ws-import-file" type="file" accept="application/json,.json" hidden=""></div>
+    <div id="ws-list-head" class="list-head"><h3 class="section-title">我的常用搜索</h3><div id="ws-library-actions" class="list-head-actions"><button id="ws-import" class="quiet" type="button">导入</button><button id="ws-export" class="quiet" type="button">导出</button><input id="ws-import-file" type="file" accept="application/json,.json" hidden=""></div></div>
+    <div id="ws-list-tools" class="workspace-list-tools"><label class="field"><span class="sr-only">筛选工作台记录</span><input id="ws-list-query" type="search" maxlength="160" placeholder="搜索记录"></label><button id="ws-refresh" class="icon-control" aria-label="刷新工作台记录" data-icon="RefreshCw"></button></div>
     <div id="ws-list-layout"><div id="ws-list" aria-live="polite"></div><aside id="ws-inbox-detail" hidden="" aria-label="待回复详情"></aside></div><div id="ws-pagination" class="pagination"><button id="ws-prev" class="secondary">上一页</button><span id="ws-page">第 1 页</span><button id="ws-next" class="secondary">下一页</button></div>
+  </section>
+  <section id="posts" class="panel" hidden="">
+    <div class="page-heading"><div><h2>发帖</h2><p class="hint">在这里写好、排好时间，一键填入 X 的发帖框，最后由你点「发帖」。图片和视频只存在本机。</p></div><button id="post-new" class="secondary" type="button"><span data-icon="Plus"></span>新帖子</button></div>
+    <form id="post-form" class="post-editor">
+      <label class="sr-only" for="post-text">帖子正文</label>
+      <div class="post-text-wrap"><textarea id="post-text" rows="6" maxlength="25000" placeholder="有什么新鲜事？输入 @ 可以选常用联系人"></textarea></div>
+      <div id="post-media" class="post-media" aria-label="附件" hidden=""></div>
+      <div class="post-toolbar">
+        <button id="post-add-media" type="button" class="icon-control" aria-label="添加图片或视频" title="添加图片或视频" data-icon="ImagePlus"></button>
+        <input id="post-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime" multiple="" hidden="">
+        <span class="hint">最多 4 张图，或 1 个 GIF / 视频。可以拖入或粘贴。</span>
+        <span id="post-count" class="post-count" aria-live="polite">0 / 280</span>
+      </div>
+      <div class="post-schedule">
+        <label class="field"><span>发布时间</span><select id="post-when"><option value="none">先存草稿</option><option value="slot">下一个空档</option><option value="custom">指定时间…</option></select></label>
+        <label class="field" id="post-at-field" hidden=""><span>日期和时间</span><input id="post-at" type="datetime-local"></label>
+      </div>
+      <p id="post-when-hint" class="hint post-when-hint"></p>
+      <div id="post-options" class="workspace-checks" hidden=""><label><input id="post-remind" type="checkbox" checked="">到点提醒我</label><label><input id="post-native" type="checkbox" checked="">填入时预选 X 的定时</label></div>
+      <p id="post-error" class="err" role="alert" hidden=""></p>
+      <div class="post-actions"><button id="post-fill-now" class="primary" type="button"><span data-icon="Send"></span>填入 X</button><button class="secondary" type="submit">保存</button><span id="post-saved" class="hint" aria-live="polite"></span></div>
+    </form>
+    <div class="list-head"><h3 class="section-title">队列</h3><div class="inbox-status-tabs" role="group" aria-label="帖子状态"><button type="button" data-post-filter="upcoming" aria-pressed="true">排期 <small>0</small></button><button type="button" data-post-filter="draft" aria-pressed="false">草稿 <small>0</small></button><button type="button" data-post-filter="done" aria-pressed="false">已填入 <small>0</small></button></div></div>
+    <div id="post-list" aria-live="polite"></div>
+    <details class="fine-print post-slots"><summary>每周发布时间</summary>
+      <p class="hint">「下一个空档」从这里挑最近一个没被占用的时间。</p>
+      <div id="post-days" class="post-days" role="group" aria-label="哪几天发"></div>
+      <div id="post-times" class="post-times"></div>
+      <form id="post-time-form" class="post-time-form"><input id="post-time-new" type="time" required="" aria-label="新增发布时间"><button class="secondary">添加时间</button></form>
+    </details>
+    <details class="fine-print"><summary>怎么发出去的？</summary><p>「填入 X」会打开 X 的发帖框，填好正文和附件。排了时间的帖子，会帮你在 X 自带的定时面板里选好时间，你点「确认」和「定时」后，由 X 准时发出，电脑关机也不影响。没有提前填入的帖子，到点会提醒你。插件不会替你点发送。</p></details>
   </section>
   <section id="write" class="panel" hidden=""><div class="page-heading"><div><h2>写作</h2><p class="hint">从草稿继续，或新建一篇文章。</p></div></div><p><a class="secondary" href="image-library.html" target="_blank" rel="noopener noreferrer">打开图库</a></p><div id="writing-drafts-frame" class="frame-slot"></div></section><section id="model" class="panel" hidden=""><div class="page-heading"><div><h2>模型设置</h2><p class="hint">按用途配置服务，密钥分别保存。</p></div></div><div class="model-tabs" role="group" aria-label="模型用途"><button data-model-view="interpreter" aria-pressed="true">写作</button><button data-model-view="image-models" aria-pressed="false">配图</button><button data-model-view="web-search" aria-pressed="false">联网搜索</button><button data-model-view="image-sources" aria-pressed="false">图库来源</button><button data-model-view="judgment" aria-pressed="false">回复判断</button></div><div id="writing-model-frame" class="frame-slot"></div><div id="judgment-settings">
 
@@ -172,6 +223,7 @@
   <section id="about" class="panel" hidden="">
 
     <h2>关于与帮助</h2><p class="hint">乔木 X 助手 · 向阳乔木开发</p>
+    <details class="fine-print support-author" open=""><summary>支持作者</summary><div class="about-qrs"><figure><img src="assets/about/wechat-public-account.jpg" width="148" height="148" loading="lazy" alt="向阳乔木推荐看公众号二维码"><figcaption><b>关注公众号</b><span>微信搜索「向阳乔木推荐看」</span></figcaption></figure><figure><img src="assets/about/reward.png" width="148" height="148" loading="lazy" alt="向阳乔木打赏二维码"><figcaption><b>请我喝杯咖啡</b><span>自愿支持，感谢你的心意</span></figcaption></figure></div><div class="about-links"><a href="https://qiaomu.ai/" target="_blank" rel="noopener noreferrer">乔木主页</a><a href="https://blog.qiaomu.ai/" target="_blank" rel="noopener noreferrer">博客</a><a href="https://x.com/vista8" target="_blank" rel="noopener noreferrer">X @vista8</a></div></details>
     <div class="support-links"><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper/issues/new" target="_blank" rel="noopener noreferrer"><span data-icon="MessageSquare"></span>反馈问题<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper" target="_blank" rel="noopener noreferrer"><span data-icon="CodeXml"></span>查看源码<span data-icon="ArrowUpRight"></span></a><a class="link-button" href="https://github.com/joeseesun/qiaomu-x-helper/releases" target="_blank" rel="noopener noreferrer"><span data-icon="History"></span>更新记录<span data-icon="ArrowUpRight"></span></a></div><details class="fine-print" id="backup-settings"><summary>备份与恢复</summary><p>备份模型、过滤设置、账号名单和标记数据。文章草稿与书签可在各自页面导出。</p><label class="contact-pinned"><input id="backup-keys" type="checkbox">包含 API Key（文件含明文密钥，请自行保管）</label><p class="hint">网页登录凭据不会导出，恢复后需重新登录。</p><div class="button-row"><button id="backup-export" class="primary">导出配置</button><button id="backup-import" class="secondary">导入配置…</button><input id="backup-file" type="file" accept=".json,application/json" hidden=""></div><div id="backup-preview" class="card" hidden=""><h3>确认恢复</h3><p id="backup-summary"></p><details class="fine-print"><summary>模型服务地址</summary><p id="backup-origins" class="technical"></p></details><p class="hint">模型和标记合并保存，冲突时保留本机内容。缺失密钥可从备份补回；不会自动调用模型。</p><label class="contact-pinned"><input id="backup-preferences" type="checkbox">同时恢复过滤偏好（替换当前开关和敏感度）</label><div class="button-row"><button id="backup-restore" class="primary">合并恢复</button><button id="backup-cancel" class="secondary">取消</button></div></div></details><div id="settings-help"><details class="fine-print" id="spam-explain"><summary>引流回复怎么判断？</summary>
       <p>在本机打分，不调用模型。每条线索各算一份分：</p>
       <ul class="explain-list">
@@ -185,7 +237,7 @@
       <p>隐藏那一行会写「疑似引流 · 分数 · 两条主要原因」，可以随时展开。只隐藏这一条回复，不判定账号是机器人，也不拉黑。</p></details><details class="fine-print"><summary>这些分数代表什么？</summary><p>分数是模型估计，不能证明作者身份。简短、礼貌或文字流畅，都不等于 AI。引流与附加规则至少达到 90% 才触发折叠。</p></details><details class="fine-print"><summary>标注如何帮助后续判断？</summary><p>记录保存在本机，不会因为超过 40 条就删除。每次从最近 40 条标注中选最多 6 条相关案例，帮助模型理解你的判断。不会把全部记录发给模型，也不会重新训练模型。</p></details></div>
 
     <details class="fine-print"><summary>管理本机数据</summary><p>清空后会移除判断缓存、人工标注与手动保留记录。账号名单、密钥和今日用量会保留。</p><button id="clear-history" class="secondary">清空记录与缓存…</button></details>
-  <details class="fine-print"><summary>支持作者</summary><div class="about-qrs"><figure><img src="assets/about/wechat-public-account.jpg" width="148" height="148" loading="lazy" alt="向阳乔木推荐看公众号二维码"><figcaption><b>关注公众号</b><span>微信搜索「向阳乔木推荐看」</span></figcaption></figure><figure><img src="assets/about/reward.png" width="148" height="148" loading="lazy" alt="向阳乔木打赏二维码"><figcaption><b>请我喝杯咖啡</b><span>自愿支持，感谢你的心意</span></figcaption></figure></div><div class="about-links"><a href="https://qiaomu.ai/" target="_blank" rel="noopener noreferrer">乔木主页</a><a href="https://blog.qiaomu.ai/" target="_blank" rel="noopener noreferrer">博客</a><a href="https://x.com/vista8" target="_blank" rel="noopener noreferrer">X @vista8</a></div></details></section>
+</section>
 <dialog id="annotation-dialog" aria-label="标记记录"><button id="close-annotations" class="icon-control drawer-close" aria-label="关闭标记记录">×</button><section id="annotations" class="record-drawer-content">
 
     <div class="page-heading"><div><h2>标记记录</h2><p class="hint">你标过的回复都在这里。可以改标、回原帖，或导出。</p></div><button id="refresh-annotations" class="icon-control" aria-label="刷新标注" title="刷新标注" data-icon="RefreshCw"></button></div>

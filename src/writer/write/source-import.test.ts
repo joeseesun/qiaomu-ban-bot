@@ -109,3 +109,14 @@ it('focuses an existing writer tab and refuses external or unrelated handoff URL
 	await openSourcePage('chrome-extension://fixture/settings.html');
 	expect(browser.tabs.query).toHaveBeenCalledTimes(1);
 });
+
+it('preserves direct MP4s in a mixed article without turning it into a standalone video lesson',()=>{
+ const draft=clip('https://example.com/article');
+ document.body.innerHTML='<article><p>Before</p><video controls><source src="/demo.mp4?download=1" type="video/mp4"></video><img src="https://example.com/a.png"><p>After</p></article>';
+ const snapshot=sourceSnapshot(draft,document.querySelector('article'));
+ expect(snapshot.markdown).toContain('[Video](https://example.com/demo.mp4?download=1)');
+ expect(snapshot.markdown.indexOf('Before')).toBeLessThan(snapshot.markdown.indexOf('[Video]'));
+ expect(snapshot.markdown.indexOf('[Video]')).toBeLessThan(snapshot.markdown.indexOf('After'));
+ expect(snapshot.media).toBe(false);expect(snapshot.ready).toBe(true);
+ expect(snapshot.markdown).not.toContain('视频简介');
+});

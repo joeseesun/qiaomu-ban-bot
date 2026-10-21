@@ -40,3 +40,22 @@ test('builder validates input, offers raw syntax explicitly and transfers condit
  root.querySelector('[aria-label="添加自定义搜索"]').click();field('all').value='private draft';w.owner='other';w.sidebar.mount();assert.equal(field('all').value,'');assert.equal(root.querySelector('form').hidden,true);
  }finally{dom.window.close();}
 });
+test('template chips preset hidden conditions, and the author field suggests contacts from the shared address book',async()=>{
+  const dom=new JSDOM('<div data-testid="sidebarColumn"><form role="search"><input></form></div>',{url:'https://x.com/home',runScripts:'outside-only',pretendToBeVisual:true}),calls=[];
+  try{
+    const w=dom.window;w.owner='me';w.send=async m=>{calls.push(m);if(m.type==='contacts-page')return{items:[{handle:'alice',displayName:'Alice',likeCount:3}].filter(c=>!m.query||c.handle.startsWith(m.query))};return m.type==='sidebar-searches'?{items:[]}:{};};w.eval(code);await tick();
+    const root=w.document.querySelector('.qx-search-sidebar').shadowRoot;
+    root.querySelector('[aria-label="添加自定义搜索"]').click();
+    const chip=[...root.querySelectorAll('.chips button')].find(b=>b.textContent==='有人在求推荐');chip.click();
+    const field=k=>root.querySelector(`[name=${k}]`);
+    assert.equal(root.activeElement,field('all'));assert.equal(field('all').placeholder,'例如：笔记软件');assert.equal(field('name').value,'有人在求推荐');
+    field('all').value='笔记软件';field('all').dispatchEvent(new w.Event('input',{bubbles:true}));
+    const q=new URL(root.querySelector('.search-now').href).searchParams.get('q');
+    assert.match(q,/^"笔记软件" \("求推荐" OR /);assert.match(q,/-filter:replies -filter:nativeretweets since:/);
+    const author=field('from');author.focus();author.value='@al';author.setSelectionRange(3,3);author.dispatchEvent(new w.Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,200));
+    const list=root.getElementById(author.getAttribute('aria-controls'));assert.equal(list.hidden,false);assert.match(list.textContent,/Alice.*赞 3/);
+    author.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    assert.equal(author.value,'@alice ');assert.ok(calls.some(m=>m.type==='contacts-use'&&m.handle==='alice'));
+    chip.click();assert.equal(field('name').value,'');assert.match(new URL(root.querySelector('.search-now').href).searchParams.get('q'),/^"笔记软件" from:alice$/);
+  }finally{dom.window.close();}
+});

@@ -1,0 +1,18 @@
+{
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "variants": [
+    {
+      "id": "E",
+      "title": "X 中藏木",
+      "prompt": "Design a sophisticated original monogram logo for a Chrome extension: the Twitter X is the unmistakable FIRST reading; the Chinese character 木 is a delightful hidden SECOND reading. Create ONE polished logo, not a sheet. White symbol on a pure black rounded-square app tile, genuinely transparent outside the tile. Use the recognizable Twitter X proportions and diagonal tension, including its characteristic contrast of a broad diagonal ribbon and a slimmer crossing diagonal. Cleverly shape the internal black counter / slit of the broad white diagonal into a subtle 木-like branching negative space around the crossing. The hidden 木 must emerge from shared contours of X, rather than be a separate tiny printed character pasted on top. Preserve a strong dominant X outer silhouette. No horizontal roof spanning the whole logo, no central stalk sticking up above X, no large Chinese glyph with an X attached below. A designer's carefully resolved double-reading symbol, restrained and optically balanced, bold enough for a browser toolbar. Flat immaculate vector-like geometry, two colors only, no shadows, no texture, no gradients, no text labels, no mockup. Symbol fills about 68% of canvas, tile fills 90%. Prioritize design intelligence and visual simplicity.",
+      "source": "/Users/joe/.codex/generated_images/01a15a12-8e86-7313-9654-314f703f4495/exec-b922f807-638a-4098-b39f-29fd5a14d003.png"
+    },
+    {
+      "id": "F",
+      "title": "共笔 X",
+      "prompt": "Create ONE exceptionally elegant new brand mark fusing Twitter's X and the Chinese character 木 for a Chrome extension. Essential hierarchy: at first glance it must be a beautiful confident X. Only upon looking closer should 木 become perceptible. Make an ingenious SHARED-STROKE typographic ligature, not a Chinese character with an X bolted on, not a plain X with a miniature 木 printed inside, not an overlay of two complete symbols. Start with two decisive crossing diagonals and preserve the overall X silhouette. Through a minimal horizontal bridge at the crossing and a cleverly aligned short inner vertical segment, suggest the horizontal and vertical strokes of 木; the two diagonals already supply its spreading branches. Keep all extra structure INSIDE the bounding silhouette of X. Let the internal spacing and shared terminals solve the fusion rather than adding extra strokes. Aim for a memorable premium editorial / Swiss typographic identity, slightly slender but robust, beautiful negative space and optical balance. Render a single black monogram on a white rounded-square tile with a restrained black perimeter, actual transparent outside. Flat vector-like graphics, absolutely no texture, gradients, shadows, 3D, captions, extra words or presentation decoration. Tile fills 90%, monogram fills 68% of square canvas. Make it look designed by a top identity designer.",
+      "source": "/Users/joe/.codex/generated_images/01a15a12-8e86-7313-9654-314f703f4495/exec-daf24fdc-c56e-4e9a-8878-513764a43be0.png"
+    }
+  ]
+}

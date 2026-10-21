@@ -6,7 +6,7 @@ import { accountRule, normalizeAccountRules } from './account-rules.js';
 import { PROVIDERS, connectionFields, connectionIdentity } from './connection.js';
 export { PROVIDERS } from './connection.js';
 export const DEFAULTS = {
-  enabled: true, filterMode: 'ai', threshold: 0.5, duplicates: true,
+  enabled: true, filterMode: 'ai', threshold: 0.5, duplicates: false,
   highlightUseful: true, radar: true, dailyLimit: 10000,
   customRule: '', wordRules:[], symbolHint:false, spamGuard:true, allowlist: [], blocklist: [], accountRules: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
 };

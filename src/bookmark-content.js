@@ -84,7 +84,7 @@ function scan(){
   mount(region);appearance();if(!headers.length||headers.some(n=>!n.isConnected))discoverHeaders(region.closest('[data-testid=primaryColumn]'));else position();
   if(start)void initialize();else if(active)void collect();else render();
 }
-function schedule(){if(!timer)timer=setTimeout(scan,250);}
+function schedule(){if(globalThis.location&&(bookmarkPath(location.pathname)||host)&&!timer)timer=setTimeout(scan,250);}
 new MutationObserver(records=>{if(records.some(r=>!host?.contains(r.target)))schedule();}).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['href','data-testid','aria-selected']});
 const theme=new MutationObserver(schedule);for(const n of [document.body,document.documentElement])theme.observe(n,{attributes:true,attributeFilter:['style','class']});
 chrome.runtime.onMessage?.addListener(message=>{

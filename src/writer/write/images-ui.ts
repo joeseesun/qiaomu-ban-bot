@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import { toast } from './editor/dom';
 import { ACCEPTED_IMAGE_TYPES, ImageUrlCache, fetchRemoteImage, imageUrlFor, saveImage } from './images';
 import { t } from '../utils/ui-text';
+import { authorizeRemoteMedia } from './media-permissions';
 
 export const imageUrls = new ImageUrlCache();
 
@@ -36,6 +37,10 @@ export async function localizeRemoteImages(editor: Editor, quiet = false): Promi
 	const targets: { src: string }[] = [];
 	editor.state.doc.descendants(node => { if (node.type.name === 'image' && /^https?:/i.test(String(node.attrs.src))) targets.push({ src: String(node.attrs.src) }); });
 	if (!targets.length) { if (!quiet) toast(t('文章里的图片都已经在本地了')); return; }
+	if (!quiet) {
+		try { await authorizeRemoteMedia(targets.map(item => item.src)); }
+		catch (error) { toast((error as Error).message, 'error'); return; }
+	}
 	let saved = 0; let failed = 0;
 	for (const { src } of [...new Map(targets.map(item => [item.src, item])).values()]) {
 		try {

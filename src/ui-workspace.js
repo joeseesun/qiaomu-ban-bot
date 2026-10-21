@@ -1,4 +1,5 @@
-import { SEARCH_TEMPLATES,buildSearch,searchURL,normalizeSearch,templateSearch,describeSearch } from './search.js';
+import { SEARCH_TEMPLATES,SEARCH_TEMPLATE_CATEGORIES,buildSearch,searchURL,normalizeSearch,templateSearch,describeSearch } from './search.js';
+import { attachHandleSuggest } from './contact-picker.js';
 import { formatFollowers } from './evidence.js';
 
 export function initWorkspaceUI({send,notice,glyph}){
@@ -14,17 +15,44 @@ export function initWorkspaceUI({send,notice,glyph}){
   function preview(persist=true){$('ws-date-fields').hidden=$('ws-period').value!=='custom';try{const f=filters();$('ws-search-summary').textContent=describeSearch(f);$('ws-query-preview').textContent=buildSearch(f);$('ws-search-error').hidden=true;if(persist&&view==='search'){const params=new URLSearchParams({draft:JSON.stringify(f)});history.replaceState(null,'',location.pathname+location.search+'#workspace/search?'+params);}}catch(e){const empty=/^先填关键词|^先写一点/.test(e.message);$('ws-query-preview').textContent=empty?'填写条件后在这里预览':'';if(!empty)$('ws-search-summary').textContent='请检查搜索条件';$('ws-search-error').textContent=empty?'':e.message;$('ws-search-error').hidden=empty;}}
   function download(name,text,type='application/json'){const blob=new Blob([text],{type}),u=URL.createObjectURL(blob),a=el('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
   function searchNow(f){const a=link('',searchURL(f));a.click();}
-  for(const [i,t]of SEARCH_TEMPLATES.entries())$('ws-templates').append(action(t.name,()=>{setFilters(templateSearch(i,owner));editing=null;$('ws-search-name').value=t.name;$('ws-search-category').value=t.category;}));
+  const FIELD_NAMES={all:'关键词',from:'谁发的',to:'回复给谁',mention:'提到了谁'};
+  const placeholders=Object.fromEntries(Object.keys(FIELD_NAMES).map(k=>[k,$('ws-'+k).placeholder]));
+  const restorePlaceholders=()=>{for(const[k,v]of Object.entries(placeholders))$('ws-'+k).placeholder=v;};
+  for(const k of['from','to','mention'])attachHandleSuggest($('ws-'+k),{send,getOwner:()=>owner});
+  function applyTemplate(t,card){
+    setFilters(templateSearch(t.id,owner));editing=null;restorePlaceholders();
+    $('ws-search-name').value=t.name;$('ws-search-category').value=t.category;$('ws-save-new').hidden=true;
+    for(const n of $('ws-templates').querySelectorAll('.template-card'))n.setAttribute('aria-pressed',String(n===card));
+    const target=$('ws-'+(t.focus||'all'));if(t.sample)target.placeholder='例如：'+t.sample;
+    const more=target.closest('details');if(more)more.open=true;
+    target.focus({preventScroll:true});target.select?.();target.scrollIntoView({block:'center'});
+    notice(t.focus?`已套用「${t.name}」，填上${FIELD_NAMES[t.focus]}就能搜。`:'已套用模板，可以继续修改。');
+  }
+  const tabs=el('div',null,'template-tabs');tabs.setAttribute('role','group');tabs.setAttribute('aria-label','模板分类');
+  const grid=el('div',null,'template-grid');
+  const showCategory=c=>{for(const b of tabs.children)b.setAttribute('aria-pressed',String(b.dataset.category===c));for(const n of grid.children)n.hidden=!!c&&n.dataset.category!==c;};
+  for(const c of['',...SEARCH_TEMPLATE_CATEGORIES]){const b=el('button',c||'全部');b.type='button';b.dataset.category=c;b.onclick=()=>showCategory(c);tabs.append(b);}
+  for(const t of SEARCH_TEMPLATES){
+    const card=action(t.name,()=>applyTemplate(t,card));
+    let hint=t.desc;if(!hint)try{hint=describeSearch(t.filters);}catch{hint=t.category;}
+    card.className='template-card';card.dataset.category=t.category;card.setAttribute('aria-pressed','false');
+    const head=el('b',t.name);card.replaceChildren(head,el('small',hint));
+    if(t.focus)card.append(el('span','改'+FIELD_NAMES[t.focus],'template-focus'));
+    grid.append(card);
+  }
+  $('ws-templates').replaceChildren(tabs,grid);showCategory('');
+  const saveOpen=open=>{$('ws-save-details').open=open;$('ws-save-toggle').setAttribute('aria-expanded',String(open));if(open)$('ws-search-name').focus();};
+  $('ws-save-toggle').onclick=()=>{try{buildSearch(filters());saveOpen(!$('ws-save-details').open);}catch(e){notice(e.message,true);}};
   $('ws-search-form').oninput=()=>preview();
   $('ws-search-form').onsubmit=e=>{e.preventDefault();try{searchNow(filters());}catch(error){notice(error.message,true);}};
   $('ws-copy-query').onclick=async()=>{try{await navigator.clipboard.writeText(buildSearch(filters()));notice('搜索语句已复制。');}catch(e){notice(e.message,true);}};
-  $('ws-reset').onclick=()=>{setFilters({});editing=null;$('ws-search-name').value='';$('ws-search-category').value='';$('ws-save-new').hidden=true;};
-  async function saveSearch(fresh=false){const expected=owner;await send({type:'search-save',owner:expected,search:{id:fresh?null:editing,name:$('ws-search-name').value,category:$('ws-search-category').value,pinned:$('ws-search-pinned').checked,filters:filters()}});if(owner===expected){editing=null;$('ws-save-new').hidden=true;await load(true);notice('搜索已保存。');}}
+  $('ws-reset').onclick=()=>{setFilters({});restorePlaceholders();editing=null;$('ws-search-name').value='';$('ws-search-category').value='';$('ws-save-new').hidden=true;saveOpen(false);for(const n of $('ws-templates').querySelectorAll('.template-card'))n.setAttribute('aria-pressed','false');};
+  async function saveSearch(fresh=false){const expected=owner;await send({type:'search-save',owner:expected,search:{id:fresh?null:editing,name:$('ws-search-name').value,category:$('ws-search-category').value,pinned:$('ws-search-pinned').checked,filters:filters()}});if(owner===expected){editing=null;$('ws-save-new').hidden=true;saveOpen(false);await load(true);notice('已存为常用搜索，在下方列表可以随时再搜。');}}
   $('ws-save-form').onsubmit=e=>{e.preventDefault();void saveSearch().catch(e=>notice(e.message,true));};$('ws-save-new').onclick=()=>saveSearch(true).catch(e=>notice(e.message,true));
-  function editSearch(row){editing=row.id;setFilters(row.filters);$('ws-search-name').value=row.name;$('ws-search-category').value=row.category;$('ws-search-pinned').checked=row.pinned;$('ws-save-details').open=true;$('ws-save-new').hidden=false;$('ws-search-name').focus();}
+  function editSearch(row){editing=row.id;setFilters(row.filters);$('ws-search-name').value=row.name;$('ws-search-category').value=row.category;$('ws-search-pinned').checked=row.pinned;$('ws-save-new').hidden=false;$('ws-search-form').scrollIntoView({block:'start',behavior:'smooth'});saveOpen(true);}
   async function remove(store,row){if(!confirm('移除这条本机记录？原帖不受影响。'))return;await send({type:'workspace-remove',store,owner:row.owner,id:row.id});await load();}
-  const headline=row=>{const head=el('div',null,'workspace-row-head');head.append(el('b',row.name||row.displayName||'@'+row.handle),el('span',row.handle?'@'+row.handle:row.category||'未分类','hint'));return head;};
-  function searchRow(row){const card=el('article',null,'workspace-row');card.append(headline(row));let query;try{query=buildSearch(row.filters);}catch{query='条件需要重新编辑';}card.append(el('code',query,'saved-query'));const buttons=el('div',null,'workspace-actions');buttons.append(action('在 X 搜索',()=>searchNow(row.filters)),action('编辑',()=>editSearch(row),'Pencil'),action(row.pinned?'取消置顶':'置顶',async()=>{await send({type:'search-save',owner:row.owner,search:{...row,pinned:!row.pinned}});await load();},'Pin'),action('移除搜索',()=>remove('searches',row),'Trash2'));card.append(buttons);return card;}
+  const headline=row=>{const head=el('div',null,'workspace-row-head');head.append(el('b',row.name||row.displayName||'@'+row.handle));if(row.handle)head.append(el('span','@'+row.handle,'hint'));else if(row.category)head.append(el('span',row.category,'tag'));if(row.pinned&&!row.handle)head.append(el('span','置顶','tag'));return head;};
+  function searchRow(row){const card=el('article',null,'workspace-row search-row');const body=el('div',null,'search-row-body');body.append(headline(row));let query,summary;try{query=buildSearch(row.filters);summary=describeSearch(row.filters);}catch{query='';summary='条件需要重新编辑';}body.append(el('p',summary,'search-row-summary'));if(query)body.append(el('code',query,'saved-query'));card.append(body);const go=action('搜索',()=>searchNow(row.filters));go.prepend(glyph('Search'));const buttons=el('div',null,'workspace-actions');buttons.append(go,action('编辑',()=>editSearch(row),'Pencil'),action(row.pinned?'取消置顶':'置顶',async()=>{await send({type:'search-save',owner:row.owner,search:{...row,pinned:!row.pinned}});await load();},'Pin'),action('移除搜索',()=>remove('searches',row),'Trash2'));card.append(buttons);return card;}
   function showInbox(row){
     selectedInbox=row.id;const box=$('ws-inbox-detail');box.hidden=false;
     const top=el('div',null,'inbox-detail-top'),contextLink=link('查看原帖',`https://x.com/${row.handle}/status/${row.id}`);contextLink.className='quiet';
@@ -70,16 +98,16 @@ export function initWorkspaceUI({send,notice,glyph}){
         const row=page.items.find(r=>r.id===selectedInbox)||page.items[0];if(row)showInbox(row);else{$('ws-inbox-detail').hidden=true;selectedInbox=null;}
         if(owner){const counts=await send({type:'inbox-summary',owner:selectedOwner});if(generation!==epoch)return;$('ws-inbox-counts').textContent=`共 ${counts.pending+counts.snoozed+counts.done} 条`;for(const b of document.querySelectorAll('[data-inbox-status]'))b.querySelector('small').textContent=counts[b.dataset.inboxStatus];}
       }
-      if(!page.items.length)list.append(el('p',!owner?'添加自己的账号后，就能保存并查看记录。':$('ws-list-query').value?'没有匹配的记录，试试其他词。':({search:'保存常用条件，下次直接搜索。',inbox:'暂时没有待回复。可以从帖子图标中加入。'}[view]),'empty-state'));
-      $('ws-page').textContent=`第 ${index+1} 页 · 每页 20 条`;$('ws-prev').disabled=index===0;$('ws-next').disabled=!next;
+      if(!page.items.length)list.append(el('p',!owner?'添加自己的账号后，就能保存并查看记录。':$('ws-list-query').value?'没有匹配的记录，试试其他词。':({search:'还没有常用搜索。设好条件后点「存为常用」，下次一键再搜。',inbox:'暂时没有待回复。可以从帖子图标中加入。'}[view]),'empty-state'));
+      $('ws-page').textContent=`第 ${index+1} 页 · 每页 20 条`;$('ws-prev').disabled=index===0;$('ws-next').disabled=!next;$('ws-pagination').hidden=index===0&&!next;$('ws-list-tools').hidden=view==='search'&&!page.items.length&&!index&&!$('ws-list-query').value;
     }finally{if(generation===epoch)list.removeAttribute('aria-busy');}
   }
   async function configure(){const expected=owner,generation=epoch,s=await send({type:'workspace-state',owner:expected});if(owner!==expected||epoch!==generation)return;$('ws-collect-mentions').checked=s.collectMentions;}
   async function open(route='search',draft=''){
-    const opening=++openEpoch;view=['search','inbox'].includes(route)?route:'search';epoch++;const state=await send({type:'contacts-state',owner});if(opening!==openEpoch)return;owner=state.owner;$('ws-owner').replaceChildren();for(const o of state.owners){const n=el('option','@'+o.handle);n.value=o.handle;$('ws-owner').append(n);}$('ws-owner').value=owner;$('ws-empty-owner').hidden=!!owner;
+    const opening=++openEpoch;view=['search','inbox'].includes(route)?route:'search';epoch++;const state=await send({type:'contacts-state',owner});if(opening!==openEpoch)return;owner=state.owner;$('ws-owner').replaceChildren();for(const o of state.owners){const n=el('option','@'+o.handle);n.value=o.handle;$('ws-owner').append(n);}$('ws-owner').value=owner;$('ws-owner').closest('label').hidden=state.owners.length<2;$('ws-empty-owner').hidden=!!owner;
     document.body.classList.toggle('inbox-workbench',view==='inbox');$('ws-list-layout').classList.toggle('inbox-layout',view==='inbox');$('ws-inbox-detail').hidden=true;selectedInbox=null;
-    for(const n of document.querySelectorAll('.workspace-view'))n.hidden=n.id!==`ws-${view}-view`;for(const n of document.querySelectorAll('[data-ws-view]'))n.setAttribute('aria-pressed',String(n.dataset.wsView===view));$('ws-import').hidden=view!=='search';$('ws-export').textContent=view==='search'?'导出搜索 JSON':'导出记录 JSON';$('ws-list-query').placeholder={search:'名称、关键词或分类',inbox:'正文、账号或昵称'}[view];
-    $('ws-library-actions').hidden=view==='inbox';
+    for(const n of document.querySelectorAll('.workspace-view'))n.hidden=n.id!==`ws-${view}-view`;for(const n of document.querySelectorAll('[data-ws-view]'))n.setAttribute('aria-pressed',String(n.dataset.wsView===view));$('ws-import').hidden=view!=='search';$('ws-export').textContent='导出';$('ws-list-query').placeholder={search:'名称、关键词或分类',inbox:'正文、账号或昵称'}[view];
+    $('ws-list-head').hidden=view==='inbox';
     if(draft){try{setFilters(JSON.parse(draft));}catch{notice('链接中的搜索条件无效，请重新填写。',true);}}else if(view==='search')preview(false);
     if(owner)await configure();if(opening===openEpoch)await load(true);
   }

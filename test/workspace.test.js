@@ -11,7 +11,7 @@ test('query builder preserves word semantics, quotes injection-like text and inc
  assert.equal(new URL(searchURL({phrase:'from:admin & q=evil'})).searchParams.get('q'),'"from:admin & q=evil"');
  assert.match(buildSearch({all:'AI',period:'7d'},new Date(2026,9,19,13)),/since:2026-10-13 until:2026-10-20/);
  assert.match(buildSearch({all:'AI',period:'7d'},new Date(2026,9,20,13)),/since:2026-10-14 until:2026-10-21/);
- assert.equal(buildSearch(templateSearch(2,'me')),'from:me -filter:nativeretweets min_faves:50');
+ assert.equal(buildSearch(templateSearch('my-top','me')),'from:me -filter:nativeretweets min_faves:50');
  for(const f of [{from:'bad handle!'},{likes:-1},{reposts:1.5},{since:'2026-02-31'},{since:'2026-10-20',until:'2026-10-10'},{}])assert.throws(()=>buildSearch(f));
 });
 test('saved search import validates the entire batch and excludes arbitrary fields',async()=>{

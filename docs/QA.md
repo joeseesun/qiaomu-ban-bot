@@ -1,3 +1,27 @@
+# 0.5.1 Preview 合并发布验收
+
+更新：2026-10-21（Asia/Shanghai）。在 `origin/main` 的 0.5.0 及商店送审记录基础上，合入当前工作区全部源代码、回归和图标设计资料；`.claude/launch.json` 为本机启动配置，未纳入发布。
+
+- 本次 `npm run package`：177 项 Node + 322 项 Vitest 全通过，无失败或跳过；Chrome MV3 构建和 ZIP 成功。服务端 5 项测试通过；`npm audit --omit=dev` 为 0 漏洞。
+- 删除当前帖子后被自动保存重建、显式保存失败后后续无法重试，两项回归在旧实现均失败，修复后均通过。
+- 生产界面本地浏览器预览：发帖输入、排期、自动保存、桌面和 390px 窄屏无横向溢出；截图 `/tmp/qxh-release-051-desktop.png`、`/tmp/qxh-release-051-mobile.png`。该界面使用示例数据及本机预览存储。
+- ZIP 与当前 `dist/chrome` 所有文件逐字节一致，后台、普通发帖、X Articles、图库和后台图片页均非空并包含于包中；manifest 版本 0.5.1。新增权限与本机队列数据已披露在 PRIVACY.md 和 store/declarations.json。
+- 安装包 SHA-256：`4b925b97cc994212015e3e66bf5eea1f9be08d756c4ef3eda6b82afc8c187d5a`。固定名包为相同字节。
+- 未在本轮重验真实模型、真实 X 普通发帖/定时、媒体上传转码、停止和续传，也未提交 Chrome 商店。下面旧记录保留原时间与验证边界。
+
+---
+
+# 0.4.2+ 发帖排期、常用 @ 互动与搜索模板（未发版）
+
+更新：2026-10-21。在未提交的 `codex/settings-simplify-042` 工作树上继续，没有提交。
+
+- 自动测试：`npm test` 175 项 Node（新增发帖存储 / 媒体分块、点赞转帖收录、X 填入夹具、侧栏模板与联系人建议）、269 项 Vitest，0 失败。
+- 浏览器预览（`npm run preview`，demo）：发帖页写正文、`@` 联系人下拉、自动保存、下一个空档、PNG 附件与格式错误提示、每周时间、深色模式；搜索页模板分组、套用后聚焦待改栏位和联系人下拉。
+- X 填入只在 jsdom 夹具里验证：正文粘贴、`fileInput` 附件、定时面板 `<select>` 预选、绝不点击「发帖」或「确认」、已有草稿不覆盖。
+- 未验证：真实 X 的发帖框 / 定时面板选择器与中文标签、真实媒体上传与转码、点赞转帖按钮翻转、`@@` 在 Draft 编辑器中的替换、通知权限与闹钟到点、已安装扩展运行。新增必需权限 `alarms`（无安装警告）、可选权限 `notifications`；商店声明尚未更新。
+
+---
+
 # 0.5.0 Preview 写作、联网与图库
 
 更新：2026-10-21（Asia/Shanghai）。发布分支从 `09c249d` 建立，隔离原工作区的未完成改动。Clipper 对照范围与来源见 [WRITER-PARITY.md](WRITER-PARITY.md)。
@@ -386,3 +410,77 @@
 - Chrome 应用商店审核和分发。
 
 手动安装步骤与验收清单见 [README](../README.md)。未来正式版应补齐安装后的真实流程，并积累人工标签与预测回测。
+
+## 2026-10-21 页面性能检查与优化
+
+基线：本次任务开始时的工作区快照（HEAD `773c5c7a0110ff3ff94ecbcc863bb4b2907b0309`，含已有未提交改动），与本次优化后的同一工作区比较。未升级用户已加载的扩展、未发布。
+
+处理了三个实测开销：多个内容脚本对无关 DOM 更新重复扫描、每条帖子单独请求作者资料、详情页逐条解析时反复遍历相同时间线。增加宿主变化过滤（忽略扩展自己的控件）、每批最多 50 个 ID 的资料消息、一轮扫描内复用结构索引。长扫描每约 8ms 主动让出主线程；页面结构、路由、账号或配置变化时停止过期扫描。非书签页的滚动不再安排书签扫描。
+
+浏览器证据：Ego Chromium，独立 localhost 合成 X 详情页，300 条固定帖子；加载 manifest 对应的 7 个页面脚本。生产源码经 esbuild 构建，写作桥接使用本次构建产物。Chrome runtime 及后台返回值为夹具，不联网、不包含用户帖子或凭据。`PerformanceObserver` 记录原生 `longtask`；查询统计覆盖 Document/Element 的 `querySelectorAll`。启动观察约 2.4s，随后 5 轮每次滚动 200px 并更新一条回复文字，间隔约 280ms。
+
+| 300 帖子场景 | 优化前 | 优化后 |
+| --- | ---: | ---: |
+| 启动 DOM 查询次数 | 262,225 | 17,435 |
+| 启动作者资料消息 | 600 | 12 |
+| 启动 ≥50ms 长任务 | 4 | 0 |
+| 滚动与更新 DOM 查询次数 | 557,144 | 46,266 |
+| 滚动与更新 ≥50ms 长任务 | 10 | 0 |
+| 浏览器脚本错误 | 0 | 0 |
+
+另一次 100 帖子夹具中，无关区域更新 10 次，DOM 查询从 151,230 次降为 0 次；两版静止阶段均无重复时间线扫描。作者资料消息是页面内通信，不是模型网络请求。分段后异步续体不全在初始 timer 回调内，因此不以 timer 回调累计耗时表示总 CPU 时间。
+
+自动回归：`test/performance.test.js` 覆盖批量上限与响应 ID 隔离、无关更新及非书签页滚动不扫描、结构只读一次且下一轮识别节点复用、宿主节点替换与账号变化、分段让出线程并终止过期任务。前两项在修改前均失败。`npm test`：164 项 Node 测试 + 269 项 Vitest 测试通过；`npm run build` 通过。测试日志仍有既有书签设置夹具的 jsdom `window.scrollTo` 未实现提示；最终日志无 `Uncaught` / `ReferenceError`，浏览器夹具无脚本错误。
+
+代码核对：页面脚本仅匹配 X/Twitter、顶层 frame、`document_idle`；写作编辑器主体在扩展页面加载；模型请求经后台并发上限 3、等待队列上限 24、相同请求合并并使用缓存，可视区附近才触发自动判断。`document_idle` 不代表零开销，页面 DOM 工作仍与 X 共享主线程。
+
+边界：这是合成页面中的脚本性能验证，不能代替真实 Chrome 扩展隔离世界、真实后台 IndexedDB/网络、真实 X 的首屏 LCP/INP、低性能设备和长时间滚动验收；没有声称实际安装版本已更新，或保证所有设备零长任务。原始临时证据在 `/tmp/qxh-perf-20261021/`（含前后 bundle、浏览器 JSON 和测试/构建日志）。
+
+参考：[Chrome 内容脚本加载时机](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)、[web.dev 长任务与主线程分段](https://web.dev/articles/optimize-long-tasks/)。
+
+### 本机更新验收（2026-10-21）
+
+用户随后明确要求更新。通过 Chrome 原生扩展管理界面，现场核对向阳资料中的 `bbhkkihipkdeakcbhpheclgkpdhamdfl`、版本 `0.4.2` 和加载来源 `~/文稿/ChatGPT/qiaomu-x-helper/dist/chrome`。点击该扩展自己的重新加载，Chrome 回执“已重新加载”，Service Worker 恢复为有效视图，扩展仍已启用；沿用原身份，没有卸载或清空浏览器存储。
+
+安装目录产物 SHA-256：`content.js` = `ed689b1a32d155142cf6fa968df8527b3052ebb40c6a8edec7bde07b152f4c30`；`workspace-content.js` = `da6028fb2949ecc98b5e23434b101df0feb849ff41de2d3c4c3d7817786475df`。二者均包含分段扫描、结构复用和批量资料消息。
+
+新开真实 X 页面验证实际安装运行：初始 5 个帖子、5 个待回复控件、5 个作者资料控件和 1 个快捷搜索侧栏；已有待回复记录仍显示选中。滚动后为 7 个帖子与 7 个待回复控件，重复控件 0、横向溢出 0、插件控件错误 0；采集到的控制台错误中，该扩展来源错误与扩展失效提示均为 0。没有向 X 写入、点赞、关注或发送。原有 X 标签未强制刷新，旧标签需要在保存草稿后刷新才能换用新版页面脚本。
+
+本次已验证“本机原扩展重载 + 真实 X 加载和滚动冒烟”，不把它当作真实 X 性能前后剖析、长稳或模型调用验收；性能数值仍以上面的合成压测为准。GitHub、商店发布状态没有变化。
+
+## 2026-10-21 全量迁入 Clipper 的 X 文章发帖改动
+
+来源按实际交付状态定位：`/Users/joe/Documents/乔木剪藏测试/CURRENT.json` 指向 `/Users/joe/Documents/ChatGPT/qiaomu-clipper-image-captions`，源码基线 `cbd122c03f41ad46025a1050f33f9bd957260b0f` 加未提交增量，交付源摘要 `592e4bd25db83e3ee7eb2c17dd1d17a3ce54f384ccaa223837691bf490da7fd8`。Clipper 主目录仍在旧提交，不能作为此次迁移源。先冻结相关文件，完成时与来源复核，相关文件期间没有漂移；源工作树保持只读。
+
+| 迁移能力 | 本项目落点与验证 |
+| --- | --- |
+| 任务隔离、旧连接不串文件、安全重传、超时及取消清理 | `src/writer/x-publish/{main-world.js,x-content.ts,stop.ts}`；transport、lifecycle 回归 |
+| GIF / MP4、Map / Immutable 媒体实体、上传与处理状态分离、原生 fetch/XHR 观察及清理 | `main-world.js`、`shared.js`、`media-messages.ts`；media-status、media-recovery、preflight 回归 |
+| 原草稿继续剩余、已完成媒体不重复上传、迟到结果核对、用户改稿后停止、失败重新新建草稿 | `main-world.js`、`x-content.ts`、`write/publish/x.ts`；resume、x-retry、recovery-card 回归 |
+| 空文件检查、受限下载及取消、GIF 动画保留、MP4 直接交接、封面限制 | `write/images.ts`、`write/publish/x.ts`、`x-prepare.test.ts`；x-images 回归 |
+| 普通图文导入保留直接 MP4 及原顺序 | `write/source-import.ts`；混合文章导入回归 |
+
+完整迁入上述 X 引擎目录的生产模块、类型声明和来源回归。目标适配：保留 X Helper 的 manifest 静态 MAIN/ISOLATED 注入，驱动等待页面完成并检查取消，不引入 `scripting` 权限；协议端口同步升级为 v2。浏览器脚本移除仅供 Node CommonJS 使用的导出分支。来源测试硬编码路径映射到 `src/writer/`，编译片段改用已有 esbuild，不新增 TypeScript 依赖；恢复卡测试使用 Node 环境加显式 JSDOM，避免 jsdom 跨 realm 的 TextEncoder/Uint8Array 冲突。保留目标现有中文界面，不迁入无关的 Clipper 九语词典与其他发布平台。`x-prepare.ts` 与源文件本已相同。
+
+验收：
+
+- 修改前先运行来源的媒体准备和混合媒体回归：8 失败、6 通过，证明旧版缺少相关能力（旧下载不支持取消，造成额外未处理拒绝；修复后消失）。
+- 迁入的 X 专项测试及导入回归 65 项通过；另补 3 项适配回归，生产 writer driver 与实际构建内容脚本完成 v2 ping、拒绝错误路由、静态加载和取消检查。
+- 最终 `npm test`：175 项 Node + 322 项 Vitest（50 个文件），无失败/跳过/未处理错误；`npm run build` 成功，无构建警告。`git diff --check` 通过。当前工作区的其他在途功能继续保留，没有替它们提交。
+- 本地浏览器夹具调用实际 `publishToX` 与状态卡代码，后台/平台边界为替身：首次错误显示 20/25 已保留，点击「继续剩余」发送 `resume:true,forceNew:false` 后成功；另一轮「重新写入」发送 `resume:false,forceNew:true` 后成功。普通视口及 390×844 下无横向溢出，窄屏恢复卡宽 340px、弹窗宽 356px、四按钮均可见。
+- 原扩展 `bbhkkihipkdeakcbhpheclgkpdhamdfl`，版本仍为本机开发版 0.4.2，Chrome 回执“已重新加载”，Service Worker 启动。新开真实 X 文章列表，控制台记录来自该 ID 的 `x-publish-main.js` 的 `[Qiaomu X] ready`，插件错误与失效提示均为 0。没有创建或修改真实 X 草稿，没有操作正在编辑的 Clipper 写作页，也没有刷新原有 X 草稿。
+- 实际加载产物 SHA-256：`x-publish-main.js` = `d1d1b4ec75392d06e83fe82721068262f3dbf3b6042e08452c78d6d030294efe`；`x-publish-content.js` = `f9e01b0972da1a87039fafa9e22d09316aa74f46875dfb545da728c65eb194ce`。本次不增加 X 专属权限；工作区原有的普通发帖、定时功能等增量并非本次 X Articles 迁移。
+
+限制：本机代码、构建和实际引擎加载已验证；真实 GIF/MP4 上传、转码、停止、续传和最终保存仍需真实平台验收。断点只在当前 X 页内存中，刷新/关页、重载扩展、关闭写作页或恢复弹窗会使恢复入口失效；不能恢复升级之前的旧任务。原有 X 标签保存草稿后刷新才加载新脚本。没有进行公开发布、商店提交，也没有更新另一个 0.5.0 发布工作区。
+
+原始证据与源快照：`/tmp/qxh-x-parity-20261021/`。参考：[X Articles 支持的内容](https://help.x.com/en/using-x/articles)、[Chrome 静态内容脚本与隔离世界](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)。
+
+## 2026-10-21 私信页「待回复」紧凑导航修复
+
+真实 X `/i/chat` 的窗口宽 1920px，但原生侧栏在私信布局完成后仅 52px；旧实现依赖 `@media(max-width:1265px)`，导致待回复按钮仍带文字、宽 131.14px，图标被挤偏。改为宿主跟随导航宽度，并用容器查询在紧凑导航中隐藏文字、居中图标。图标使用与 X 相同的 1.75rem 尺寸，保留「待回复」无障碍名称和悬停提示。无新增监听器、轮询或 DOM 扫描。
+
+验证：13 项工作台集成/性能回归通过，构建与 `git diff --check` 通过。1440px 合成页面先复现旧版溢出，再验证新版 52px 侧栏内按钮宽 50.25px、图标 26.25px；切换到 240px 导航后恢复文字，再收起自动隐藏，390px 无横向溢出。
+
+本机原扩展 `bbhkkihipkdeakcbhpheclgkpdhamdfl` 已重新加载。真实私信最终布局：原生搜索与待回复外层均为 52×58.25px，图标均为 26.25px、左边界均为 348.375px；文字计算样式 `display:none`。私信布局会先呈现宽导航再收窄，因此以最终导航边界确认，不仅等待链接出现。仅验证新开的私信列表页，没有进入会话、输入或发送；截图只包含搜索、待回复、通知三个导航图标。
+
+当前 `workspace-content.js` SHA-256：`c7d34be7c3c16a01d850bf6ef2542a9315d4e588ec524b1e3f45a99a8dc38808`。临时夹具与截图：`/tmp/qxh-dm-nav-20261021/`。未发布 GitHub 或商店版本。

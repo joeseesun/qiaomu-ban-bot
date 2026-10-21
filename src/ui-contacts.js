@@ -1,4 +1,5 @@
 import { contactHandle, avatarURL } from './contacts.js';
+import { interactionLabel } from './contact-picker.js';
 export function initContactsUI({send,notice,glyph}){
   const $=id=>document.getElementById(id);
   let owner='',owners=[],index=0,cursors=[null],next=null,epoch=0,timer;
@@ -14,14 +15,14 @@ export function initContactsUI({send,notice,glyph}){
       const page=owner?await send({type:'contacts-page',owner,query:$('contact-search').value,pinned:$('contacts-pinned').checked,before:cursors[index]}):{items:[],next:null};
       if(gen!==epoch)return;next=page.next;list.replaceChildren();
       if(!page.items.length&&index){index--;return load();}
-      if(!page.items.length){const p=document.createElement('p');p.className='empty-state';p.textContent=!owner?'先打开 X，让插件识别你的登录账号。也可在下方手动填写。':$('contact-search').value?'没有找到。试试 @账号、昵称或备注。':'把下次还想聊的人，留在这里。回复成功后自动记录，也可以手动添加。';list.append(p);}
+      if(!page.items.length){const p=document.createElement('p');p.className='empty-state';p.textContent=!owner?'先打开 X，让插件识别你的登录账号。也可在下方手动填写。':$('contact-search').value?'没有找到。试试 @账号、昵称或备注。':'把下次还想聊的人，留在这里。回复、点赞或转帖后自动记录，也可以手动添加。';list.append(p);}
       for(const c of page.items){
         const row=document.createElement('article');row.className='contact-row';row.dataset.handle=c.handle;
         const avatar=document.createElement('span');avatar.className='contact-avatar';avatar.textContent=(c.displayName||c.handle).slice(0,1).toUpperCase();
         if(avatarURL(c.avatar)){const img=document.createElement('img');img.src=c.avatar;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.onerror=()=>img.remove();avatar.append(img);}
         const info=document.createElement('div');info.className='contact-info';
         const link=document.createElement('a');link.href=`https://x.com/${c.handle}`;link.target='_blank';link.rel='noopener noreferrer';link.textContent=c.displayName||'@'+c.handle;
-        const handle=document.createElement('span');handle.textContent='@'+c.handle;const meta=document.createElement('small');meta.textContent=c.note||(c.replyCount?`回复过 ${c.replyCount} 次 · ${new Date(c.lastReplyAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}`:'手动添加');info.append(link,handle,meta);
+        const handle=document.createElement('span');handle.textContent='@'+c.handle;const meta=document.createElement('small');const seen=c.lastInteractionAt||c.lastReplyAt;meta.textContent=c.note||(interactionLabel(c)?`${interactionLabel(c)} · ${new Date(seen).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}`:'手动添加');info.append(link,handle,meta);
         const actions=document.createElement('div');actions.className='contact-actions';
         const pin=button(`${c.pinned?'取消置顶':'置顶'} @${c.handle}`,'Pin',async()=>{await send({type:'contacts-save',owner,contact:{...c,pinned:!c.pinned}});await load(true);});pin.setAttribute('aria-pressed',String(c.pinned));
         actions.append(pin,button(`复制 @${c.handle}`,'Copy',async()=>{await navigator.clipboard.writeText('@'+c.handle);notice(`已复制 @${c.handle}`);}),button(`编辑 @${c.handle}`,'Pencil',()=>edit(c)),button(`移除 @${c.handle}`,'Trash2',async()=>{
