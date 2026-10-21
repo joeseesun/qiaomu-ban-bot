@@ -1,8 +1,15 @@
 # Chrome 应用商店提交记录
 
-## 0.5.2 的分发边界（2026-10-21）
+## 0.5.2 已提交审核（2026-10-21）
 
-0.5.2 仅发布 GitHub Preview，统一包含 PR #26 的侧栏自定义和 PR #27 的常用 @ 说明优化，以及侧栏保存失败后的重试修复；未上传或提交 Chrome 商店。下方旧版本的审核状态不代表本版已送审。
+- 提交时间：**2026-10-21 14:19（Asia/Shanghai）**。后台出现「已将您的扩展程序提交送审」，关闭确认框后状态页回读「状态：待审核 / 该草稿尚待审核」。提交前核对「通过审核后自动发布」为选中状态。
+- 已取消此前仍待审核的 0.5.0，上传并替换为 **0.5.2**；文件包页确认草稿版本及 `storage, offscreen, alarms, nativeMessaging, notifications, host permission`。已发布栏仍为 **0.2.0**。**本次为送审成功，尚未核实新版审核通过或公开发布。**
+- [Chrome 商店页面](https://chromewebstore.google.com/detail/npbekbjlplpiopckedfiggpdkgaaflll) · [GitHub v0.5.2 Preview](https://github.com/joeseesun/qiaomu-x-helper/releases/tag/v0.5.2)。沿用原条目 `npbekbjlplpiopckedfiggpdkgaaflll`。
+- 安装包：`qiaomu-x-helper-0.5.2-chrome.zip`，240 个文件、4,496,424 字节；SHA-256 `3f3f95a91536efcaa897c8f6ef56912f8a5db47833695acc2baa287d7e1744ae`。与已验证的 GitHub Release 包相同，代码基线 `9b97ee5be0de9a23bed2bb2a8707d62c14075fdc`，未重新构建或修改 Release 资产。
+- 保存并回读：中文介绍补充侧栏自定义和本机发帖安排；补齐 `alarms`、可选 `notifications`、普通帖子独立存储及公共媒体域名理由；沿用六项数据类别、无远程代码声明及当前隐私 URL。测试说明更新为 453 字摘要，完整步骤见 `reviewer-notes.txt`。
+- 商店图标换为本包内的 128px 木/X 图标；保留五张功能截图及宣传图。分发仍为免费、公开、所有地区，第三方服务费用单独说明。
+- 证据保存在本机 `artifacts/store-052/`：提交前自动发布选项、送审成功弹窗、最终状态、商品介绍、隐私选项及测试说明。账号界面截图未提交到公开仓库。
+- 0.5.2 统一包含 PR #26 的侧栏自定义、PR #27 的常用 @ 说明优化及侧栏保存重试修复。既有 519 项测试、CI 与包完整性证据见 [QA](../QA.md)。此次未重载本机扩展，也未新增真实 X 上传/续传、模型调用或通知到点验证；送审不替代这些验收。
 
 ## 0.5.1 的分发边界（2026-10-21）
 
