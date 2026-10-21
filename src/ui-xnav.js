@@ -26,10 +26,10 @@ export function initXNavUI({send,notice}){
   }
   const iconButton=(label,node,run)=>{const b=el('button',null,'icon-control');b.type='button';b.title=label;b.setAttribute('aria-label',label);b.append(lucide(node,17));b.onclick=run;return b;};
 
-  async function save(next,focus){
-    const run=saving.then(async()=>{state=await send({type:'x-nav-save',config:{hidden:next.hidden,order:next.order,custom:next.custom}});render(focus);});
+  async function save(update,focus){
+    const run=saving.then(async()=>{const next=typeof update==='function'?update(state):update;state=await send({type:'x-nav-save',config:{hidden:next.hidden,order:next.order,custom:next.custom}});render(focus);});
     saving=run.catch(()=>{});
-    try{await run;}catch(e){notice(e.message,true);render();}
+    try{await run;return true;}catch(e){notice(e.message,true);render();return false;}
   }
   function render(focus){
     const rows=navRows(state,state.seen),list=$('xnav-list');list.replaceChildren();
@@ -38,14 +38,14 @@ export function initXNavUI({send,notice}){
       const li=el('li',null,'xnav-row');li.dataset.key=row.key;li.classList.toggle('off',row.hidden);
       const text=el('span',null,'xnav-text');text.append(el('b',row.label),el('small',row.kind==='custom'?row.item.url.replace(/^qiaomu:/,'插件 · ').replace(/^https:\/\//,''):KIND[row.kind]));
       const actions=el('span',null,'xnav-actions');
-      const move=(delta,label,node)=>{const b=iconButton(label,node,()=>{const keys=rows.map(r=>r.key);[keys[n],keys[n+delta]]=[keys[n+delta],keys[n]];void save({...state,order:keys},{key:row.key,action:label});});b.dataset.action=label;b.disabled=n+delta<0||n+delta>=rows.length;return b;};
+      const move=(delta,label,node)=>{const b=iconButton(label,node,()=>{void save(current=>{const keys=navRows(current,current.seen).map(r=>r.key),at=keys.indexOf(row.key);if(at>=0&&at+delta>=0&&at+delta<keys.length)[keys[at],keys[at+delta]]=[keys[at+delta],keys[at]];return{...current,order:keys};},{key:row.key,action:label});});b.dataset.action=label;b.disabled=n+delta<0||n+delta>=rows.length;return b;};
       actions.append(move(-1,'上移',ArrowUp),move(1,'下移',ArrowDown));
       if(row.kind==='custom'){
         actions.append(iconButton(`编辑「${row.label}」`,Pencil,()=>openEditor(row.item)));
-        actions.append(iconButton(`删除「${row.label}」`,Trash2,()=>{const key='custom:'+row.item.id;void save({...state,custom:state.custom.filter(c=>c.id!==row.item.id),order:state.order.filter(k=>k!==key),hidden:state.hidden.filter(k=>k!==key)});notice(`已删除「${row.label}」`);}));
+        actions.append(iconButton(`删除「${row.label}」`,Trash2,async()=>{const key='custom:'+row.item.id;if(await save(current=>({...current,custom:current.custom.filter(c=>c.id!==row.item.id),order:current.order.filter(k=>k!==key),hidden:current.hidden.filter(k=>k!==key)})))notice(`已删除「${row.label}」`);}));
       }
       const sw=el('label',null,'switch small');const input=el('input');input.type='checkbox';input.setAttribute('role','switch');input.checked=!row.hidden;input.setAttribute('aria-label',`在 X 侧栏显示「${row.label}」`);sw.append(input,el('span'));
-      input.onchange=()=>void save({...state,hidden:input.checked?state.hidden.filter(k=>k!==row.key):[...state.hidden,row.key]},{key:row.key,action:'switch'});
+      input.onchange=()=>{const checked=input.checked;void save(current=>({...current,hidden:checked?current.hidden.filter(k=>k!==row.key):[...current.hidden,row.key]}),{key:row.key,action:'switch'});};
       li.append(iconFor(row),text,actions,sw);list.append(li);
     });
     $('xnav-add').disabled=state.custom.length>=MAX_CUSTOM;$('xnav-add').title=state.custom.length>=MAX_CUSTOM?`最多 ${MAX_CUSTOM} 个自定义入口`:'';
@@ -99,11 +99,11 @@ export function initXNavUI({send,notice}){
     e.preventDefault();
     if(icon.type==='image'&&!icon.value)return error('请选择一张图片，或换成图标 / Emoji。');
     let item;try{item=customItem({id:editing?.id,name:$('xnav-name').value,url:$('xnav-url').value,icon,newTab:$('xnav-newtab').checked});}catch(err){return error(err.message);}
-    const custom=editing?state.custom.map(c=>c.id===editing.id?item:c):[...state.custom,item];
-    const order=!editing&&state.order.length?[...state.order,'custom:'+item.id]:state.order;
-    await save({...state,custom,order});notice(editing?`已更新「${item.name}」`:`已添加「${item.name}」，打开的 X 页面会立即显示`);closeEditor();
+    const editingId=editing?.id;
+    if(!await save(current=>({...current,custom:editingId?current.custom.map(c=>c.id===editingId?item:c):[...current.custom,item],order:!editingId&&current.order.length?[...current.order,'custom:'+item.id]:current.order})))return;
+    notice(editingId?`已更新「${item.name}」`:`已添加「${item.name}」，打开的 X 页面会立即显示`);closeEditor();
   };
-  $('xnav-reset').onclick=async()=>{if(!confirm('恢复默认会显示 X 自带的全部入口、恢复原始顺序，并删除你添加的链接。继续吗？'))return;await save({hidden:[],order:[],custom:[]});notice('已恢复默认侧栏');};
+  $('xnav-reset').onclick=async()=>{if(!confirm('恢复默认会显示 X 自带的全部入口、恢复原始顺序，并删除你添加的链接。继续吗？'))return;if(await save({hidden:[],order:[],custom:[]}))notice('已恢复默认侧栏');};
 
   return{async open(){state=await send({type:'x-nav-state'});render();}};
 }
