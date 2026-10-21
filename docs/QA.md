@@ -11,7 +11,7 @@
 - 一次真实写作调用通过 qiaomu-llm 仅在进程内读取已有凭据：`deepseek/deepseek-flash` 返回 6 个流式片段，正文为「做好阅读笔记的实用方法」。没有保存或输出密钥，也没有把文字网关密钥用于搜索或图片服务。
 - 最终 ZIP：`qiaomu-x-helper-0.5.0-chrome.zip`；SHA-256：`57e10fad27764c0aa35b6ba34f6d65cf0523fef8aa0f8e90a8604411977a0134`。本机证据在 `artifacts/writer-parity/`，真实文字请求结果在原工作区 `artifacts/writer-live/result.json`；这些本机材料不提交仓库。
 
-**未验证与分发边界：**浏览器工具的 URL 策略拒绝扩展内部页，未绕过限制；已安装扩展的运行、真实 X 文章传输、搜索与图库供应商、云端/本机生图和全部 OAuth 登录未逐一重验。未在真实 X 新建草稿、发帖或修改账号关系。本机 Codex 需要兼容生图协议及注册当前扩展的助手，现有公开 PKG 不能假设兼容，详见 [LOCAL-HELPER.md](LOCAL-HELPER.md)。Chrome 商店开发者控制台另被权限系统以 `Not allowed` 拒绝，0.5.0 尚未上传或送审；GitHub Preview 与公开上架是不同状态。
+**未验证与分发边界：**浏览器工具的 URL 策略拒绝扩展内部页，未绕过限制；已安装扩展的运行、真实 X 文章传输、搜索与图库供应商、云端/本机生图和全部 OAuth 登录未逐一重验。未在真实 X 新建草稿、发帖或修改账号关系。本机 Codex 需要兼容生图协议及注册当前扩展的助手，现有公开 PKG 不能假设兼容，详见 [LOCAL-HELPER.md](LOCAL-HELPER.md)。Chrome 商店权限限制已由用户解除；2026-10-21 09:29（Asia/Shanghai）通过 Ego Lite 上传并提交 0.5.0，回读「待审核」，审核通过后自动发布。新版截图、文案、权限、数据类别与测试说明已保存回读；公开商店目前仍为 0.2.0。详见[提交记录](store/SUBMISSION.md)。
 
 ---
 
