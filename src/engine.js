@@ -4,6 +4,7 @@ import { analyze } from './jev.js';
 import { examplesFor } from './learning.js';
 import { MemoryAnnotations } from './annotations.js';
 import { accountRule, sameAccount, setAccountRule } from './account-rules.js';
+import { draftSettings } from './self-check.js';
 
 const day = () => new Date().toLocaleDateString('en-CA');
 const emptyStats = () => ({ day: day(), requests: 0, cacheHits: 0, inputTokens: 0, errors: 0 });
@@ -253,6 +254,34 @@ export class Engine {
     }).finally(() => this.inflight.delete(key));
     this.inflight.set(key, promise);
     return promise;
+  }
+  // Pre-send check of the user's own draft. Explicit click only: never cached
+  // (drafts change on every keystroke and must not evict real decisions), never
+  // stored, no personal labels or custom rule. It still counts toward the daily
+  // request cap and honours the provider cooldown.
+  selfCheck(input) {
+    return this.mutate(async () => {
+      const item = validateItem(input);
+      if (item.kind !== 'reply' || !item.text.trim()) throw new Error('先写点内容再检测。');
+      if (!this.data.settings.selfCheck) throw new Error('发送前自检已关闭，可在设置中开启。');
+      return { item, settings: structuredClone(this.data.settings) };
+    }).then(({ item, settings }) => this.enqueue(async () => {
+      this.resetDay();
+      if (!this.data.apiKey) throw new Error('请先在设置中连接回复判断模型（Jev API Key）');
+      if (Date.now() < this.cooldown) throw new Error('模型服务冷却中，稍后重试');
+      if (this.data.stats.requests >= settings.dailyLimit) throw new Error('已达到今日请求上限，可在设置中调整');
+      const apiKey = this.data.apiKey;
+      this.data.stats.requests++; await this.save();
+      try {
+        const result = await this.request(item, draftSettings(settings), apiKey);
+        this.data.stats.inputTokens += result.inputTokens || 0; this.data.lastError = ''; this.data.lastModel = result.model;
+        await this.save();
+        return { item, result, settings };
+      } catch (error) {
+        if ([401, 403, 429].includes(error.status)) this.cooldown = Date.now() + 60000;
+        this.data.stats.errors++; this.data.lastError = error.message; await this.save(); throw error;
+      }
+    }));
   }
   enqueue(fn) {
     return new Promise((resolve, reject) => { this.queue.push({ fn, resolve, reject }); this.pump(); });

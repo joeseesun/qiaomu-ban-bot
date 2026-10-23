@@ -228,7 +228,7 @@ function render({connection=true}={}){
   const s=snapshot.settings;
   communityUI.set(s);
   for(const k of ['enabled','radar'])$(k).checked=s[k];
-  $('spamGuard').checked=s.spamGuard!==false;$('hide-ai').checked=s.filterMode==='ai';
+  $('spamGuard').checked=s.spamGuard!==false;$('selfCheck').checked=s.selfCheck!==false;$('hide-ai').checked=s.filterMode==='ai';
   for(const k of ['customRule','dailyLimit'])$(k).value=s[k];
   const pct=Math.round(s.threshold*100);$('threshold-number').value=pct;thresholdCopy();
   for(const b of document.querySelectorAll('[data-threshold]'))b.setAttribute('aria-pressed',String(+b.dataset.threshold===pct));
@@ -243,7 +243,7 @@ function render({connection=true}={}){
   if(connection)fillConnection(s);renderAccounts();
 }
 async function save(patch,forgetKey=false){snapshot=await send({type:'save',settings:patch,forgetKey});render({connection:forgetKey});}
-for(const name of ['enabled','radar','spamGuard'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
+for(const name of ['enabled','radar','spamGuard','selfCheck'])$(name).addEventListener('change',async()=>{try{await save({[name]:$(name).checked});notice('设置已保存。');}catch(e){$(name).checked=snapshot.settings[name]!==false;notice(e.message,true);}});
 $('hide-ai').addEventListener('change',async()=>{try{await save({filterMode:$('hide-ai').checked?'ai':'label'});notice($('hide-ai').checked?'已开启疑似 AI 回复过滤。':'已关闭疑似 AI 回复过滤。');}catch(e){render({connection:false});notice(e.message,true);}});
 for(const b of document.querySelectorAll('[data-threshold]'))b.addEventListener('click',async()=>{try{await save({threshold:Number(b.dataset.threshold)/100});notice(`敏感度：${PRESETS[b.dataset.threshold]}。新的回复按此过滤。`);}catch(e){notice(e.message,true);}});
 $('threshold-number').addEventListener('input',()=>{if($('threshold-number').checkValidity())thresholdCopy();});

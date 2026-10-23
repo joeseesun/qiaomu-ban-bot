@@ -11,6 +11,7 @@ import { importSearches, normalizeSearch } from './search.js';
 import { replyIntent } from './reply.js';
 import { Community, COMMUNITY_ORIGIN } from './community.js';
 import { handleOf, validateItem } from './core.js';
+import { formatSelfCheck } from './self-check.js';
 import { registerWriterBackground, writerMessage } from './writer/background';
 import { NAV_KEY, SEEN_KEY, DEFAULT_NAV, normalizeNav, mergeSeen } from './x-nav.js';
 registerWriterBackground();
@@ -99,6 +100,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const owner=who==='content'?owners.get(sender.tab.id)||'':'';
     if (message.type === 'snapshot') return engine.snapshot(who === 'admin');
     if (message.type === 'classify') return engine.classify(message.item,message.force===true,owner);
+    if (message.type === 'self-check') {
+      if (who !== 'content') throw new Error('只能在 X 页面检测草稿');
+      const { item, result, settings } = await engine.selfCheck(message.item);
+      return formatSelfCheck(item, result, settings);
+    }
     if (message.type === 'local-decision') return engine.localDecision(message.item,owner);
     if (message.type === 'list') {
       const item=message.item?validateItem(message.item):null;

@@ -8,13 +8,13 @@ export { PROVIDERS } from './connection.js';
 export const DEFAULTS = {
   enabled: true, filterMode: 'ai', threshold: 0.5, duplicates: false,
   highlightUseful: true, radar: true, dailyLimit: 10000,
-  customRule: '', wordRules:[], symbolHint:false, spamGuard:true, allowlist: [], blocklist: [], accountRules: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
+  customRule: '', wordRules:[], symbolHint:false, spamGuard:true, selfCheck:true, allowlist: [], blocklist: [], accountRules: [], provider: 'typesafe', baseURL:'', model:'', protocol:'',
 };
 export const handleOf = value => typeof value === 'string' && /^@?[a-zA-Z0-9_]{1,15}$/.test(value.trim()) ? value.trim().replace(/^@/, '').toLowerCase() : '';
 const bound = (n, min, max, fallback) => typeof n === 'number' && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 export function normalizeSettings(value = {}) {
   const result = { ...DEFAULTS };
-  for (const key of ['enabled', 'duplicates', 'highlightUseful', 'radar','symbolHint','spamGuard']) if (typeof value[key] === 'boolean') result[key] = value[key];
+  for (const key of ['enabled', 'duplicates', 'highlightUseful', 'radar','symbolHint','spamGuard','selfCheck']) if (typeof value[key] === 'boolean') result[key] = value[key];
   result.wordRules=normalizeRules(value.wordRules);
   result.accountRules=normalizeAccountRules(value.accountRules);
   result.threshold = bound(value.threshold, 0.01, 0.99, DEFAULTS.threshold);
